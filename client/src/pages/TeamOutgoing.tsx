@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import type { OutgoingRecord } from "@shared/schema";
+import type { OutgoingRecord, MaterialUsageRecord } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -27,13 +27,19 @@ export default function TeamOutgoing() {
   const [selectedRecipient, setSelectedRecipient] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
+  const { data: outgoingRecords = [], isLoading: outgoingLoading } = useQuery<OutgoingRecord[]>({
     queryKey: ["/api/outgoing"],
   });
 
+  const { data: usageRecords = [], isLoading: usageLoading } = useQuery<MaterialUsageRecord[]>({
+    queryKey: ["/api/material-usage"],
+  });
+
+  const isLoading = outgoingLoading || usageLoading;
+
   const divisionFiltered = selectedDivision === "all"
-    ? records
-    : records.filter((record) => record.division === selectedDivision);
+    ? outgoingRecords
+    : outgoingRecords.filter((record) => record.division === selectedDivision);
 
   const recipients = Array.from(new Set(divisionFiltered.map((r) => r.recipient))).filter(Boolean);
 
@@ -48,10 +54,22 @@ export default function TeamOutgoing() {
   });
 
   const recipientStats = recipients.map((recipient) => {
-    const recipientRecords = divisionFiltered.filter((r) => r.recipient === recipient);
+    const outgoingTotal = divisionFiltered
+      .filter((r) => r.recipient === recipient)
+      .reduce((sum, r) => sum + r.quantity, 0);
+    
+    const usageTotal = usageRecords
+      .filter((r) => r.recipient === recipient && (selectedDivision === "all" || r.division === selectedDivision))
+      .reduce((sum, r) => sum + r.quantity, 0);
+    
+    const remaining = outgoingTotal - usageTotal;
+    
     return {
       name: recipient,
-      recordCount: recipientRecords.length,
+      outgoingTotal,
+      usageTotal,
+      remaining,
+      recordCount: divisionFiltered.filter((r) => r.recipient === recipient).length,
     };
   });
 
@@ -68,7 +86,7 @@ export default function TeamOutgoing() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">현장팀별 출고 내역</h1>
-          <p className="text-muted-foreground">수령인별 자재 출고 현황을 조회합니다</p>
+          <p className="text-muted-foreground">수령인별 자재 출고/사용 현황을 조회합니다</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1">
@@ -111,10 +129,28 @@ export default function TeamOutgoing() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center justify-between gap-2">
                 {recipient.name}
+                <Badge variant="outline" className="text-xs">
+                  {recipient.recordCount}건
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{recipient.recordCount}건</div>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">출고:</span>
+                  <span className="font-medium">{recipient.outgoingTotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">사용:</span>
+                  <span className="font-medium">{recipient.usageTotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-t pt-1">
+                  <span className="text-muted-foreground">잔여:</span>
+                  <span className={`font-bold ${recipient.remaining < 0 ? "text-destructive" : "text-primary"}`}>
+                    {recipient.remaining.toLocaleString()}
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         ))}

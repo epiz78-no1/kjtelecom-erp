@@ -4,7 +4,8 @@ import {
   type Team, type InsertTeam,
   type InventoryItem, type InsertInventoryItem,
   type OutgoingRecord, type InsertOutgoingRecord,
-  users, divisions, teams, inventoryItems, outgoingRecords
+  type MaterialUsageRecord, type InsertMaterialUsageRecord,
+  users, divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray } from "drizzle-orm";
@@ -46,6 +47,13 @@ export interface IStorage {
   deleteOutgoingRecord(id: number): Promise<boolean>;
   bulkDeleteOutgoingRecords(ids: number[]): Promise<number>;
   initializeOutgoingRecords(): Promise<void>;
+  
+  getMaterialUsageRecords(): Promise<MaterialUsageRecord[]>;
+  getMaterialUsageRecord(id: number): Promise<MaterialUsageRecord | undefined>;
+  createMaterialUsageRecord(record: InsertMaterialUsageRecord): Promise<MaterialUsageRecord>;
+  updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>): Promise<MaterialUsageRecord | undefined>;
+  deleteMaterialUsageRecord(id: number): Promise<boolean>;
+  bulkDeleteMaterialUsageRecords(ids: number[]): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -248,6 +256,40 @@ export class DatabaseStorage implements IStorage {
         { date: "2025-12-07", division: "SKT", teamCategory: "접속팀", projectName: "효자동 2가 함체교체", productName: "광접속함체 직선형", specification: "가공 24", quantity: 2, recipient: "채성범" },
       ]);
     }
+  }
+
+  async getMaterialUsageRecords(): Promise<MaterialUsageRecord[]> {
+    return db.select().from(materialUsageRecords);
+  }
+
+  async getMaterialUsageRecord(id: number): Promise<MaterialUsageRecord | undefined> {
+    const [record] = await db.select().from(materialUsageRecords).where(eq(materialUsageRecords.id, id));
+    return record;
+  }
+
+  async createMaterialUsageRecord(record: InsertMaterialUsageRecord): Promise<MaterialUsageRecord> {
+    const [newRecord] = await db.insert(materialUsageRecords).values(record).returning();
+    return newRecord;
+  }
+
+  async updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>): Promise<MaterialUsageRecord | undefined> {
+    const [record] = await db
+      .update(materialUsageRecords)
+      .set(updates)
+      .where(eq(materialUsageRecords.id, id))
+      .returning();
+    return record;
+  }
+
+  async deleteMaterialUsageRecord(id: number): Promise<boolean> {
+    const result = await db.delete(materialUsageRecords).where(eq(materialUsageRecords.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async bulkDeleteMaterialUsageRecords(ids: number[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db.delete(materialUsageRecords).where(inArray(materialUsageRecords.id, ids)).returning();
+    return result.length;
   }
 }
 
