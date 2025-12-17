@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { UsageChart } from "@/components/UsageChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   Select,
   SelectContent,
@@ -18,12 +19,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
-// todo: remove mock functionality
-const mockDivisions = [
-  { id: "div1", name: "사업부 1" },
-  { id: "div2", name: "사업부 2" },
-];
 
 // todo: remove mock functionality
 const mockMonthlyData = [
@@ -57,6 +52,7 @@ const years = ["2024", "2023", "2022"];
 const categories = ["광케이블", "접속함", "단자함", "부자재"];
 
 export default function Statistics() {
+  const { divisions } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("div1");
   const [selectedYear, setSelectedYear] = useState("2024");
   const [selectedCategory, setSelectedCategory] = useState("광케이블");
@@ -70,7 +66,7 @@ export default function Statistics() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <BusinessDivisionSwitcher
-            divisions={mockDivisions}
+            divisions={divisions}
             selectedId={selectedDivision}
             onSelect={setSelectedDivision}
           />

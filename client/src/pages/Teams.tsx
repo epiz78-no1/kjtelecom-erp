@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { FieldTeamCard, type FieldTeam } from "@/components/FieldTeamCard";
-import { Search } from "lucide-react";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -21,41 +31,98 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// todo: remove mock functionality
-const mockDivisions = [
-  { id: "div1", name: "사업부 1" },
-  { id: "div2", name: "사업부 2" },
-];
-
-// todo: remove mock functionality
-const mockTeams: FieldTeam[] = [
-  { id: "1", name: "강남 1팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 5, materialCount: 12, lastActivity: "2024-12-15", isActive: true },
-  { id: "2", name: "서초 2팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 4, materialCount: 8, lastActivity: "2024-12-14", isActive: true },
-  { id: "3", name: "강서 1팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 6, materialCount: 10, lastActivity: "2024-12-12", isActive: true },
-  { id: "4", name: "송파 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 6, materialCount: 15, lastActivity: "2024-12-13", isActive: true },
-  { id: "5", name: "강동 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 3, materialCount: 6, lastActivity: "2024-12-10", isActive: false },
-  { id: "6", name: "광진 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 5, materialCount: 9, lastActivity: "2024-12-11", isActive: true },
-];
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Teams() {
+  const { divisions, teams, addTeam, updateTeam, deleteTeam } = useAppContext();
+  const { toast } = useToast();
+  
   const [selectedDivision, setSelectedDivision] = useState("div1");
   const [searchQuery, setSearchQuery] = useState("");
+  
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newTeamName, setNewTeamName] = useState("");
-  const [newTeamDivision, setNewTeamDivision] = useState("");
+  const [editingTeam, setEditingTeam] = useState<FieldTeam | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [teamToDelete, setTeamToDelete] = useState<FieldTeam | null>(null);
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    divisionId: "",
+    memberCount: 0,
+    isActive: true,
+  });
 
-  const filteredTeams = mockTeams.filter(
+  const filteredTeams = teams.filter(
     (team) =>
       team.divisionId === selectedDivision &&
       team.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddTeam = () => {
-    console.log("새 팀 등록:", { name: newTeamName, division: newTeamDivision });
+  const openAddDialog = () => {
+    setEditingTeam(null);
+    setFormData({ name: "", divisionId: selectedDivision, memberCount: 0, isActive: true });
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (team: FieldTeam) => {
+    setEditingTeam(team);
+    setFormData({
+      name: team.name,
+      divisionId: team.divisionId,
+      memberCount: team.memberCount,
+      isActive: team.isActive,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.name.trim()) {
+      toast({ title: "오류", description: "팀명을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    
+    const division = divisions.find((d) => d.id === formData.divisionId);
+    
+    if (editingTeam) {
+      updateTeam(editingTeam.id, {
+        name: formData.name,
+        divisionId: formData.divisionId,
+        divisionName: division?.name || "",
+        memberCount: formData.memberCount,
+        isActive: formData.isActive,
+      });
+      toast({ title: "수정 완료", description: `${formData.name} 팀이 수정되었습니다` });
+    } else {
+      const newTeam: FieldTeam = {
+        id: Date.now().toString(),
+        name: formData.name,
+        divisionId: formData.divisionId,
+        divisionName: division?.name || "",
+        memberCount: formData.memberCount,
+        materialCount: 0,
+        lastActivity: new Date().toISOString().split("T")[0],
+        isActive: formData.isActive,
+      };
+      addTeam(newTeam);
+      toast({ title: "등록 완료", description: `${formData.name} 팀이 등록되었습니다` });
+    }
+    
     setDialogOpen(false);
-    setNewTeamName("");
-    setNewTeamDivision("");
+  };
+
+  const handleDelete = () => {
+    if (teamToDelete) {
+      deleteTeam(teamToDelete.id);
+      toast({ title: "삭제 완료", description: `${teamToDelete.name} 팀이 삭제되었습니다` });
+      setDeleteDialogOpen(false);
+      setTeamToDelete(null);
+    }
+  };
+
+  const confirmDelete = (team: FieldTeam) => {
+    setTeamToDelete(team);
+    setDeleteDialogOpen(true);
   };
 
   return (
@@ -67,11 +134,11 @@ export default function Teams() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <BusinessDivisionSwitcher
-            divisions={mockDivisions}
+            divisions={divisions}
             selectedId={selectedDivision}
             onSelect={setSelectedDivision}
           />
-          <Button onClick={() => setDialogOpen(true)} data-testid="button-add-team">
+          <Button onClick={openAddDialog} data-testid="button-add-team">
             <Plus className="h-4 w-4 mr-2" />
             팀 추가
           </Button>
@@ -91,11 +158,36 @@ export default function Teams() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredTeams.map((team) => (
-          <FieldTeamCard
-            key={team.id}
-            team={team}
-            onClick={(t) => console.log("팀 상세:", t)}
-          />
+          <div key={team.id} className="relative group">
+            <FieldTeamCard
+              team={team}
+              onClick={() => openEditDialog(team)}
+            />
+            <div className="absolute top-2 right-2 flex gap-1 invisible group-hover:visible">
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditDialog(team);
+                }}
+                data-testid={`button-edit-team-${team.id}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  confirmDelete(team);
+                }}
+                data-testid={`button-delete-team-${team.id}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         ))}
         {filteredTeams.length === 0 && (
           <div className="col-span-full text-center py-12 text-muted-foreground">
@@ -107,9 +199,9 @@ export default function Teams() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>현장팀 추가</DialogTitle>
+            <DialogTitle>{editingTeam ? "현장팀 수정" : "현장팀 추가"}</DialogTitle>
             <DialogDescription>
-              새로운 현장팀을 등록합니다.
+              {editingTeam ? "현장팀 정보를 수정합니다." : "새로운 현장팀을 등록합니다."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -117,20 +209,23 @@ export default function Teams() {
               <Label htmlFor="teamName">팀명 *</Label>
               <Input
                 id="teamName"
-                value={newTeamName}
-                onChange={(e) => setNewTeamName(e.target.value)}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="예: 강남 3팀"
                 data-testid="input-team-name"
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="teamDivision">소속 사업부 *</Label>
-              <Select value={newTeamDivision} onValueChange={setNewTeamDivision}>
+              <Select
+                value={formData.divisionId}
+                onValueChange={(value) => setFormData({ ...formData, divisionId: value })}
+              >
                 <SelectTrigger data-testid="select-team-division">
                   <SelectValue placeholder="사업부 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockDivisions.map((div) => (
+                  {divisions.map((div) => (
                     <SelectItem key={div.id} value={div.id}>
                       {div.name}
                     </SelectItem>
@@ -138,17 +233,54 @@ export default function Teams() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="memberCount">팀원 수</Label>
+              <Input
+                id="memberCount"
+                type="number"
+                value={formData.memberCount || ""}
+                onChange={(e) => setFormData({ ...formData, memberCount: Number(e.target.value) })}
+                placeholder="0"
+                data-testid="input-member-count"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="isActive">활성 상태</Label>
+              <Switch
+                id="isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                data-testid="switch-team-active"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               취소
             </Button>
-            <Button onClick={handleAddTeam} data-testid="button-submit-team">
-              등록
+            <Button onClick={handleSubmit} data-testid="button-submit-team">
+              {editingTeam ? "수정" : "등록"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>현장팀 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              {teamToDelete?.name} 팀을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} data-testid="button-confirm-delete">
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

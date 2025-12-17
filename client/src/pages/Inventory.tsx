@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { InventoryTable, type InventoryItem } from "@/components/InventoryTable";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   Select,
   SelectContent,
@@ -11,12 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// todo: remove mock functionality
-const mockDivisions = [
-  { id: "div1", name: "사업부 1" },
-  { id: "div2", name: "사업부 2" },
-];
 
 // todo: remove mock functionality
 const mockInventory: InventoryItem[] = [
@@ -33,6 +28,7 @@ const mockInventory: InventoryItem[] = [
 const categories = ["전체", "광케이블", "접속함", "단자함", "부자재", "공구"];
 
 export default function Inventory() {
+  const { divisions } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("div1");
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
@@ -50,7 +46,7 @@ export default function Inventory() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <BusinessDivisionSwitcher
-            divisions={mockDivisions}
+            divisions={divisions}
             selectedId={selectedDivision}
             onSelect={setSelectedDivision}
           />

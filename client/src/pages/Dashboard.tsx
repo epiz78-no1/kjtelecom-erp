@@ -4,15 +4,10 @@ import { StatCard } from "@/components/StatCard";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { QuickActionButtons } from "@/components/QuickActionButtons";
 import { UsageChart } from "@/components/UsageChart";
-import { FieldTeamCard, type FieldTeam } from "@/components/FieldTeamCard";
+import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-// todo: remove mock functionality
-const mockDivisions = [
-  { id: "div1", name: "사업부 1" },
-  { id: "div2", name: "사업부 2" },
-];
+import { useAppContext } from "@/contexts/AppContext";
 
 // todo: remove mock functionality
 const mockUsageData = [
@@ -35,14 +30,6 @@ const mockPurchaseData = [
 ];
 
 // todo: remove mock functionality
-const mockTeams: FieldTeam[] = [
-  { id: "1", name: "강남 1팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 5, materialCount: 12, lastActivity: "2024-12-15", isActive: true },
-  { id: "2", name: "서초 2팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 4, materialCount: 8, lastActivity: "2024-12-14", isActive: true },
-  { id: "3", name: "송파 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 6, materialCount: 15, lastActivity: "2024-12-13", isActive: true },
-  { id: "4", name: "강동 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 3, materialCount: 6, lastActivity: "2024-12-10", isActive: false },
-];
-
-// todo: remove mock functionality
 const mockStats = {
   div1: {
     totalStock: "8,240",
@@ -59,11 +46,12 @@ const mockStats = {
 };
 
 export default function Dashboard() {
+  const { divisions, teams } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("div1");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   
   const stats = mockStats[selectedDivision as keyof typeof mockStats];
-  const filteredTeams = mockTeams.filter((t) => t.divisionId === selectedDivision);
+  const filteredTeams = teams.filter((t) => t.divisionId === selectedDivision);
 
   return (
     <div className="space-y-6">
@@ -74,7 +62,7 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <BusinessDivisionSwitcher
-            divisions={mockDivisions}
+            divisions={divisions}
             selectedId={selectedDivision}
             onSelect={setSelectedDivision}
           />
@@ -133,6 +121,11 @@ export default function Dashboard() {
                 onClick={(t) => console.log("팀 상세:", t.name)}
               />
             ))}
+            {filteredTeams.length === 0 && (
+              <div className="col-span-full text-center py-8 text-muted-foreground">
+                등록된 현장팀이 없습니다
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

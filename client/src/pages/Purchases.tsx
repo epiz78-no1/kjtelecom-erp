@@ -3,6 +3,7 @@ import { Plus, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { PurchaseTable, type PurchaseRecord } from "@/components/PurchaseTable";
+import { useAppContext } from "@/contexts/AppContext";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +31,6 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 
 // todo: remove mock functionality
-const mockDivisions = [
-  { id: "div1", name: "사업부 1" },
-  { id: "div2", name: "사업부 2" },
-];
-
-// todo: remove mock functionality
 const mockRecords: PurchaseRecord[] = [
   { id: "1", materialName: "광케이블 48심", quantity: 2000, unit: "m", unitPrice: 1500, totalPrice: 3000000, supplier: "삼성전자", purchaseDate: "2024-12-10", divisionName: "사업부 1" },
   { id: "2", materialName: "접속함 24심", quantity: 50, unit: "개", unitPrice: 85000, totalPrice: 4250000, supplier: "LG유플러스", purchaseDate: "2024-12-08", divisionName: "사업부 1" },
@@ -50,6 +45,7 @@ const mockMaterials = ["광케이블 48심", "광케이블 96심", "접속함 24
 const mockSuppliers = ["삼성전자", "LG유플러스", "SK텔레콤", "한국통신", "대한광통신", "코리아텔레콤"];
 
 export default function Purchases() {
+  const { divisions } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("div1");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<Date>();
@@ -60,8 +56,9 @@ export default function Purchases() {
     supplier: "",
   });
 
+  const selectedDivisionName = divisions.find((d) => d.id === selectedDivision)?.name;
   const filteredRecords = mockRecords.filter(
-    (record) => record.divisionName === mockDivisions.find((d) => d.id === selectedDivision)?.name
+    (record) => record.divisionName === selectedDivisionName
   );
 
   const handleSubmit = () => {
@@ -80,7 +77,7 @@ export default function Purchases() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <BusinessDivisionSwitcher
-            divisions={mockDivisions}
+            divisions={divisions}
             selectedId={selectedDivision}
             onSelect={setSelectedDivision}
           />

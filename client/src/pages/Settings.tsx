@@ -5,12 +5,39 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Building2, Bell, Shield, Database } from "lucide-react";
+import { Building2, Bell, Shield, Database, Pencil, Check, X } from "lucide-react";
+import { useAppContext } from "@/contexts/AppContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
+  const { divisions, updateDivision } = useAppContext();
+  const { toast } = useToast();
+  
   const [notifications, setNotifications] = useState(true);
   const [lowStockAlert, setLowStockAlert] = useState(true);
   const [emailReports, setEmailReports] = useState(false);
+  
+  const [editingDivisionId, setEditingDivisionId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  const startEditing = (divisionId: string, currentName: string) => {
+    setEditingDivisionId(divisionId);
+    setEditingName(currentName);
+  };
+
+  const cancelEditing = () => {
+    setEditingDivisionId(null);
+    setEditingName("");
+  };
+
+  const saveEditing = () => {
+    if (editingDivisionId && editingName.trim()) {
+      updateDivision(editingDivisionId, editingName.trim());
+      toast({ title: "저장 완료", description: "사업부 이름이 변경되었습니다" });
+      setEditingDivisionId(null);
+      setEditingName("");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -26,20 +53,47 @@ export default function Settings() {
               <Building2 className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-base">사업부 관리</CardTitle>
             </div>
-            <CardDescription>사업부 정보를 설정합니다</CardDescription>
+            <CardDescription>사업부 이름을 수정할 수 있습니다. 수정 시 관련된 모든 데이터에 반영됩니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="div1Name">사업부 1 이름</Label>
-                <Input id="div1Name" defaultValue="사업부 1" data-testid="input-div1-name" />
+            {divisions.map((division) => (
+              <div key={division.id} className="flex items-center gap-4">
+                <Label className="w-24 shrink-0">{division.id === "div1" ? "사업부 1" : "사업부 2"}</Label>
+                {editingDivisionId === division.id ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      className="flex-1"
+                      autoFocus
+                      data-testid={`input-edit-${division.id}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEditing();
+                        if (e.key === "Escape") cancelEditing();
+                      }}
+                    />
+                    <Button size="icon" variant="ghost" onClick={saveEditing} data-testid={`button-save-${division.id}`}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={cancelEditing} data-testid={`button-cancel-${division.id}`}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="flex-1 text-sm" data-testid={`text-${division.id}-name`}>{division.name}</span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => startEditing(division.id, division.name)}
+                      data-testid={`button-edit-${division.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="div2Name">사업부 2 이름</Label>
-                <Input id="div2Name" defaultValue="사업부 2" data-testid="input-div2-name" />
-              </div>
-            </div>
-            <Button data-testid="button-save-divisions">저장</Button>
+            ))}
           </CardContent>
         </Card>
 
