@@ -42,6 +42,7 @@ export type Team = typeof teams.$inferSelect;
 
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
+  division: text("division").notNull().default("SKT"),
   category: text("category").notNull(),
   productName: text("product_name").notNull(),
   specification: text("specification").notNull(),
