@@ -92,8 +92,7 @@ export default function TeamOutgoing() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{recipient.totalOutgoing.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{recipient.recordCount}건의 출고</p>
+              <div className="text-2xl font-bold">{recipient.recordCount}건</div>
             </CardContent>
           </Card>
         ))}
