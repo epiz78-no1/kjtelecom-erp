@@ -9,7 +9,7 @@ export interface FieldTeam {
   divisionName: string;
   memberCount: number;
   materialCount: number;
-  lastActivity: string;
+  lastActivity: string | null;
   isActive: boolean;
 }
 
@@ -52,7 +52,7 @@ export function FieldTeamCard({ team, onClick }: FieldTeamCardProps) {
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            <span>최근 활동: {team.lastActivity}</span>
+            <span>최근 활동: {team.lastActivity || "-"}</span>
           </div>
         </div>
       </CardContent>

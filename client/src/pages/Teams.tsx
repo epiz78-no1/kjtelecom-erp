@@ -33,9 +33,10 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Teams() {
-  const { divisions, teams, addTeam, updateTeam, deleteTeam } = useAppContext();
+  const { divisions, teams, teamsLoading, addTeam, updateTeam, deleteTeam } = useAppContext();
   const { toast } = useToast();
   
   const [selectedDivision, setSelectedDivision] = useState("div1");
@@ -45,6 +46,7 @@ export default function Teams() {
   const [editingTeam, setEditingTeam] = useState<FieldTeam | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<FieldTeam | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -76,45 +78,47 @@ export default function Teams() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast({ title: "오류", description: "팀명을 입력해주세요", variant: "destructive" });
       return;
     }
     
-    const division = divisions.find((d) => d.id === formData.divisionId);
-    
-    if (editingTeam) {
-      updateTeam(editingTeam.id, {
-        name: formData.name,
-        divisionId: formData.divisionId,
-        divisionName: division?.name || "",
-        memberCount: formData.memberCount,
-        isActive: formData.isActive,
-      });
-      toast({ title: "수정 완료", description: `${formData.name} 팀이 수정되었습니다` });
-    } else {
-      const newTeam: FieldTeam = {
-        id: Date.now().toString(),
-        name: formData.name,
-        divisionId: formData.divisionId,
-        divisionName: division?.name || "",
-        memberCount: formData.memberCount,
-        materialCount: 0,
-        lastActivity: new Date().toISOString().split("T")[0],
-        isActive: formData.isActive,
-      };
-      addTeam(newTeam);
-      toast({ title: "등록 완료", description: `${formData.name} 팀이 등록되었습니다` });
+    setIsSubmitting(true);
+    try {
+      if (editingTeam) {
+        await updateTeam(editingTeam.id, {
+          name: formData.name,
+          divisionId: formData.divisionId,
+          memberCount: formData.memberCount,
+          isActive: formData.isActive,
+        });
+        toast({ title: "수정 완료", description: `${formData.name} 팀이 수정되었습니다` });
+      } else {
+        await addTeam({
+          name: formData.name,
+          divisionId: formData.divisionId,
+          memberCount: formData.memberCount,
+          isActive: formData.isActive,
+        });
+        toast({ title: "등록 완료", description: `${formData.name} 팀이 등록되었습니다` });
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      toast({ title: "오류", description: "처리 중 오류가 발생했습니다", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setDialogOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (teamToDelete) {
-      deleteTeam(teamToDelete.id);
-      toast({ title: "삭제 완료", description: `${teamToDelete.name} 팀이 삭제되었습니다` });
+      try {
+        await deleteTeam(teamToDelete.id);
+        toast({ title: "삭제 완료", description: `${teamToDelete.name} 팀이 삭제되었습니다` });
+      } catch (error) {
+        toast({ title: "오류", description: "삭제 중 오류가 발생했습니다", variant: "destructive" });
+      }
       setDeleteDialogOpen(false);
       setTeamToDelete(null);
     }
@@ -156,45 +160,53 @@ export default function Teams() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredTeams.map((team) => (
-          <div key={team.id} className="relative group">
-            <FieldTeamCard
-              team={team}
-              onClick={() => openEditDialog(team)}
-            />
-            <div className="absolute top-2 right-2 flex gap-1 invisible group-hover:visible">
-              <Button
-                size="icon"
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openEditDialog(team);
-                }}
-                data-testid={`button-edit-team-${team.id}`}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  confirmDelete(team);
-                }}
-                data-testid={`button-delete-team-${team.id}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+      {teamsLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredTeams.map((team) => (
+            <div key={team.id} className="relative group">
+              <FieldTeamCard
+                team={team}
+                onClick={() => openEditDialog(team)}
+              />
+              <div className="absolute top-2 right-2 flex gap-1 invisible group-hover:visible">
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEditDialog(team);
+                  }}
+                  data-testid={`button-edit-team-${team.id}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    confirmDelete(team);
+                  }}
+                  data-testid={`button-delete-team-${team.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
-        {filteredTeams.length === 0 && (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            검색 결과가 없습니다
-          </div>
-        )}
-      </div>
+          ))}
+          {filteredTeams.length === 0 && (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              검색 결과가 없습니다
+            </div>
+          )}
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -258,8 +270,8 @@ export default function Teams() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               취소
             </Button>
-            <Button onClick={handleSubmit} data-testid="button-submit-team">
-              {editingTeam ? "수정" : "등록"}
+            <Button onClick={handleSubmit} disabled={isSubmitting} data-testid="button-submit-team">
+              {isSubmitting ? "처리 중..." : editingTeam ? "수정" : "등록"}
             </Button>
           </DialogFooter>
         </DialogContent>

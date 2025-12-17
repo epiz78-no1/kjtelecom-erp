@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,3 +16,26 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export const divisions = pgTable("divisions", {
+  id: varchar("id").primaryKey(),
+  name: text("name").notNull(),
+});
+
+export const insertDivisionSchema = createInsertSchema(divisions);
+export type InsertDivision = z.infer<typeof insertDivisionSchema>;
+export type Division = typeof divisions.$inferSelect;
+
+export const teams = pgTable("teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  divisionId: varchar("division_id").notNull(),
+  memberCount: integer("member_count").notNull().default(0),
+  materialCount: integer("material_count").notNull().default(0),
+  lastActivity: text("last_activity"),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true });
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type Team = typeof teams.$inferSelect;

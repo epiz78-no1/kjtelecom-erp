@@ -1,80 +1,120 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import type { FieldTeam } from "@/components/FieldTeamCard";
+import { createContext, useContext, type ReactNode } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Division {
   id: string;
   name: string;
 }
 
+export interface FieldTeam {
+  id: string;
+  name: string;
+  divisionId: string;
+  divisionName: string;
+  memberCount: number;
+  materialCount: number;
+  lastActivity: string | null;
+  isActive: boolean;
+}
+
 interface AppContextType {
   divisions: Division[];
-  setDivisions: (divisions: Division[]) => void;
-  updateDivision: (id: string, name: string) => void;
+  divisionsLoading: boolean;
+  updateDivision: (id: string, name: string) => Promise<void>;
   teams: FieldTeam[];
-  setTeams: (teams: FieldTeam[]) => void;
-  addTeam: (team: FieldTeam) => void;
-  updateTeam: (id: string, updates: Partial<FieldTeam>) => void;
-  deleteTeam: (id: string) => void;
+  teamsLoading: boolean;
+  addTeam: (team: Omit<FieldTeam, "id" | "divisionName" | "materialCount" | "lastActivity">) => Promise<void>;
+  updateTeam: (id: string, updates: Partial<FieldTeam>) => Promise<void>;
+  deleteTeam: (id: string) => Promise<void>;
+  refetchTeams: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// todo: remove mock functionality
-const initialDivisions: Division[] = [
-  { id: "div1", name: "사업부 1" },
-  { id: "div2", name: "사업부 2" },
-];
-
-// todo: remove mock functionality
-const initialTeams: FieldTeam[] = [
-  { id: "1", name: "강남 1팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 5, materialCount: 12, lastActivity: "2024-12-15", isActive: true },
-  { id: "2", name: "서초 2팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 4, materialCount: 8, lastActivity: "2024-12-14", isActive: true },
-  { id: "3", name: "강서 1팀", divisionId: "div1", divisionName: "사업부 1", memberCount: 6, materialCount: 10, lastActivity: "2024-12-12", isActive: true },
-  { id: "4", name: "송파 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 6, materialCount: 15, lastActivity: "2024-12-13", isActive: true },
-  { id: "5", name: "강동 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 3, materialCount: 6, lastActivity: "2024-12-10", isActive: false },
-  { id: "6", name: "광진 1팀", divisionId: "div2", divisionName: "사업부 2", memberCount: 5, materialCount: 9, lastActivity: "2024-12-11", isActive: true },
-];
-
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [divisions, setDivisions] = useState<Division[]>(initialDivisions);
-  const [teams, setTeams] = useState<FieldTeam[]>(initialTeams);
+  const divisionsQuery = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
 
-  const updateDivision = (id: string, name: string) => {
-    setDivisions((prev) =>
-      prev.map((div) => (div.id === id ? { ...div, name } : div))
-    );
-    setTeams((prev) =>
-      prev.map((team) =>
-        team.divisionId === id ? { ...team, divisionName: name } : team
-      )
-    );
+  const teamsQuery = useQuery<FieldTeam[]>({
+    queryKey: ["/api/teams"],
+  });
+
+  const updateDivisionMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      await apiRequest("PATCH", `/api/divisions/${id}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+    },
+  });
+
+  const addTeamMutation = useMutation({
+    mutationFn: async (team: Omit<FieldTeam, "id" | "divisionName" | "materialCount" | "lastActivity">) => {
+      await apiRequest("POST", "/api/teams", {
+        name: team.name,
+        divisionId: team.divisionId,
+        memberCount: team.memberCount,
+        isActive: team.isActive,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+    },
+  });
+
+  const updateTeamMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<FieldTeam> }) => {
+      await apiRequest("PATCH", `/api/teams/${id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+    },
+  });
+
+  const deleteTeamMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/teams/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+    },
+  });
+
+  const updateDivision = async (id: string, name: string) => {
+    await updateDivisionMutation.mutateAsync({ id, name });
   };
 
-  const addTeam = (team: FieldTeam) => {
-    setTeams((prev) => [...prev, team]);
+  const addTeam = async (team: Omit<FieldTeam, "id" | "divisionName" | "materialCount" | "lastActivity">) => {
+    await addTeamMutation.mutateAsync(team);
   };
 
-  const updateTeam = (id: string, updates: Partial<FieldTeam>) => {
-    setTeams((prev) =>
-      prev.map((team) => (team.id === id ? { ...team, ...updates } : team))
-    );
+  const updateTeam = async (id: string, updates: Partial<FieldTeam>) => {
+    await updateTeamMutation.mutateAsync({ id, updates });
   };
 
-  const deleteTeam = (id: string) => {
-    setTeams((prev) => prev.filter((team) => team.id !== id));
+  const deleteTeam = async (id: string) => {
+    await deleteTeamMutation.mutateAsync(id);
+  };
+
+  const refetchTeams = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
   };
 
   return (
     <AppContext.Provider
       value={{
-        divisions,
-        setDivisions,
+        divisions: divisionsQuery.data || [],
+        divisionsLoading: divisionsQuery.isLoading,
         updateDivision,
-        teams,
-        setTeams,
+        teams: teamsQuery.data || [],
+        teamsLoading: teamsQuery.isLoading,
         addTeam,
         updateTeam,
         deleteTeam,
+        refetchTeams,
       }}
     >
       {children}
