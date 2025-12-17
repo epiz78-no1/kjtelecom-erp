@@ -179,6 +179,16 @@ export async function registerRoutes(
     res.status(201).json(createdItems);
   });
 
+  app.post("/api/inventory/bulk-delete", async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: "IDs must be an array" });
+    }
+
+    const deletedCount = await storage.bulkDeleteInventoryItems(ids);
+    res.json({ deletedCount });
+  });
+
   app.get("/api/outgoing", async (req, res) => {
     const records = await storage.getOutgoingRecords();
     res.json(records);
@@ -231,6 +241,16 @@ export async function registerRoutes(
       return res.status(404).json({ error: "Record not found" });
     }
     res.status(204).send();
+  });
+
+  app.post("/api/outgoing/bulk-delete", async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: "IDs must be an array" });
+    }
+
+    const deletedCount = await storage.bulkDeleteOutgoingRecords(ids);
+    res.json({ deletedCount });
   });
 
   return httpServer;

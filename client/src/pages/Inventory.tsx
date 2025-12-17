@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InventoryTable } from "@/components/InventoryTable";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -24,6 +25,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function Inventory() {
   const { toast } = useToast();
@@ -32,6 +41,8 @@ export default function Inventory() {
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const { data: inventoryItems = [], isLoading } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
@@ -79,6 +90,21 @@ export default function Inventory() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      return apiRequest("POST", "/api/inventory/bulk-delete", { ids });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: `${selectedIds.size}개 항목이 삭제되었습니다` });
+      setSelectedIds(new Set());
+      setBulkDeleteOpen(false);
+    },
+    onError: () => {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    },
+  });
+
   const divisionFiltered = selectedDivision === "all"
     ? inventoryItems
     : inventoryItems.filter((item) => item.division === selectedDivision);
@@ -89,6 +115,26 @@ export default function Inventory() {
   const filteredInventory = selectedCategory === "전체"
     ? divisionFiltered
     : divisionFiltered.filter((item) => item.category === selectedCategory);
+
+  const allSelected = filteredInventory.length > 0 && filteredInventory.every(item => selectedIds.has(item.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredInventory.map(item => item.id)));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
 
   const handleSubmit = (data: {
     division?: string;
@@ -123,6 +169,10 @@ export default function Inventory() {
     if (deleteItem) {
       deleteMutation.mutate(deleteItem.id);
     }
+  };
+
+  const confirmBulkDelete = () => {
+    bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
   if (isLoading) {
@@ -192,13 +242,93 @@ export default function Inventory() {
         <div className="text-sm text-muted-foreground">
           총 <span className="font-semibold text-foreground">{filteredInventory.length}</span>개 품목
         </div>
+        {selectedIds.size > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setBulkDeleteOpen(true)}
+            data-testid="button-bulk-delete"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            선택 삭제 ({selectedIds.size})
+          </Button>
+        )}
       </div>
 
-      <InventoryTable
-        items={filteredInventory}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
+      <div className="rounded-md border overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleSelectAll}
+                  data-testid="checkbox-select-all"
+                />
+              </TableHead>
+              <TableHead className="font-semibold">구분</TableHead>
+              <TableHead className="font-semibold">품명</TableHead>
+              <TableHead className="font-semibold">규격</TableHead>
+              <TableHead className="font-semibold text-right">이월재</TableHead>
+              <TableHead className="font-semibold text-right">입고량</TableHead>
+              <TableHead className="font-semibold text-right">출고량</TableHead>
+              <TableHead className="font-semibold text-right">잔량</TableHead>
+              <TableHead className="font-semibold text-right">단가</TableHead>
+              <TableHead className="font-semibold text-right">금액</TableHead>
+              <TableHead className="font-semibold">작업</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredInventory.map((item) => (
+              <TableRow key={item.id} data-testid={`row-inventory-${item.id}`}>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.has(item.id)}
+                    onCheckedChange={() => toggleSelect(item.id)}
+                    data-testid={`checkbox-${item.id}`}
+                  />
+                </TableCell>
+                <TableCell>{item.category}</TableCell>
+                <TableCell>{item.productName}</TableCell>
+                <TableCell>{item.specification}</TableCell>
+                <TableCell className="text-right">{item.carriedOver.toLocaleString()}</TableCell>
+                <TableCell className="text-right">{item.incoming.toLocaleString()}</TableCell>
+                <TableCell className="text-right">{item.outgoing.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-medium">{item.remaining.toLocaleString()}</TableCell>
+                <TableCell className="text-right">{item.unitPrice.toLocaleString()}</TableCell>
+                <TableCell className="text-right">{item.totalAmount.toLocaleString()}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleEdit(item)}
+                      data-testid={`button-edit-${item.id}`}
+                    >
+                      <Plus className="h-4 w-4 rotate-45" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(item)}
+                      data-testid={`button-delete-${item.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {filteredInventory.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                  재고 데이터가 없습니다
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <MaterialFormDialog
         open={materialDialogOpen}
@@ -221,6 +351,21 @@ export default function Inventory() {
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>선택 항목 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              선택한 {selectedIds.size}개의 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete}>삭제</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

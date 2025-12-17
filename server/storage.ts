@@ -7,7 +7,7 @@ import {
   users, divisions, teams, inventoryItems, outgoingRecords
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -35,6 +35,7 @@ export interface IStorage {
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryItem(id: number, updates: Partial<InsertInventoryItem>): Promise<InventoryItem | undefined>;
   deleteInventoryItem(id: number): Promise<boolean>;
+  bulkDeleteInventoryItems(ids: number[]): Promise<number>;
   clearInventoryItems(): Promise<void>;
   bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]>;
   
@@ -43,6 +44,7 @@ export interface IStorage {
   createOutgoingRecord(record: InsertOutgoingRecord): Promise<OutgoingRecord>;
   updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>): Promise<OutgoingRecord | undefined>;
   deleteOutgoingRecord(id: number): Promise<boolean>;
+  bulkDeleteOutgoingRecords(ids: number[]): Promise<number>;
   initializeOutgoingRecords(): Promise<void>;
 }
 
@@ -178,6 +180,12 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  async bulkDeleteInventoryItems(ids: number[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db.delete(inventoryItems).where(inArray(inventoryItems.id, ids)).returning();
+    return result.length;
+  }
+
   async clearInventoryItems(): Promise<void> {
     await db.delete(inventoryItems);
   }
@@ -214,6 +222,12 @@ export class DatabaseStorage implements IStorage {
   async deleteOutgoingRecord(id: number): Promise<boolean> {
     const result = await db.delete(outgoingRecords).where(eq(outgoingRecords.id, id)).returning();
     return result.length > 0;
+  }
+
+  async bulkDeleteOutgoingRecords(ids: number[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db.delete(outgoingRecords).where(inArray(outgoingRecords.id, ids)).returning();
+    return result.length;
   }
 
   async initializeOutgoingRecords(): Promise<void> {
