@@ -10,19 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pencil, Trash2, Search } from "lucide-react";
 import { useState } from "react";
-
-export interface InventoryItem {
-  id: string;
-  category: string;
-  name: string;
-  specification: string;
-  carriedOver: number;
-  incoming: number;
-  outgoing: number;
-  remaining: number;
-  unitPrice: number;
-  totalAmount: number;
-}
+import type { InventoryItem } from "@shared/schema";
 
 interface InventoryTableProps {
   items: InventoryItem[];
@@ -35,7 +23,7 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
   
   const filteredItems = items.filter(
     (item) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.specification.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -60,8 +48,8 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
           <TableHeader>
             <TableRow>
               <TableHead className="font-semibold min-w-[80px]">구분</TableHead>
-              <TableHead className="font-semibold min-w-[120px]">품명</TableHead>
-              <TableHead className="font-semibold min-w-[100px]">규격</TableHead>
+              <TableHead className="font-semibold min-w-[150px]">품명</TableHead>
+              <TableHead className="font-semibold min-w-[120px]">규격</TableHead>
               <TableHead className="font-semibold text-right min-w-[80px]">이월재</TableHead>
               <TableHead className="font-semibold text-right min-w-[80px]">입고량</TableHead>
               <TableHead className="font-semibold text-right min-w-[80px]">출고량</TableHead>
@@ -75,7 +63,7 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
             {filteredItems.map((item) => (
               <TableRow key={item.id} data-testid={`row-inventory-${item.id}`}>
                 <TableCell>{item.category}</TableCell>
-                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell className="font-medium">{item.productName}</TableCell>
                 <TableCell>{item.specification}</TableCell>
                 <TableCell className="text-right">{formatNumber(item.carriedOver)}</TableCell>
                 <TableCell className="text-right">{formatNumber(item.incoming)}</TableCell>

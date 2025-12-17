@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,56 +10,73 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import type { InventoryItem } from "@shared/schema";
 
 interface MaterialFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: MaterialFormData) => void;
+  editingItem?: InventoryItem | null;
 }
 
 export interface MaterialFormData {
   category: string;
-  name: string;
+  productName: string;
   specification: string;
   carriedOver: number;
   incoming: number;
   outgoing: number;
+  remaining: number;
   unitPrice: number;
+  totalAmount: number;
 }
 
-const categories = ["광케이블", "접속함", "단자함", "부자재", "공구", "기타"];
-
-export function MaterialFormDialog({ open, onOpenChange, onSubmit }: MaterialFormDialogProps) {
+export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }: MaterialFormDialogProps) {
   const [formData, setFormData] = useState<MaterialFormData>({
     category: "",
-    name: "",
+    productName: "",
     specification: "",
     carriedOver: 0,
     incoming: 0,
     outgoing: 0,
+    remaining: 0,
     unitPrice: 0,
+    totalAmount: 0,
   });
+
+  useEffect(() => {
+    if (editingItem) {
+      setFormData({
+        category: editingItem.category,
+        productName: editingItem.productName,
+        specification: editingItem.specification,
+        carriedOver: editingItem.carriedOver,
+        incoming: editingItem.incoming,
+        outgoing: editingItem.outgoing,
+        remaining: editingItem.remaining,
+        unitPrice: editingItem.unitPrice,
+        totalAmount: editingItem.totalAmount,
+      });
+    } else {
+      setFormData({
+        category: "",
+        productName: "",
+        specification: "",
+        carriedOver: 0,
+        incoming: 0,
+        outgoing: 0,
+        remaining: 0,
+        unitPrice: 0,
+        totalAmount: 0,
+      });
+    }
+  }, [editingItem, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
-    setFormData({
-      category: "",
-      name: "",
-      specification: "",
-      carriedOver: 0,
-      incoming: 0,
-      outgoing: 0,
-      unitPrice: 0,
-    });
-    onOpenChange(false);
+    const remaining = formData.carriedOver + formData.incoming - formData.outgoing;
+    const totalAmount = remaining * formData.unitPrice;
+    onSubmit({ ...formData, remaining, totalAmount });
   };
 
   const remaining = formData.carriedOver + formData.incoming - formData.outgoing;
@@ -69,9 +86,9 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit }: MaterialFor
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>자재 추가</DialogTitle>
+          <DialogTitle>{editingItem ? "자재 수정" : "자재 추가"}</DialogTitle>
           <DialogDescription>
-            새로운 자재 품목을 등록합니다. 모든 필수 항목을 입력해주세요.
+            {editingItem ? "자재 품목을 수정합니다." : "새로운 자재 품목을 등록합니다."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -79,32 +96,24 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit }: MaterialFor
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="category">구분 *</Label>
-                <Select
+                <Input
+                  id="category"
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="예: SKT"
                   required
-                >
-                  <SelectTrigger data-testid="select-category">
-                    <SelectValue placeholder="구분 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-category"
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="name">품명 *</Label>
+                <Label htmlFor="productName">품명 *</Label>
                 <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="예: 광케이블 48심"
+                  id="productName"
+                  value={formData.productName}
+                  onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
+                  placeholder="예: 광접속함체 직선형"
                   required
-                  data-testid="input-material-name"
+                  data-testid="input-product-name"
                 />
               </div>
             </div>
@@ -115,7 +124,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit }: MaterialFor
                 id="specification"
                 value={formData.specification}
                 onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                placeholder="예: 48C, 12mm x 100m"
+                placeholder="예: 가공 24C"
                 required
                 data-testid="input-specification"
               />
@@ -183,7 +192,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit }: MaterialFor
               취소
             </Button>
             <Button type="submit" data-testid="button-submit-material">
-              등록
+              {editingItem ? "수정" : "등록"}
             </Button>
           </DialogFooter>
         </form>

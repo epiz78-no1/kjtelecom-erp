@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
-import { InventoryTable, type InventoryItem } from "@/components/InventoryTable";
+import { InventoryTable } from "@/components/InventoryTable";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
 import { useAppContext } from "@/contexts/AppContext";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { InventoryItem } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -12,29 +16,119 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const mockInventory: InventoryItem[] = [
-  { id: "1", category: "광케이블", name: "광케이블 48심", specification: "48C", carriedOver: 93, incoming: 61202, outgoing: 67997, remaining: -6702, unitPrice: 3800, totalAmount: 25496222 },
-  { id: "2", category: "광케이블", name: "광케이블 96심", specification: "96C", carriedOver: 50, incoming: 25000, outgoing: 22000, remaining: 3050, unitPrice: 5200, totalAmount: 15860000 },
-  { id: "3", category: "접속함", name: "접속함 24심", specification: "24C 클로저", carriedOver: 20, incoming: 100, outgoing: 85, remaining: 35, unitPrice: 85000, totalAmount: 2975000 },
-  { id: "4", category: "단자함", name: "단자함 12구", specification: "12P", carriedOver: 15, incoming: 50, outgoing: 45, remaining: 20, unitPrice: 45000, totalAmount: 900000 },
-  { id: "5", category: "부자재", name: "광커넥터 SC", specification: "SC/APC", carriedOver: 100, incoming: 500, outgoing: 400, remaining: 200, unitPrice: 1200, totalAmount: 240000 },
-  { id: "6", category: "부자재", name: "광커넥터 LC", specification: "LC/UPC", carriedOver: 80, incoming: 350, outgoing: 280, remaining: 150, unitPrice: 1500, totalAmount: 225000 },
-  { id: "7", category: "부자재", name: "케이블 행거", specification: "스틸 50mm", carriedOver: 200, incoming: 1200, outgoing: 900, remaining: 500, unitPrice: 800, totalAmount: 400000 },
-  { id: "8", category: "공구", name: "광섬유 클리너", specification: "알코올 타입", carriedOver: 10, incoming: 50, outgoing: 35, remaining: 25, unitPrice: 15000, totalAmount: 375000 },
-];
-
-const categories = ["전체", "광케이블", "접속함", "단자함", "부자재", "공구"];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Inventory() {
   const { divisions } = useAppContext();
+  const { toast } = useToast();
   const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
+
+  const { data: inventoryItems = [], isLoading } = useQuery<InventoryItem[]>({
+    queryKey: ["/api/inventory"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: Omit<InventoryItem, "id">) => {
+      return apiRequest("POST", "/api/inventory", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: "자재가 추가되었습니다" });
+      setMaterialDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "자재 추가 실패", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...data }: InventoryItem) => {
+      return apiRequest("PATCH", `/api/inventory/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: "자재가 수정되었습니다" });
+      setEditingItem(null);
+    },
+    onError: () => {
+      toast({ title: "자재 수정 실패", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/inventory/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: "자재가 삭제되었습니다" });
+      setDeleteItem(null);
+    },
+    onError: () => {
+      toast({ title: "자재 삭제 실패", variant: "destructive" });
+    },
+  });
+
+  const categorySet = new Set(inventoryItems.map((item) => item.category));
+  const categories = ["전체", ...Array.from(categorySet)];
 
   const filteredInventory = selectedCategory === "전체"
-    ? mockInventory
-    : mockInventory.filter((item) => item.category === selectedCategory);
+    ? inventoryItems
+    : inventoryItems.filter((item) => item.category === selectedCategory);
+
+  const handleSubmit = (data: {
+    category: string;
+    productName: string;
+    specification: string;
+    carriedOver: number;
+    incoming: number;
+    outgoing: number;
+    remaining: number;
+    unitPrice: number;
+    totalAmount: number;
+  }) => {
+    if (editingItem) {
+      updateMutation.mutate({ ...data, id: editingItem.id });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleEdit = (item: InventoryItem) => {
+    setEditingItem(item);
+    setMaterialDialogOpen(true);
+  };
+
+  const handleDelete = (item: InventoryItem) => {
+    setDeleteItem(item);
+  };
+
+  const confirmDelete = () => {
+    if (deleteItem) {
+      deleteMutation.mutate(deleteItem.id);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -49,7 +143,7 @@ export default function Inventory() {
             selectedId={selectedDivision}
             onSelect={setSelectedDivision}
           />
-          <Button onClick={() => setMaterialDialogOpen(true)} data-testid="button-add-material">
+          <Button onClick={() => { setEditingItem(null); setMaterialDialogOpen(true); }} data-testid="button-add-material">
             <Plus className="h-4 w-4 mr-2" />
             자재 추가
           </Button>
@@ -71,19 +165,41 @@ export default function Inventory() {
             </SelectContent>
           </Select>
         </div>
+        <div className="text-sm text-muted-foreground">
+          총 <span className="font-semibold text-foreground">{filteredInventory.length}</span>개 품목
+        </div>
       </div>
 
       <InventoryTable
         items={filteredInventory}
-        onEdit={(item) => console.log("편집:", item)}
-        onDelete={(item) => console.log("삭제:", item)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
       />
 
       <MaterialFormDialog
         open={materialDialogOpen}
-        onOpenChange={setMaterialDialogOpen}
-        onSubmit={(data) => console.log("자재 등록:", data)}
+        onOpenChange={(open) => {
+          setMaterialDialogOpen(open);
+          if (!open) setEditingItem(null);
+        }}
+        onSubmit={handleSubmit}
+        editingItem={editingItem}
       />
+
+      <AlertDialog open={!!deleteItem} onOpenChange={(open) => !open && setDeleteItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>자재 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteItem?.productName}을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

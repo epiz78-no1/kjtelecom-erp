@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTeamSchema } from "@shared/schema";
+import { insertTeamSchema, insertInventoryItemSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -111,6 +111,71 @@ export async function registerRoutes(
       return res.status(404).json({ error: "Team not found" });
     }
     res.status(204).send();
+  });
+
+  app.get("/api/inventory", async (req, res) => {
+    const items = await storage.getInventoryItems();
+    res.json(items);
+  });
+
+  app.get("/api/inventory/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+    
+    const item = await storage.getInventoryItem(id);
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+    res.json(item);
+  });
+
+  app.post("/api/inventory", async (req, res) => {
+    const parseResult = insertInventoryItemSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: parseResult.error.message });
+    }
+
+    const item = await storage.createInventoryItem(parseResult.data);
+    res.status(201).json(item);
+  });
+
+  app.patch("/api/inventory/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
+    const item = await storage.updateInventoryItem(id, req.body);
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+    res.json(item);
+  });
+
+  app.delete("/api/inventory/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
+    const success = await storage.deleteInventoryItem(id);
+    if (!success) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+    res.status(204).send();
+  });
+
+  app.post("/api/inventory/bulk", async (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: "Items must be an array" });
+    }
+
+    await storage.clearInventoryItems();
+    const createdItems = await storage.bulkCreateInventoryItems(items);
+    res.status(201).json(createdItems);
   });
 
   return httpServer;

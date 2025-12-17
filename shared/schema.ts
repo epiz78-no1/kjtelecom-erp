@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -39,3 +39,20 @@ export const teams = pgTable("teams", {
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true });
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
+
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull(),
+  productName: text("product_name").notNull(),
+  specification: text("specification").notNull(),
+  carriedOver: integer("carried_over").notNull().default(0),
+  incoming: integer("incoming").notNull().default(0),
+  outgoing: integer("outgoing").notNull().default(0),
+  remaining: integer("remaining").notNull().default(0),
+  unitPrice: integer("unit_price").notNull().default(0),
+  totalAmount: integer("total_amount").notNull().default(0),
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true });
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+export type InventoryItem = typeof inventoryItems.$inferSelect;

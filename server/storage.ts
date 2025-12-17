@@ -2,7 +2,8 @@ import {
   type User, type InsertUser,
   type Division, type InsertDivision,
   type Team, type InsertTeam,
-  users, divisions, teams
+  type InventoryItem, type InsertInventoryItem,
+  users, divisions, teams, inventoryItems
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -27,6 +28,14 @@ export interface IStorage {
   updateTeam(id: string, updates: Partial<InsertTeam>): Promise<Team | undefined>;
   deleteTeam(id: string): Promise<boolean>;
   initializeTeams(): Promise<void>;
+  
+  getInventoryItems(): Promise<InventoryItem[]>;
+  getInventoryItem(id: number): Promise<InventoryItem | undefined>;
+  createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, updates: Partial<InsertInventoryItem>): Promise<InventoryItem | undefined>;
+  deleteInventoryItem(id: number): Promise<boolean>;
+  clearInventoryItems(): Promise<void>;
+  bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -131,6 +140,44 @@ export class DatabaseStorage implements IStorage {
         { id: randomUUID(), name: "광진 1팀", divisionId: "div2", memberCount: 5, materialCount: 9, lastActivity: "2024-12-11", isActive: true },
       ]);
     }
+  }
+
+  async getInventoryItems(): Promise<InventoryItem[]> {
+    return db.select().from(inventoryItems);
+  }
+
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    return item;
+  }
+
+  async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    const [newItem] = await db.insert(inventoryItems).values(item).returning();
+    return newItem;
+  }
+
+  async updateInventoryItem(id: number, updates: Partial<InsertInventoryItem>): Promise<InventoryItem | undefined> {
+    const [item] = await db
+      .update(inventoryItems)
+      .set(updates)
+      .where(eq(inventoryItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    const result = await db.delete(inventoryItems).where(eq(inventoryItems.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async clearInventoryItems(): Promise<void> {
+    await db.delete(inventoryItems);
+  }
+
+  async bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]> {
+    if (items.length === 0) return [];
+    const result = await db.insert(inventoryItems).values(items).returning();
+    return result;
   }
 }
 
