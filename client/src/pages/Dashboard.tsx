@@ -9,7 +9,6 @@ import { MaterialFormDialog } from "@/components/MaterialFormDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
 
-// todo: remove mock functionality
 const mockUsageData = [
   { month: "7월", usage: 4500 },
   { month: "8월", usage: 5200 },
@@ -19,7 +18,6 @@ const mockUsageData = [
   { month: "12월", usage: 4200 },
 ];
 
-// todo: remove mock functionality
 const mockPurchaseData = [
   { month: "7월", usage: 12000000 },
   { month: "8월", usage: 15000000 },
@@ -29,29 +27,27 @@ const mockPurchaseData = [
   { month: "12월", usage: 9500000 },
 ];
 
-// todo: remove mock functionality
-const mockStats = {
-  div1: {
-    totalStock: "8,240",
-    monthlyPurchase: "₩28,500,000",
-    activeTeams: "5",
-    lowStockItems: "2",
-  },
-  div2: {
-    totalStock: "4,210",
-    monthlyPurchase: "₩16,730,000",
-    activeTeams: "3",
-    lowStockItems: "1",
-  },
+const defaultStats = {
+  totalStock: "0",
+  monthlyPurchase: "₩0",
+  activeTeams: "0",
+  lowStockItems: "0",
 };
 
 export default function Dashboard() {
   const { divisions, teams } = useAppContext();
-  const [selectedDivision, setSelectedDivision] = useState("div1");
+  const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   
-  const stats = mockStats[selectedDivision as keyof typeof mockStats];
   const filteredTeams = teams.filter((t) => t.divisionId === selectedDivision);
+  const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
+  
+  const stats = {
+    totalStock: "0",
+    monthlyPurchase: "₩0",
+    activeTeams: String(activeTeamCount),
+    lowStockItems: "0",
+  };
 
   return (
     <div className="space-y-6">
@@ -79,21 +75,19 @@ export default function Dashboard() {
           title="총 재고량"
           value={stats.totalStock}
           icon={Package}
-          trend={{ value: 12, isPositive: true }}
-          description="전월 대비"
+          description="전체 자재"
         />
         <StatCard
           title="이번 달 구매액"
           value={stats.monthlyPurchase}
           icon={ShoppingCart}
-          trend={{ value: 8, isPositive: false }}
-          description="전월 대비"
+          description="당월 누계"
         />
         <StatCard
           title="활성 현장팀"
           value={stats.activeTeams}
           icon={Users}
-          description="총 6개 중"
+          description={`전체 ${filteredTeams.length}개 중`}
         />
         <StatCard
           title="재고 부족 품목"

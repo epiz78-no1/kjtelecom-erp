@@ -13,23 +13,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// todo: remove mock functionality
 const mockInventory: InventoryItem[] = [
-  { id: "1", name: "광케이블 48심", category: "광케이블", currentStock: 5000, safetyStock: 3000, unit: "m", lastRestockDate: "2024-12-10" },
-  { id: "2", name: "광케이블 96심", category: "광케이블", currentStock: 2500, safetyStock: 2000, unit: "m", lastRestockDate: "2024-12-08" },
-  { id: "3", name: "접속함 24심", category: "접속함", currentStock: 80, safetyStock: 100, unit: "개", lastRestockDate: "2024-12-05" },
-  { id: "4", name: "단자함 12구", category: "단자함", currentStock: 30, safetyStock: 50, unit: "개", lastRestockDate: "2024-12-01" },
-  { id: "5", name: "광커넥터 SC", category: "부자재", currentStock: 500, safetyStock: 300, unit: "개", lastRestockDate: "2024-12-12" },
-  { id: "6", name: "광커넥터 LC", category: "부자재", currentStock: 350, safetyStock: 200, unit: "개", lastRestockDate: "2024-12-11" },
-  { id: "7", name: "케이블 행거", category: "부자재", currentStock: 1200, safetyStock: 500, unit: "개", lastRestockDate: "2024-12-09" },
-  { id: "8", name: "광섬유 클리너", category: "공구", currentStock: 45, safetyStock: 30, unit: "개", lastRestockDate: "2024-12-07" },
+  { id: "1", category: "광케이블", name: "광케이블 48심", specification: "48C", carriedOver: 93, incoming: 61202, outgoing: 67997, remaining: -6702, unitPrice: 3800, totalAmount: 25496222 },
+  { id: "2", category: "광케이블", name: "광케이블 96심", specification: "96C", carriedOver: 50, incoming: 25000, outgoing: 22000, remaining: 3050, unitPrice: 5200, totalAmount: 15860000 },
+  { id: "3", category: "접속함", name: "접속함 24심", specification: "24C 클로저", carriedOver: 20, incoming: 100, outgoing: 85, remaining: 35, unitPrice: 85000, totalAmount: 2975000 },
+  { id: "4", category: "단자함", name: "단자함 12구", specification: "12P", carriedOver: 15, incoming: 50, outgoing: 45, remaining: 20, unitPrice: 45000, totalAmount: 900000 },
+  { id: "5", category: "부자재", name: "광커넥터 SC", specification: "SC/APC", carriedOver: 100, incoming: 500, outgoing: 400, remaining: 200, unitPrice: 1200, totalAmount: 240000 },
+  { id: "6", category: "부자재", name: "광커넥터 LC", specification: "LC/UPC", carriedOver: 80, incoming: 350, outgoing: 280, remaining: 150, unitPrice: 1500, totalAmount: 225000 },
+  { id: "7", category: "부자재", name: "케이블 행거", specification: "스틸 50mm", carriedOver: 200, incoming: 1200, outgoing: 900, remaining: 500, unitPrice: 800, totalAmount: 400000 },
+  { id: "8", category: "공구", name: "광섬유 클리너", specification: "알코올 타입", carriedOver: 10, incoming: 50, outgoing: 35, remaining: 25, unitPrice: 15000, totalAmount: 375000 },
 ];
 
 const categories = ["전체", "광케이블", "접속함", "단자함", "부자재", "공구"];
 
 export default function Inventory() {
   const { divisions } = useAppContext();
-  const [selectedDivision, setSelectedDivision] = useState("div1");
+  const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
 
