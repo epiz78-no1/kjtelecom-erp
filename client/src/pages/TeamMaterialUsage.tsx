@@ -1,0 +1,148 @@
+import { useState } from "react";
+import { Search, Loader2, FileDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useQuery } from "@tanstack/react-query";
+import type { OutgoingRecord } from "@shared/schema";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+export default function TeamMaterialUsage() {
+  const [selectedDivision, setSelectedDivision] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
+    queryKey: ["/api/outgoing"],
+  });
+
+  const divisionFiltered = selectedDivision === "all"
+    ? records
+    : records.filter((record) => record.division === selectedDivision);
+
+  const filteredRecords = divisionFiltered.filter(
+    (record) =>
+      record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.specification.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
+  const totalRecords = filteredRecords.length;
+
+  const currentYear = new Date().getFullYear();
+  const divisionLabel = selectedDivision === "all" ? "" : selectedDivision;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">
+            {currentYear}년 {divisionLabel} 자재 사용내역
+          </h1>
+          <p className="text-muted-foreground">현장팀 자재 사용 이력을 조회합니다</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={selectedDivision === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("all")}
+              data-testid="button-division-all"
+            >
+              전체
+            </Button>
+            <Button
+              variant={selectedDivision === "SKT" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKT")}
+              data-testid="button-division-skt"
+            >
+              SKT사업부
+            </Button>
+            <Button
+              variant={selectedDivision === "SKB" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKB")}
+              data-testid="button-division-skb"
+            >
+              SKB사업부
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="품명, 공사명, 규격, 수령인 검색..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-search"
+          />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{totalRecords}</span>건 / 
+            수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-md border overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="font-semibold min-w-[100px]">출고일</TableHead>
+              <TableHead className="font-semibold min-w-[60px]">사업</TableHead>
+              <TableHead className="font-semibold min-w-[80px]">구분</TableHead>
+              <TableHead className="font-semibold min-w-[250px]">공사명</TableHead>
+              <TableHead className="font-semibold min-w-[120px]">품명</TableHead>
+              <TableHead className="font-semibold min-w-[150px]">규격</TableHead>
+              <TableHead className="font-semibold text-right min-w-[60px]">수량</TableHead>
+              <TableHead className="font-semibold min-w-[80px]">수령인</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredRecords.map((record) => (
+              <TableRow key={record.id} data-testid={`row-usage-${record.id}`}>
+                <TableCell>{record.date}</TableCell>
+                <TableCell>{record.division}</TableCell>
+                <TableCell>{record.teamCategory}</TableCell>
+                <TableCell className="max-w-[300px] truncate">{record.projectName}</TableCell>
+                <TableCell>{record.productName}</TableCell>
+                <TableCell className="max-w-[180px] truncate">{record.specification}</TableCell>
+                <TableCell className="text-right font-medium">{record.quantity.toLocaleString()}</TableCell>
+                <TableCell>{record.recipient}</TableCell>
+              </TableRow>
+            ))}
+            {filteredRecords.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  사용 내역이 없습니다
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}

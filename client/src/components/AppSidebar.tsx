@@ -8,6 +8,7 @@ import {
   Cable,
   ArrowDownToLine,
   ArrowUpFromLine,
+  ClipboardList,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,6 +29,7 @@ const menuItems = [
   { title: "입고 내역", url: "/incoming", icon: ArrowDownToLine },
   { title: "출고 내역", url: "/outgoing", icon: ArrowUpFromLine },
   { title: "현장팀별 출고", url: "/team-outgoing", icon: Users },
+  { title: "현장팀 자재 사용내역", url: "/team-material-usage", icon: ClipboardList },
   { title: "사용량 통계", url: "/statistics", icon: BarChart3 },
 ];
 
