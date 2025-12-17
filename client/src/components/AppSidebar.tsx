@@ -3,10 +3,11 @@ import {
   LayoutDashboard,
   Package,
   Users,
-  ShoppingCart,
   BarChart3,
   Settings,
   Cable,
+  ArrowDownToLine,
+  ArrowUpFromLine,
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,8 +25,9 @@ import {
 const menuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard },
   { title: "재고 현황", url: "/inventory", icon: Package },
+  { title: "입고 내역", url: "/incoming", icon: ArrowDownToLine },
+  { title: "출고 내역", url: "/outgoing", icon: ArrowUpFromLine },
   { title: "현장팀 관리", url: "/teams", icon: Users },
-  { title: "구매 내역", url: "/purchases", icon: ShoppingCart },
   { title: "사용량 통계", url: "/statistics", icon: BarChart3 },
 ];
 
