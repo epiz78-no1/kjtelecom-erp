@@ -5,10 +5,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Bell, Shield, Database, Pencil, Check, X, Loader2, Plus, Trash2 } from "lucide-react";
+import { Bell, Shield, Database, Pencil, Check, X, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { useAppContext } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,8 +36,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface FieldTeam {
+  id: string;
+  name: string;
+  divisionId: string;
+  memberCount: number;
+  isActive: boolean;
+}
+
 export default function Settings() {
-  const { divisions, divisionsLoading, addDivision, updateDivision, deleteDivision } = useAppContext();
+  const { divisions, divisionsLoading, addDivision, updateDivision, deleteDivision, teams, teamsLoading, addTeam, updateTeam, deleteTeam } = useAppContext();
   const { toast } = useToast();
   
   const [notifications, setNotifications] = useState(true);
@@ -38,6 +62,13 @@ export default function Settings() {
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [divisionToDelete, setDivisionToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<FieldTeam | null>(null);
+  const [teamFormData, setTeamFormData] = useState({ name: "", divisionId: "", memberCount: 0, isActive: true });
+  const [isTeamSubmitting, setIsTeamSubmitting] = useState(false);
+  const [teamDeleteDialogOpen, setTeamDeleteDialogOpen] = useState(false);
+  const [teamToDelete, setTeamToDelete] = useState<FieldTeam | null>(null);
 
   const startEditing = (divisionId: string, currentName: string) => {
     setEditingDivisionId(divisionId);
@@ -100,6 +131,68 @@ export default function Settings() {
       setDeleteDialogOpen(false);
       setDivisionToDelete(null);
     }
+  };
+
+  const openAddTeamDialog = () => {
+    setEditingTeam(null);
+    setTeamFormData({ name: "", divisionId: divisions[0]?.id || "", memberCount: 0, isActive: true });
+    setTeamDialogOpen(true);
+  };
+
+  const openEditTeamDialog = (team: FieldTeam) => {
+    setEditingTeam(team);
+    setTeamFormData({
+      name: team.name,
+      divisionId: team.divisionId,
+      memberCount: team.memberCount,
+      isActive: team.isActive,
+    });
+    setTeamDialogOpen(true);
+  };
+
+  const handleTeamSubmit = async () => {
+    if (!teamFormData.name.trim()) {
+      toast({ title: "오류", description: "팀명을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    
+    setIsTeamSubmitting(true);
+    try {
+      if (editingTeam) {
+        await updateTeam(editingTeam.id, teamFormData);
+        toast({ title: "수정 완료", description: `${teamFormData.name} 팀이 수정되었습니다` });
+      } else {
+        await addTeam(teamFormData);
+        toast({ title: "등록 완료", description: `${teamFormData.name} 팀이 등록되었습니다` });
+      }
+      setTeamDialogOpen(false);
+    } catch (error) {
+      toast({ title: "오류", description: "처리 중 오류가 발생했습니다", variant: "destructive" });
+    } finally {
+      setIsTeamSubmitting(false);
+    }
+  };
+
+  const confirmTeamDelete = (team: FieldTeam) => {
+    setTeamToDelete(team);
+    setTeamDeleteDialogOpen(true);
+  };
+
+  const handleTeamDelete = async () => {
+    if (teamToDelete) {
+      try {
+        await deleteTeam(teamToDelete.id);
+        toast({ title: "삭제 완료", description: `${teamToDelete.name} 팀이 삭제되었습니다` });
+      } catch (error) {
+        toast({ title: "오류", description: "삭제 중 오류가 발생했습니다", variant: "destructive" });
+      }
+      setTeamDeleteDialogOpen(false);
+      setTeamToDelete(null);
+    }
+  };
+
+  const getDivisionName = (divisionId: string) => {
+    return divisions.find((d) => d.id === divisionId)?.name || divisionId;
   };
 
   return (
@@ -246,6 +339,75 @@ export default function Settings() {
 
         <Card>
           <CardHeader>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-base">현장팀 관리</CardTitle>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={openAddTeamDialog}
+                data-testid="button-add-team"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                팀 추가
+              </Button>
+            </div>
+            <CardDescription>현장팀을 추가하거나 수정할 수 있습니다.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {teamsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : teams.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">등록된 팀이 없습니다</p>
+            ) : (
+              <div className="space-y-2">
+                {teams.map((team) => (
+                  <div
+                    key={team.id}
+                    className="flex items-center justify-between gap-4 p-3 rounded-md border"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{team.name}</span>
+                          <Badge variant="outline" className="text-xs">{getDivisionName(team.divisionId)}</Badge>
+                          {!team.isActive && <Badge variant="secondary" className="text-xs">비활성</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{team.memberCount}명</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openEditTeamDialog(team)}
+                        data-testid={`button-edit-team-${team.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => confirmTeamDelete(team)}
+                        data-testid={`button-delete-team-${team.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <div className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-base">알림 설정</CardTitle>
@@ -357,6 +519,92 @@ export default function Settings() {
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} data-testid="button-confirm-delete-division">
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{editingTeam ? "현장팀 수정" : "현장팀 추가"}</DialogTitle>
+            <DialogDescription>
+              {editingTeam ? "현장팀 정보를 수정합니다." : "새로운 현장팀을 등록합니다."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="teamName">팀명 *</Label>
+              <Input
+                id="teamName"
+                value={teamFormData.name}
+                onChange={(e) => setTeamFormData({ ...teamFormData, name: e.target.value })}
+                placeholder="예: 강남 3팀"
+                data-testid="input-team-name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="teamDivision">소속 사업부 *</Label>
+              <Select
+                value={teamFormData.divisionId}
+                onValueChange={(value) => setTeamFormData({ ...teamFormData, divisionId: value })}
+              >
+                <SelectTrigger data-testid="select-team-division">
+                  <SelectValue placeholder="사업부 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {divisions.map((div) => (
+                    <SelectItem key={div.id} value={div.id}>
+                      {div.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="memberCount">팀원 수</Label>
+              <Input
+                id="memberCount"
+                type="number"
+                value={teamFormData.memberCount || ""}
+                onChange={(e) => setTeamFormData({ ...teamFormData, memberCount: Number(e.target.value) })}
+                placeholder="0"
+                data-testid="input-member-count"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="isActive">활성 상태</Label>
+              <Switch
+                id="isActive"
+                checked={teamFormData.isActive}
+                onCheckedChange={(checked) => setTeamFormData({ ...teamFormData, isActive: checked })}
+                data-testid="switch-team-active"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTeamDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleTeamSubmit} disabled={isTeamSubmitting} data-testid="button-submit-team">
+              {isTeamSubmitting ? "처리 중..." : editingTeam ? "수정" : "등록"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={teamDeleteDialogOpen} onOpenChange={setTeamDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>현장팀 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              {teamToDelete?.name} 팀을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleTeamDelete} data-testid="button-confirm-delete-team">
               삭제
             </AlertDialogAction>
           </AlertDialogFooter>

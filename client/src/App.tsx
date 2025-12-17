@@ -11,7 +11,7 @@ import Dashboard from "@/pages/Dashboard";
 import Inventory from "@/pages/Inventory";
 import IncomingRecords from "@/pages/IncomingRecords";
 import OutgoingRecords from "@/pages/OutgoingRecords";
-import Teams from "@/pages/Teams";
+import TeamOutgoing from "@/pages/TeamOutgoing";
 import Statistics from "@/pages/Statistics";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
@@ -23,7 +23,7 @@ function Router() {
       <Route path="/inventory" component={Inventory} />
       <Route path="/incoming" component={IncomingRecords} />
       <Route path="/outgoing" component={OutgoingRecords} />
-      <Route path="/teams" component={Teams} />
+      <Route path="/team-outgoing" component={TeamOutgoing} />
       <Route path="/statistics" component={Statistics} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
