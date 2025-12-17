@@ -56,3 +56,19 @@ export const inventoryItems = pgTable("inventory_items", {
 export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true });
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
 export type InventoryItem = typeof inventoryItems.$inferSelect;
+
+export const outgoingRecords = pgTable("outgoing_records", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull(),
+  division: text("division").notNull(),
+  teamCategory: text("team_category").notNull(),
+  projectName: text("project_name").notNull(),
+  productName: text("product_name").notNull(),
+  specification: text("specification").notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  recipient: text("recipient").notNull(),
+});
+
+export const insertOutgoingRecordSchema = createInsertSchema(outgoingRecords).omit({ id: true });
+export type InsertOutgoingRecord = z.infer<typeof insertOutgoingRecordSchema>;
+export type OutgoingRecord = typeof outgoingRecords.$inferSelect;

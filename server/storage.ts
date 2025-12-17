@@ -3,7 +3,8 @@ import {
   type Division, type InsertDivision,
   type Team, type InsertTeam,
   type InventoryItem, type InsertInventoryItem,
-  users, divisions, teams, inventoryItems
+  type OutgoingRecord, type InsertOutgoingRecord,
+  users, divisions, teams, inventoryItems, outgoingRecords
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -36,6 +37,13 @@ export interface IStorage {
   deleteInventoryItem(id: number): Promise<boolean>;
   clearInventoryItems(): Promise<void>;
   bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]>;
+  
+  getOutgoingRecords(): Promise<OutgoingRecord[]>;
+  getOutgoingRecord(id: number): Promise<OutgoingRecord | undefined>;
+  createOutgoingRecord(record: InsertOutgoingRecord): Promise<OutgoingRecord>;
+  updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>): Promise<OutgoingRecord | undefined>;
+  deleteOutgoingRecord(id: number): Promise<boolean>;
+  initializeOutgoingRecords(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -178,6 +186,54 @@ export class DatabaseStorage implements IStorage {
     if (items.length === 0) return [];
     const result = await db.insert(inventoryItems).values(items).returning();
     return result;
+  }
+
+  async getOutgoingRecords(): Promise<OutgoingRecord[]> {
+    return db.select().from(outgoingRecords);
+  }
+
+  async getOutgoingRecord(id: number): Promise<OutgoingRecord | undefined> {
+    const [record] = await db.select().from(outgoingRecords).where(eq(outgoingRecords.id, id));
+    return record;
+  }
+
+  async createOutgoingRecord(record: InsertOutgoingRecord): Promise<OutgoingRecord> {
+    const [newRecord] = await db.insert(outgoingRecords).values(record).returning();
+    return newRecord;
+  }
+
+  async updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>): Promise<OutgoingRecord | undefined> {
+    const [record] = await db
+      .update(outgoingRecords)
+      .set(updates)
+      .where(eq(outgoingRecords.id, id))
+      .returning();
+    return record;
+  }
+
+  async deleteOutgoingRecord(id: number): Promise<boolean> {
+    const result = await db.delete(outgoingRecords).where(eq(outgoingRecords.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async initializeOutgoingRecords(): Promise<void> {
+    const existing = await db.select().from(outgoingRecords);
+    if (existing.length === 0) {
+      await db.insert(outgoingRecords).values([
+        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "효성선70R6R16R1", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 1, recipient: "채성범" },
+        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 3, recipient: "채성범" },
+        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-SC/APC, 3M", quantity: 2, recipient: "채성범" },
+        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "케이블명찰", specification: "재질:PVC W:70 H:50", quantity: 100, recipient: "채성범" },
+        { date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "재난유선망정읍(김제요천 비정읍통합국사)", productName: "광점퍼파코드", specification: "SM, 1C, SC/PC-SC/APC, 30M", quantity: 4, recipient: "채성범" },
+        { date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "재난유선망남원(곡성교촌", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-LC/PC, 30M", quantity: 4, recipient: "박정훈" },
+        { date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 1, recipient: "박정훈" },
+        { date: "2025-12-04", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-SC/APC, 30M", quantity: 4, recipient: "채성범" },
+        { date: "2025-12-08", division: "SKT", teamCategory: "외선팀", projectName: "예비용", productName: "낙뢰방지캡", specification: "표준형", quantity: 3, recipient: "김병현" },
+        { date: "2025-12-08", division: "SKT", teamCategory: "외선팀", projectName: "예비용", productName: "지선보호커버", specification: "상/하 1조", quantity: 3, recipient: "김병현" },
+        { date: "2025-12-06", division: "SKB", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "지중 144C", quantity: 1, recipient: "정시정" },
+        { date: "2025-12-07", division: "SKT", teamCategory: "접속팀", projectName: "효자동 2가 함체교체", productName: "광접속함체 직선형", specification: "가공 24", quantity: 2, recipient: "채성범" },
+      ]);
+    }
   }
 }
 

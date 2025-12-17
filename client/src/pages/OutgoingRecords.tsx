@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { Plus, Calendar, Search } from "lucide-react";
+import { Plus, Calendar, Search, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { useAppContext } from "@/contexts/AppContext";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { OutgoingRecord } from "@shared/schema";
 import {
   Table,
   TableBody,
@@ -20,6 +24,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -37,42 +51,19 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 
-interface OutgoingRecord {
-  id: string;
-  date: string;
-  division: string;
-  teamCategory: string;
-  projectName: string;
-  productName: string;
-  specification: string;
-  quantity: number;
-  recipient: string;
-}
-
-const mockRecords: OutgoingRecord[] = [
-  { id: "1", date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "효성선70R6R16R1", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 1, recipient: "채성범" },
-  { id: "2", date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 3, recipient: "채성범" },
-  { id: "3", date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-SC/APC, 3M", quantity: 2, recipient: "채성범" },
-  { id: "4", date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "케이블명찰", specification: "재질:PVC W:70 H:50", quantity: 100, recipient: "채성범" },
-  { id: "5", date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "재난유선망정읍(김제요천 비정읍통합국사)", productName: "광점퍼파코드", specification: "SM, 1C, SC/PC-SC/APC, 30M", quantity: 4, recipient: "채성범" },
-  { id: "6", date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "재난유선망남원(곡성교촌", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-LC/PC, 30M", quantity: 4, recipient: "박정훈" },
-  { id: "7", date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 1, recipient: "박정훈" },
-  { id: "8", date: "2025-12-04", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-SC/APC, 30M", quantity: 4, recipient: "채성범" },
-  { id: "9", date: "2025-12-08", division: "SKT", teamCategory: "외선팀", projectName: "예비용", productName: "낙뢰방지캡", specification: "표준형", quantity: 3, recipient: "김병현" },
-  { id: "10", date: "2025-12-08", division: "SKT", teamCategory: "외선팀", projectName: "예비용", productName: "지선보호커버", specification: "상/하 1조", quantity: 3, recipient: "김병현" },
-  { id: "11", date: "2025-12-06", division: "SKB", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "지중 144C", quantity: 1, recipient: "정시정" },
-  { id: "12", date: "2025-12-07", division: "SKT", teamCategory: "접속팀", projectName: "효자동 2가 함체교체", productName: "광접속함체 직선형", specification: "가공 24", quantity: 2, recipient: "채성범" },
-];
-
 const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
 
 export default function OutgoingRecords() {
-  const { divisions, teams } = useAppContext();
+  const { divisions } = useAppContext();
+  const { toast } = useToast();
   const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<OutgoingRecord | null>(null);
+  const [deleteRecord, setDeleteRecord] = useState<OutgoingRecord | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [formData, setFormData] = useState({
+    division: "SKT",
     teamCategory: "",
     projectName: "",
     productName: "",
@@ -81,7 +72,53 @@ export default function OutgoingRecords() {
     recipient: "",
   });
 
-  const filteredRecords = mockRecords.filter(
+  const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
+    queryKey: ["/api/outgoing"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: Omit<OutgoingRecord, "id">) => {
+      return apiRequest("POST", "/api/outgoing", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      toast({ title: "출고가 등록되었습니다" });
+      closeDialog();
+    },
+    onError: () => {
+      toast({ title: "등록 실패", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...data }: OutgoingRecord) => {
+      return apiRequest("PATCH", `/api/outgoing/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      toast({ title: "출고가 수정되었습니다" });
+      closeDialog();
+    },
+    onError: () => {
+      toast({ title: "수정 실패", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/outgoing/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      toast({ title: "출고가 삭제되었습니다" });
+      setDeleteRecord(null);
+    },
+    onError: () => {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    },
+  });
+
+  const filteredRecords = records.filter(
     (record) =>
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -91,12 +128,72 @@ export default function OutgoingRecords() {
 
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
 
-  const handleSubmit = () => {
-    console.log("출고 등록:", { ...formData, date: selectedDate });
+  const openAddDialog = () => {
+    setEditingRecord(null);
+    setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
+    setSelectedDate(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (record: OutgoingRecord) => {
+    setEditingRecord(record);
+    setFormData({
+      division: record.division,
+      teamCategory: record.teamCategory,
+      projectName: record.projectName,
+      productName: record.productName,
+      specification: record.specification,
+      quantity: String(record.quantity),
+      recipient: record.recipient,
+    });
+    setSelectedDate(new Date(record.date));
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
     setDialogOpen(false);
-    setFormData({ teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
+    setEditingRecord(null);
+    setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
     setSelectedDate(undefined);
   };
+
+  const handleSubmit = () => {
+    if (!selectedDate || !formData.teamCategory || !formData.productName || !formData.quantity || !formData.recipient) {
+      toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
+      return;
+    }
+
+    const data = {
+      date: format(selectedDate, "yyyy-MM-dd"),
+      division: formData.division,
+      teamCategory: formData.teamCategory,
+      projectName: formData.projectName,
+      productName: formData.productName,
+      specification: formData.specification,
+      quantity: parseInt(formData.quantity),
+      recipient: formData.recipient,
+    };
+
+    if (editingRecord) {
+      updateMutation.mutate({ ...data, id: editingRecord.id });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deleteRecord) {
+      deleteMutation.mutate(deleteRecord.id);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -111,7 +208,7 @@ export default function OutgoingRecords() {
             selectedId={selectedDivision}
             onSelect={setSelectedDivision}
           />
-          <Button onClick={() => setDialogOpen(true)} data-testid="button-add-outgoing">
+          <Button onClick={openAddDialog} data-testid="button-add-outgoing">
             <Plus className="h-4 w-4 mr-2" />
             출고 등록
           </Button>
@@ -147,6 +244,7 @@ export default function OutgoingRecords() {
               <TableHead className="font-semibold min-w-[150px]">규격</TableHead>
               <TableHead className="font-semibold text-right min-w-[60px]">수량</TableHead>
               <TableHead className="font-semibold min-w-[80px]">수령인</TableHead>
+              <TableHead className="font-semibold min-w-[80px]">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -160,11 +258,31 @@ export default function OutgoingRecords() {
                 <TableCell className="max-w-[180px] truncate">{record.specification}</TableCell>
                 <TableCell className="text-right font-medium">{record.quantity.toLocaleString()}</TableCell>
                 <TableCell>{record.recipient}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEditDialog(record)}
+                      data-testid={`button-edit-${record.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setDeleteRecord(record)}
+                      data-testid={`button-delete-${record.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
             {filteredRecords.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   검색 결과가 없습니다
                 </TableCell>
               </TableRow>
@@ -176,9 +294,9 @@ export default function OutgoingRecords() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>출고 등록</DialogTitle>
+            <DialogTitle>{editingRecord ? "출고 수정" : "출고 등록"}</DialogTitle>
             <DialogDescription>
-              새로운 자재 출고 내역을 등록합니다.
+              {editingRecord ? "출고 내역을 수정합니다." : "새로운 자재 출고 내역을 등록합니다."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -277,15 +395,34 @@ export default function OutgoingRecords() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={closeDialog}>
               취소
             </Button>
-            <Button onClick={handleSubmit} data-testid="button-submit-outgoing">
-              등록
+            <Button 
+              onClick={handleSubmit} 
+              disabled={createMutation.isPending || updateMutation.isPending}
+              data-testid="button-submit-outgoing"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? "처리 중..." : editingRecord ? "수정" : "등록"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteRecord} onOpenChange={(open) => !open && setDeleteRecord(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>출고 내역 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              이 출고 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

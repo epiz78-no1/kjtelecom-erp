@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Search, Calendar, Filter } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { useAppContext } from "@/contexts/AppContext";
+import { useQuery } from "@tanstack/react-query";
+import type { OutgoingRecord } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -21,63 +22,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-
-interface TeamOutgoingRecord {
-  id: number;
-  date: string;
-  teamId: string;
-  teamName: string;
-  productName: string;
-  specification: string;
-  quantity: number;
-  projectName: string;
-  recipient: string;
-}
-
-const mockRecords: TeamOutgoingRecord[] = [
-  { id: 1, date: "2024-12-15", teamId: "team1", teamName: "강남 1팀", productName: "광접속함체 직선형", specification: "가공 24C", quantity: 5, projectName: "강남역 구간", recipient: "김철수" },
-  { id: 2, date: "2024-12-14", teamId: "team1", teamName: "강남 1팀", productName: "광케이블", specification: "24C 1km", quantity: 2, projectName: "강남역 구간", recipient: "김철수" },
-  { id: 3, date: "2024-12-14", teamId: "team2", teamName: "강남 2팀", productName: "광접속함체 직선형", specification: "지중 48C", quantity: 3, projectName: "역삼동 구간", recipient: "이영희" },
-  { id: 4, date: "2024-12-13", teamId: "team3", teamName: "서초 1팀", productName: "분기함", specification: "8분기", quantity: 10, projectName: "서초동 신규", recipient: "박민수" },
-  { id: 5, date: "2024-12-12", teamId: "team1", teamName: "강남 1팀", productName: "드롭크로저", specification: "4C", quantity: 20, projectName: "강남역 구간", recipient: "김철수" },
-];
 
 export default function TeamOutgoing() {
-  const { divisions, teams, teamsLoading } = useAppContext();
+  const { divisions } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
   const [selectedTeam, setSelectedTeam] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredTeams = teams.filter((team) => team.divisionId === selectedDivision);
+  const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
+    queryKey: ["/api/outgoing"],
+  });
 
-  const filteredRecords = mockRecords.filter((record) => {
-    const matchesTeam = selectedTeam === "all" || record.teamId === selectedTeam;
+  const teamCategories = Array.from(new Set(records.map((r) => r.teamCategory))).filter(Boolean);
+
+  const filteredRecords = records.filter((record) => {
+    const matchesTeam = selectedTeam === "all" || record.teamCategory === selectedTeam;
     const matchesSearch = 
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.teamName.toLowerCase().includes(searchQuery.toLowerCase());
+      record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.recipient.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTeam && matchesSearch;
   });
 
-  const teamStats = filteredTeams.map((team) => {
-    const teamRecords = mockRecords.filter((r) => r.teamId === team.id);
+  const teamStats = teamCategories.map((team) => {
+    const teamRecords = records.filter((r) => r.teamCategory === team);
     return {
-      ...team,
+      name: team,
       totalOutgoing: teamRecords.reduce((sum, r) => sum + r.quantity, 0),
       recordCount: teamRecords.length,
     };
   });
 
-  if (teamsLoading) {
+  if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -101,21 +81,18 @@ export default function TeamOutgoing() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {teamStats.map((team) => (
           <Card
-            key={team.id}
-            className={`cursor-pointer transition-colors ${selectedTeam === team.id ? "ring-2 ring-primary" : ""}`}
-            onClick={() => setSelectedTeam(team.id === selectedTeam ? "all" : team.id)}
-            data-testid={`card-team-${team.id}`}
+            key={team.name}
+            className={`cursor-pointer transition-colors ${selectedTeam === team.name ? "ring-2 ring-primary" : ""}`}
+            onClick={() => setSelectedTeam(team.name === selectedTeam ? "all" : team.name)}
+            data-testid={`card-team-${team.name}`}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center justify-between gap-2">
                 {team.name}
-                <Badge variant={team.isActive ? "default" : "secondary"} className="text-xs">
-                  {team.isActive ? "활성" : "비활성"}
-                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{team.totalOutgoing}</div>
+              <div className="text-2xl font-bold">{team.totalOutgoing.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">{team.recordCount}건의 출고</p>
             </CardContent>
           </Card>
@@ -139,9 +116,9 @@ export default function TeamOutgoing() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 팀</SelectItem>
-            {filteredTeams.map((team) => (
-              <SelectItem key={team.id} value={team.id}>
-                {team.name}
+            {teamCategories.map((team) => (
+              <SelectItem key={team} value={team}>
+                {team}
               </SelectItem>
             ))}
           </SelectContent>
@@ -158,7 +135,7 @@ export default function TeamOutgoing() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[100px]">날짜</TableHead>
-                  <TableHead>팀명</TableHead>
+                  <TableHead>팀</TableHead>
                   <TableHead>프로젝트명</TableHead>
                   <TableHead>품명</TableHead>
                   <TableHead>규격</TableHead>
@@ -178,12 +155,12 @@ export default function TeamOutgoing() {
                     <TableRow key={record.id} data-testid={`row-record-${record.id}`}>
                       <TableCell className="font-medium">{record.date}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{record.teamName}</Badge>
+                        <Badge variant="outline">{record.teamCategory}</Badge>
                       </TableCell>
                       <TableCell>{record.projectName}</TableCell>
                       <TableCell>{record.productName}</TableCell>
                       <TableCell>{record.specification}</TableCell>
-                      <TableCell className="text-right">{record.quantity}</TableCell>
+                      <TableCell className="text-right">{record.quantity.toLocaleString()}</TableCell>
                       <TableCell>{record.recipient}</TableCell>
                     </TableRow>
                   ))

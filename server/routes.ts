@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTeamSchema, insertInventoryItemSchema } from "@shared/schema";
+import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -9,6 +9,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   await storage.initializeDivisions();
   await storage.initializeTeams();
+  await storage.initializeOutgoingRecords();
 
   app.get("/api/divisions", async (req, res) => {
     const divisions = await storage.getDivisions();
@@ -176,6 +177,60 @@ export async function registerRoutes(
     await storage.clearInventoryItems();
     const createdItems = await storage.bulkCreateInventoryItems(items);
     res.status(201).json(createdItems);
+  });
+
+  app.get("/api/outgoing", async (req, res) => {
+    const records = await storage.getOutgoingRecords();
+    res.json(records);
+  });
+
+  app.get("/api/outgoing/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+    
+    const record = await storage.getOutgoingRecord(id);
+    if (!record) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+    res.json(record);
+  });
+
+  app.post("/api/outgoing", async (req, res) => {
+    const parseResult = insertOutgoingRecordSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: parseResult.error.message });
+    }
+
+    const record = await storage.createOutgoingRecord(parseResult.data);
+    res.status(201).json(record);
+  });
+
+  app.patch("/api/outgoing/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
+    const record = await storage.updateOutgoingRecord(id, req.body);
+    if (!record) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+    res.json(record);
+  });
+
+  app.delete("/api/outgoing/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
+    const success = await storage.deleteOutgoingRecord(id);
+    if (!success) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+    res.status(204).send();
   });
 
   return httpServer;
