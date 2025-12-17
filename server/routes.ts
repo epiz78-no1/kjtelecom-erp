@@ -15,6 +15,17 @@ export async function registerRoutes(
     res.json(divisions);
   });
 
+  app.post("/api/divisions", async (req, res) => {
+    const { name } = req.body;
+    
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "Name is required" });
+    }
+
+    const division = await storage.createDivision(name);
+    res.status(201).json(division);
+  });
+
   app.patch("/api/divisions/:id", async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
@@ -28,6 +39,16 @@ export async function registerRoutes(
       return res.status(404).json({ error: "Division not found" });
     }
     res.json(division);
+  });
+
+  app.delete("/api/divisions/:id", async (req, res) => {
+    const { id } = req.params;
+    const success = await storage.deleteDivision(id);
+    
+    if (!success) {
+      return res.status(404).json({ error: "Division not found" });
+    }
+    res.status(204).send();
   });
 
   app.get("/api/teams", async (req, res) => {

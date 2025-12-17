@@ -21,7 +21,9 @@ export interface FieldTeam {
 interface AppContextType {
   divisions: Division[];
   divisionsLoading: boolean;
+  addDivision: (name: string) => Promise<void>;
   updateDivision: (id: string, name: string) => Promise<void>;
+  deleteDivision: (id: string) => Promise<void>;
   teams: FieldTeam[];
   teamsLoading: boolean;
   addTeam: (team: Omit<FieldTeam, "id" | "divisionName" | "materialCount" | "lastActivity">) => Promise<void>;
@@ -41,6 +43,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/teams"],
   });
 
+  const addDivisionMutation = useMutation({
+    mutationFn: async (name: string) => {
+      await apiRequest("POST", "/api/divisions", { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
+    },
+  });
+
   const updateDivisionMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       await apiRequest("PATCH", `/api/divisions/${id}`, { name });
@@ -48,6 +59,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+    },
+  });
+
+  const deleteDivisionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/divisions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
     },
   });
 
@@ -83,8 +103,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const addDivision = async (name: string) => {
+    await addDivisionMutation.mutateAsync(name);
+  };
+
   const updateDivision = async (id: string, name: string) => {
     await updateDivisionMutation.mutateAsync({ id, name });
+  };
+
+  const deleteDivision = async (id: string) => {
+    await deleteDivisionMutation.mutateAsync(id);
   };
 
   const addTeam = async (team: Omit<FieldTeam, "id" | "divisionName" | "materialCount" | "lastActivity">) => {
@@ -108,7 +136,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         divisions: divisionsQuery.data || [],
         divisionsLoading: divisionsQuery.isLoading,
+        addDivision,
         updateDivision,
+        deleteDivision,
         teams: teamsQuery.data || [],
         teamsLoading: teamsQuery.isLoading,
         addTeam,

@@ -5,13 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Building2, Bell, Shield, Database, Pencil, Check, X, Loader2 } from "lucide-react";
+import { Bell, Shield, Database, Pencil, Check, X, Loader2, Plus, Trash2 } from "lucide-react";
 import { useAppContext } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Settings() {
-  const { divisions, divisionsLoading, updateDivision } = useAppContext();
+  const { divisions, divisionsLoading, addDivision, updateDivision, deleteDivision } = useAppContext();
   const { toast } = useToast();
   
   const [notifications, setNotifications] = useState(true);
@@ -21,6 +31,13 @@ export default function Settings() {
   const [editingDivisionId, setEditingDivisionId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [isAdding, setIsAdding] = useState(false);
+  const [newDivisionName, setNewDivisionName] = useState("");
+  const [isAddingSaving, setIsAddingSaving] = useState(false);
+  
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [divisionToDelete, setDivisionToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const startEditing = (divisionId: string, currentName: string) => {
     setEditingDivisionId(divisionId);
@@ -48,6 +65,43 @@ export default function Settings() {
     }
   };
 
+  const handleAddDivision = async () => {
+    if (!newDivisionName.trim()) {
+      toast({ title: "오류", description: "사업부 이름을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    
+    setIsAddingSaving(true);
+    try {
+      await addDivision(newDivisionName.trim());
+      toast({ title: "추가 완료", description: "새 사업부가 추가되었습니다" });
+      setNewDivisionName("");
+      setIsAdding(false);
+    } catch (error) {
+      toast({ title: "오류", description: "추가 중 오류가 발생했습니다", variant: "destructive" });
+    } finally {
+      setIsAddingSaving(false);
+    }
+  };
+
+  const confirmDelete = (division: { id: string; name: string }) => {
+    setDivisionToDelete(division);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (divisionToDelete) {
+      try {
+        await deleteDivision(divisionToDelete.id);
+        toast({ title: "삭제 완료", description: `${divisionToDelete.name} 사업부가 삭제되었습니다` });
+      } catch (error) {
+        toast({ title: "오류", description: "삭제 중 오류가 발생했습니다", variant: "destructive" });
+      }
+      setDeleteDialogOpen(false);
+      setDivisionToDelete(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -58,11 +112,20 @@ export default function Settings() {
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base">사업부 관리</CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsAdding(true)}
+                disabled={isAdding}
+                data-testid="button-add-division"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                사업부 추가
+              </Button>
             </div>
-            <CardDescription>사업부 이름을 수정할 수 있습니다. 수정 시 관련된 모든 데이터에 반영됩니다.</CardDescription>
+            <CardDescription>사업부 이름을 수정하거나 새 사업부를 추가할 수 있습니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {divisionsLoading ? (
@@ -71,57 +134,112 @@ export default function Settings() {
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : (
-              divisions.map((division, index) => (
-                <div key={division.id} className="flex items-center gap-4">
-                  <Label className="w-24 shrink-0">사업부 {index + 1}</Label>
-                  {editingDivisionId === division.id ? (
+              <>
+                {divisions.map((division, index) => (
+                  <div key={division.id} className="flex items-center gap-4">
+                    <Label className="w-24 shrink-0">사업부 {index + 1}</Label>
+                    {editingDivisionId === division.id ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          className="flex-1"
+                          autoFocus
+                          disabled={isSaving}
+                          data-testid={`input-edit-${division.id}`}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEditing();
+                            if (e.key === "Escape") cancelEditing();
+                          }}
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={saveEditing}
+                          disabled={isSaving}
+                          data-testid={`button-save-${division.id}`}
+                        >
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={cancelEditing}
+                          disabled={isSaving}
+                          data-testid={`button-cancel-${division.id}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="flex-1 text-sm" data-testid={`text-${division.id}-name`}>{division.name}</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => startEditing(division.id, division.name)}
+                          data-testid={`button-edit-${division.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => confirmDelete(division)}
+                          data-testid={`button-delete-${division.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {isAdding && (
+                  <div className="flex items-center gap-4">
+                    <Label className="w-24 shrink-0">새 사업부</Label>
                     <div className="flex items-center gap-2 flex-1">
                       <Input
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
+                        value={newDivisionName}
+                        onChange={(e) => setNewDivisionName(e.target.value)}
+                        placeholder="사업부 이름 입력"
                         className="flex-1"
                         autoFocus
-                        disabled={isSaving}
-                        data-testid={`input-edit-${division.id}`}
+                        disabled={isAddingSaving}
+                        data-testid="input-new-division"
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEditing();
-                          if (e.key === "Escape") cancelEditing();
+                          if (e.key === "Enter") handleAddDivision();
+                          if (e.key === "Escape") {
+                            setIsAdding(false);
+                            setNewDivisionName("");
+                          }
                         }}
                       />
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={saveEditing}
-                        disabled={isSaving}
-                        data-testid={`button-save-${division.id}`}
+                        onClick={handleAddDivision}
+                        disabled={isAddingSaving}
+                        data-testid="button-save-new-division"
                       >
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        {isAddingSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={cancelEditing}
-                        disabled={isSaving}
-                        data-testid={`button-cancel-${division.id}`}
+                        onClick={() => {
+                          setIsAdding(false);
+                          setNewDivisionName("");
+                        }}
+                        disabled={isAddingSaving}
+                        data-testid="button-cancel-new-division"
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 flex-1">
-                      <span className="flex-1 text-sm" data-testid={`text-${division.id}-name`}>{division.name}</span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => startEditing(division.id, division.name)}
-                        data-testid={`button-edit-${division.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -227,6 +345,23 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>사업부 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              {divisionToDelete?.name} 사업부를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} data-testid="button-confirm-delete-division">
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

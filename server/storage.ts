@@ -15,7 +15,9 @@ export interface IStorage {
   
   getDivisions(): Promise<Division[]>;
   getDivision(id: string): Promise<Division | undefined>;
+  createDivision(name: string): Promise<Division>;
   updateDivision(id: string, name: string): Promise<Division | undefined>;
+  deleteDivision(id: string): Promise<boolean>;
   initializeDivisions(): Promise<void>;
   
   getTeams(): Promise<Team[]>;
@@ -52,6 +54,12 @@ export class DatabaseStorage implements IStorage {
     return division;
   }
 
+  async createDivision(name: string): Promise<Division> {
+    const id = `div${Date.now()}`;
+    const [division] = await db.insert(divisions).values({ id, name }).returning();
+    return division;
+  }
+
   async updateDivision(id: string, name: string): Promise<Division | undefined> {
     const [division] = await db
       .update(divisions)
@@ -59,6 +67,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(divisions.id, id))
       .returning();
     return division;
+  }
+
+  async deleteDivision(id: string): Promise<boolean> {
+    const result = await db.delete(divisions).where(eq(divisions.id, id)).returning();
+    return result.length > 0;
   }
 
   async initializeDivisions(): Promise<void> {
