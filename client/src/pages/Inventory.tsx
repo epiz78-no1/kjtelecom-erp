@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { InventoryTable } from "@/components/InventoryTable";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
-import { useAppContext } from "@/contexts/AppContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -28,9 +26,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function Inventory() {
-  const { divisions } = useAppContext();
   const { toast } = useToast();
-  const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
+  const [selectedDivision, setSelectedDivision] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -82,14 +79,19 @@ export default function Inventory() {
     },
   });
 
-  const categorySet = new Set(inventoryItems.map((item) => item.category));
+  const divisionFiltered = selectedDivision === "all"
+    ? inventoryItems
+    : inventoryItems.filter((item) => item.division === selectedDivision);
+
+  const categorySet = new Set(divisionFiltered.map((item) => item.category));
   const categories = ["전체", ...Array.from(categorySet)];
 
   const filteredInventory = selectedCategory === "전체"
-    ? inventoryItems
-    : inventoryItems.filter((item) => item.category === selectedCategory);
+    ? divisionFiltered
+    : divisionFiltered.filter((item) => item.category === selectedCategory);
 
   const handleSubmit = (data: {
+    division?: string;
     category: string;
     productName: string;
     specification: string;
@@ -100,10 +102,11 @@ export default function Inventory() {
     unitPrice: number;
     totalAmount: number;
   }) => {
+    const submitData = { ...data, division: data.division || "SKT" };
     if (editingItem) {
-      updateMutation.mutate({ ...data, id: editingItem.id });
+      updateMutation.mutate({ ...submitData, id: editingItem.id });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(submitData);
     }
   };
 
@@ -137,12 +140,33 @@ export default function Inventory() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">재고 현황</h1>
           <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <BusinessDivisionSwitcher
-            divisions={divisions}
-            selectedId={selectedDivision}
-            onSelect={setSelectedDivision}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={selectedDivision === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("all")}
+              data-testid="button-division-all"
+            >
+              전체
+            </Button>
+            <Button
+              variant={selectedDivision === "SKT" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKT")}
+              data-testid="button-division-skt"
+            >
+              SKT사업부
+            </Button>
+            <Button
+              variant={selectedDivision === "SKB" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKB")}
+              data-testid="button-division-skb"
+            >
+              SKB사업부
+            </Button>
+          </div>
           <Button onClick={() => { setEditingItem(null); setMaterialDialogOpen(true); }} data-testid="button-add-material">
             <Plus className="h-4 w-4 mr-2" />
             자재 추가

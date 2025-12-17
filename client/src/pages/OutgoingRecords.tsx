@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Plus, Calendar, Search, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
-import { useAppContext } from "@/contexts/AppContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -54,9 +52,8 @@ import { ko } from "date-fns/locale";
 const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
 
 export default function OutgoingRecords() {
-  const { divisions } = useAppContext();
   const { toast } = useToast();
-  const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
+  const [selectedDivision, setSelectedDivision] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<OutgoingRecord | null>(null);
@@ -118,7 +115,11 @@ export default function OutgoingRecords() {
     },
   });
 
-  const filteredRecords = records.filter(
+  const divisionFiltered = selectedDivision === "all"
+    ? records
+    : records.filter((record) => record.division === selectedDivision);
+
+  const filteredRecords = divisionFiltered.filter(
     (record) =>
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -202,12 +203,33 @@ export default function OutgoingRecords() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">출고 내역</h1>
           <p className="text-muted-foreground">자재 출고 이력을 조회하고 관리합니다</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <BusinessDivisionSwitcher
-            divisions={divisions}
-            selectedId={selectedDivision}
-            onSelect={setSelectedDivision}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={selectedDivision === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("all")}
+              data-testid="button-division-all"
+            >
+              전체
+            </Button>
+            <Button
+              variant={selectedDivision === "SKT" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKT")}
+              data-testid="button-division-skt"
+            >
+              SKT사업부
+            </Button>
+            <Button
+              variant={selectedDivision === "SKB" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKB")}
+              data-testid="button-division-skb"
+            >
+              SKB사업부
+            </Button>
+          </div>
           <Button onClick={openAddDialog} data-testid="button-add-outgoing">
             <Plus className="h-4 w-4 mr-2" />
             출고 등록

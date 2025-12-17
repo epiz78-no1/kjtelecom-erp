@@ -3,8 +3,7 @@ import { Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
-import { useAppContext } from "@/contexts/AppContext";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import type { OutgoingRecord } from "@shared/schema";
 import {
@@ -24,8 +23,7 @@ import {
 } from "@/components/ui/table";
 
 export default function TeamOutgoing() {
-  const { divisions } = useAppContext();
-  const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
+  const [selectedDivision, setSelectedDivision] = useState("all");
   const [selectedRecipient, setSelectedRecipient] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -33,9 +31,13 @@ export default function TeamOutgoing() {
     queryKey: ["/api/outgoing"],
   });
 
-  const recipients = Array.from(new Set(records.map((r) => r.recipient))).filter(Boolean);
+  const divisionFiltered = selectedDivision === "all"
+    ? records
+    : records.filter((record) => record.division === selectedDivision);
 
-  const filteredRecords = records.filter((record) => {
+  const recipients = Array.from(new Set(divisionFiltered.map((r) => r.recipient))).filter(Boolean);
+
+  const filteredRecords = divisionFiltered.filter((record) => {
     const matchesRecipient = selectedRecipient === "all" || record.recipient === selectedRecipient;
     const matchesSearch = 
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -46,10 +48,9 @@ export default function TeamOutgoing() {
   });
 
   const recipientStats = recipients.map((recipient) => {
-    const recipientRecords = records.filter((r) => r.recipient === recipient);
+    const recipientRecords = divisionFiltered.filter((r) => r.recipient === recipient);
     return {
       name: recipient,
-      totalOutgoing: recipientRecords.reduce((sum, r) => sum + r.quantity, 0),
       recordCount: recipientRecords.length,
     };
   });
@@ -69,12 +70,33 @@ export default function TeamOutgoing() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">현장팀별 출고 내역</h1>
           <p className="text-muted-foreground">수령인별 자재 출고 현황을 조회합니다</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <BusinessDivisionSwitcher
-            divisions={divisions}
-            selectedId={selectedDivision}
-            onSelect={setSelectedDivision}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={selectedDivision === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("all")}
+              data-testid="button-division-all"
+            >
+              전체
+            </Button>
+            <Button
+              variant={selectedDivision === "SKT" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKT")}
+              data-testid="button-division-skt"
+            >
+              SKT사업부
+            </Button>
+            <Button
+              variant={selectedDivision === "SKB" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKB")}
+              data-testid="button-division-skb"
+            >
+              SKB사업부
+            </Button>
+          </div>
         </div>
       </div>
 

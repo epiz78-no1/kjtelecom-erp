@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Plus, Calendar, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
-import { useAppContext } from "@/contexts/AppContext";
 import {
   Table,
   TableBody,
@@ -52,20 +50,19 @@ const mockRecords: IncomingRecord[] = [
   { id: "1", date: "2019-01-25", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "광접속함체 직선형", specification: "가공 24C", quantity: 20 },
   { id: "2", date: "2019-01-25", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "광접속함체 직선형", specification: "가공 48C", quantity: 20 },
   { id: "3", date: "2019-01-25", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "광접속함체 직선형", specification: "가공 72C", quantity: 20 },
-  { id: "4", date: "2019-01-25", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "광접속함체 돔형", specification: "가공 288C", quantity: 1 },
+  { id: "4", date: "2019-01-25", division: "SKB", supplier: "텔레시스", projectName: "[광텔] 2019년 SKB 운용사업 선로공사 예비용", productName: "광접속함체 돔형", specification: "가공 288C", quantity: 1 },
   { id: "5", date: "2019-01-25", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "IP주", specification: "150Kg 8M", quantity: 20 },
-  { id: "6", date: "2019-01-30", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 임실 통화 지중화 공사용", productName: "광접속함체 돔형", specification: "지중 144C", quantity: 8 },
+  { id: "6", date: "2019-01-30", division: "SKB", supplier: "텔레시스", projectName: "[광텔] 2019년 SKB 임실 통화 지중화 공사용", productName: "광접속함체 돔형", specification: "지중 144C", quantity: 8 },
   { id: "7", date: "2019-02-13", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "바인드선", specification: "1.0mm x 500m", quantity: 10 },
   { id: "8", date: "2019-02-13", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "열수축관", specification: "1NT", quantity: 300 },
-  { id: "9", date: "2019-02-14", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "근가블럭", specification: "IP주용 70cm", quantity: 10 },
+  { id: "9", date: "2019-02-14", division: "SKB", supplier: "텔레시스", projectName: "[광텔] 2019년 SKB 운용사업 선로공사 예비용", productName: "근가블럭", specification: "IP주용 70cm", quantity: 10 },
   { id: "10", date: "2019-02-20", division: "SKT", supplier: "텔레시스", projectName: "[광텔] 2019년 SKT 운용사업 선로공사 예비용", productName: "광접속함체 직선형", specification: "가공 24C", quantity: 10 },
 ];
 
 const suppliers = ["텔레시스", "삼성전자", "LG유플러스", "SK텔레콤", "한국통신", "대한광통신"];
 
 export default function IncomingRecords() {
-  const { divisions } = useAppContext();
-  const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
+  const [selectedDivision, setSelectedDivision] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
@@ -77,7 +74,11 @@ export default function IncomingRecords() {
     quantity: "",
   });
 
-  const filteredRecords = mockRecords.filter(
+  const divisionFiltered = selectedDivision === "all"
+    ? mockRecords
+    : mockRecords.filter((record) => record.division === selectedDivision);
+
+  const filteredRecords = divisionFiltered.filter(
     (record) =>
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -100,12 +101,33 @@ export default function IncomingRecords() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">입고 내역</h1>
           <p className="text-muted-foreground">자재 입고 이력을 조회하고 관리합니다</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <BusinessDivisionSwitcher
-            divisions={divisions}
-            selectedId={selectedDivision}
-            onSelect={setSelectedDivision}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={selectedDivision === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("all")}
+              data-testid="button-division-all"
+            >
+              전체
+            </Button>
+            <Button
+              variant={selectedDivision === "SKT" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKT")}
+              data-testid="button-division-skt"
+            >
+              SKT사업부
+            </Button>
+            <Button
+              variant={selectedDivision === "SKB" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedDivision("SKB")}
+              data-testid="button-division-skb"
+            >
+              SKB사업부
+            </Button>
+          </div>
           <Button onClick={() => setDialogOpen(true)} data-testid="button-add-incoming">
             <Plus className="h-4 w-4 mr-2" />
             입고 등록
