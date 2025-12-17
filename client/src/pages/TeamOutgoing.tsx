@@ -26,31 +26,31 @@ import {
 export default function TeamOutgoing() {
   const { divisions } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState(divisions[0]?.id || "div1");
-  const [selectedTeam, setSelectedTeam] = useState("all");
+  const [selectedRecipient, setSelectedRecipient] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
     queryKey: ["/api/outgoing"],
   });
 
-  const teamCategories = Array.from(new Set(records.map((r) => r.teamCategory))).filter(Boolean);
+  const recipients = Array.from(new Set(records.map((r) => r.recipient))).filter(Boolean);
 
   const filteredRecords = records.filter((record) => {
-    const matchesTeam = selectedTeam === "all" || record.teamCategory === selectedTeam;
+    const matchesRecipient = selectedRecipient === "all" || record.recipient === selectedRecipient;
     const matchesSearch = 
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.recipient.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTeam && matchesSearch;
+    return matchesRecipient && matchesSearch;
   });
 
-  const teamStats = teamCategories.map((team) => {
-    const teamRecords = records.filter((r) => r.teamCategory === team);
+  const recipientStats = recipients.map((recipient) => {
+    const recipientRecords = records.filter((r) => r.recipient === recipient);
     return {
-      name: team,
-      totalOutgoing: teamRecords.reduce((sum, r) => sum + r.quantity, 0),
-      recordCount: teamRecords.length,
+      name: recipient,
+      totalOutgoing: recipientRecords.reduce((sum, r) => sum + r.quantity, 0),
+      recordCount: recipientRecords.length,
     };
   });
 
@@ -67,7 +67,7 @@ export default function TeamOutgoing() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">현장팀별 출고 내역</h1>
-          <p className="text-muted-foreground">현장팀별 자재 출고 현황을 조회합니다</p>
+          <p className="text-muted-foreground">수령인별 자재 출고 현황을 조회합니다</p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <BusinessDivisionSwitcher
@@ -79,21 +79,21 @@ export default function TeamOutgoing() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {teamStats.map((team) => (
+        {recipientStats.map((recipient) => (
           <Card
-            key={team.name}
-            className={`cursor-pointer transition-colors ${selectedTeam === team.name ? "ring-2 ring-primary" : ""}`}
-            onClick={() => setSelectedTeam(team.name === selectedTeam ? "all" : team.name)}
-            data-testid={`card-team-${team.name}`}
+            key={recipient.name}
+            className={`cursor-pointer transition-colors ${selectedRecipient === recipient.name ? "ring-2 ring-primary" : ""}`}
+            onClick={() => setSelectedRecipient(recipient.name === selectedRecipient ? "all" : recipient.name)}
+            data-testid={`card-recipient-${recipient.name}`}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center justify-between gap-2">
-                {team.name}
+                {recipient.name}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{team.totalOutgoing.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{team.recordCount}건의 출고</p>
+              <div className="text-2xl font-bold">{recipient.totalOutgoing.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">{recipient.recordCount}건의 출고</p>
             </CardContent>
           </Card>
         ))}
@@ -103,22 +103,22 @@ export default function TeamOutgoing() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="품명, 프로젝트명, 팀명 검색..."
+            placeholder="품명, 프로젝트명, 수령인 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
             data-testid="input-search"
           />
         </div>
-        <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-          <SelectTrigger className="w-48" data-testid="select-team-filter">
-            <SelectValue placeholder="팀 선택" />
+        <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
+          <SelectTrigger className="w-48" data-testid="select-recipient-filter">
+            <SelectValue placeholder="수령인 선택" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">전체 팀</SelectItem>
-            {teamCategories.map((team) => (
-              <SelectItem key={team} value={team}>
-                {team}
+            <SelectItem value="all">전체</SelectItem>
+            {recipients.map((recipient) => (
+              <SelectItem key={recipient} value={recipient}>
+                {recipient}
               </SelectItem>
             ))}
           </SelectContent>
@@ -135,12 +135,12 @@ export default function TeamOutgoing() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[100px]">날짜</TableHead>
-                  <TableHead>팀</TableHead>
+                  <TableHead>수령인</TableHead>
+                  <TableHead>구분</TableHead>
                   <TableHead>프로젝트명</TableHead>
                   <TableHead>품명</TableHead>
                   <TableHead>규격</TableHead>
                   <TableHead className="text-right">수량</TableHead>
-                  <TableHead>수령자</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -155,13 +155,13 @@ export default function TeamOutgoing() {
                     <TableRow key={record.id} data-testid={`row-record-${record.id}`}>
                       <TableCell className="font-medium">{record.date}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{record.teamCategory}</Badge>
+                        <Badge variant="outline">{record.recipient}</Badge>
                       </TableCell>
+                      <TableCell>{record.teamCategory}</TableCell>
                       <TableCell>{record.projectName}</TableCell>
                       <TableCell>{record.productName}</TableCell>
                       <TableCell>{record.specification}</TableCell>
                       <TableCell className="text-right">{record.quantity.toLocaleString()}</TableCell>
-                      <TableCell>{record.recipient}</TableCell>
                     </TableRow>
                   ))
                 )}
