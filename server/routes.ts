@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema } from "@shared/schema";
+import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema, insertIncomingRecordSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -314,6 +314,70 @@ export async function registerRoutes(
     }
 
     const deletedCount = await storage.bulkDeleteMaterialUsageRecords(ids);
+    res.json({ deletedCount });
+  });
+
+  app.get("/api/incoming", async (req, res) => {
+    const records = await storage.getIncomingRecords();
+    res.json(records);
+  });
+
+  app.get("/api/incoming/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+    
+    const record = await storage.getIncomingRecord(id);
+    if (!record) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+    res.json(record);
+  });
+
+  app.post("/api/incoming", async (req, res) => {
+    const parseResult = insertIncomingRecordSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: parseResult.error.message });
+    }
+
+    const record = await storage.createIncomingRecord(parseResult.data);
+    res.status(201).json(record);
+  });
+
+  app.patch("/api/incoming/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
+    const record = await storage.updateIncomingRecord(id, req.body);
+    if (!record) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+    res.json(record);
+  });
+
+  app.delete("/api/incoming/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
+    const success = await storage.deleteIncomingRecord(id);
+    if (!success) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+    res.status(204).send();
+  });
+
+  app.post("/api/incoming/bulk-delete", async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: "IDs must be an array" });
+    }
+
+    const deletedCount = await storage.bulkDeleteIncomingRecords(ids);
     res.json({ deletedCount });
   });
 

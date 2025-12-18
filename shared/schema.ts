@@ -90,3 +90,18 @@ export const materialUsageRecords = pgTable("material_usage_records", {
 export const insertMaterialUsageRecordSchema = createInsertSchema(materialUsageRecords).omit({ id: true });
 export type InsertMaterialUsageRecord = z.infer<typeof insertMaterialUsageRecordSchema>;
 export type MaterialUsageRecord = typeof materialUsageRecords.$inferSelect;
+
+export const incomingRecords = pgTable("incoming_records", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull(),
+  division: text("division").notNull(),
+  supplier: text("supplier").notNull(),
+  projectName: text("project_name").notNull(),
+  productName: text("product_name").notNull(),
+  specification: text("specification").notNull().default(""),
+  quantity: integer("quantity").notNull().default(0),
+});
+
+export const insertIncomingRecordSchema = createInsertSchema(incomingRecords).omit({ id: true });
+export type InsertIncomingRecord = z.infer<typeof insertIncomingRecordSchema>;
+export type IncomingRecord = typeof incomingRecords.$inferSelect;

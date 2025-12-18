@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Loader2, Trash2 } from "lucide-react";
+import { Pencil, Loader2, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InventoryTable } from "@/components/InventoryTable";
@@ -258,54 +258,54 @@ export default function Inventory() {
       <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-[40px]">
+            <TableRow className="h-11">
+              <TableHead className="w-[40px] text-center align-middle">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
-              <TableHead className="font-semibold w-[80px]">구분</TableHead>
-              <TableHead className="font-semibold w-[140px]">품명</TableHead>
-              <TableHead className="font-semibold w-[120px]">규격</TableHead>
-              <TableHead className="font-semibold text-right w-[80px]">이월재</TableHead>
-              <TableHead className="font-semibold text-right w-[80px]">입고량</TableHead>
-              <TableHead className="font-semibold text-right w-[80px]">출고량</TableHead>
-              <TableHead className="font-semibold text-right w-[80px]">잔량</TableHead>
-              <TableHead className="font-semibold text-right w-[100px]">단가</TableHead>
-              <TableHead className="font-semibold text-right w-[110px]">금액</TableHead>
-              <TableHead className="font-semibold w-[70px]">작업</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle">구분</TableHead>
+              <TableHead className="font-semibold w-[140px] text-center align-middle">품명</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle">규격</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle">이월재</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle">입고량</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle">출고량</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle">잔량</TableHead>
+              <TableHead className="font-semibold w-[100px] text-center align-middle">단가</TableHead>
+              <TableHead className="font-semibold w-[110px] text-center align-middle">금액</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredInventory.map((item) => (
-              <TableRow key={item.id} data-testid={`row-inventory-${item.id}`}>
-                <TableCell>
+              <TableRow key={item.id} className="h-11" data-testid={`row-inventory-${item.id}`}>
+                <TableCell className="text-center align-middle">
                   <Checkbox
                     checked={selectedIds.has(item.id)}
                     onCheckedChange={() => toggleSelect(item.id)}
                     data-testid={`checkbox-${item.id}`}
                   />
                 </TableCell>
-                <TableCell className="whitespace-nowrap">{item.category}</TableCell>
-                <TableCell className="whitespace-nowrap">{item.productName}</TableCell>
-                <TableCell className="max-w-[120px] truncate">{item.specification}</TableCell>
-                <TableCell className="text-right whitespace-nowrap">{item.carriedOver.toLocaleString()}</TableCell>
-                <TableCell className="text-right whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell>
-                <TableCell className="text-right whitespace-nowrap">{item.outgoing.toLocaleString()}</TableCell>
-                <TableCell className="text-right font-medium whitespace-nowrap">{item.remaining.toLocaleString()}</TableCell>
-                <TableCell className="text-right whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
-                <TableCell className="text-right whitespace-nowrap">{item.totalAmount.toLocaleString()}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
+                <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
+                <TableCell className="text-center align-middle max-w-[120px] truncate">{item.specification}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{item.carriedOver.toLocaleString()}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{item.outgoing.toLocaleString()}</TableCell>
+                <TableCell className="text-center align-middle font-medium whitespace-nowrap">{item.remaining.toLocaleString()}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{item.totalAmount.toLocaleString()}</TableCell>
+                <TableCell className="text-center align-middle">
+                  <div className="flex items-center justify-center gap-1">
                     <Button
                       size="icon"
                       variant="ghost"
                       onClick={() => handleEdit(item)}
                       data-testid={`button-edit-${item.id}`}
                     >
-                      <Plus className="h-4 w-4 rotate-45" />
+                      <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       size="icon"

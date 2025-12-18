@@ -190,14 +190,14 @@ export default function TeamOutgoing() {
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="font-semibold w-[100px]">날짜</TableHead>
-                  <TableHead className="font-semibold w-[100px]">수령인</TableHead>
-                  <TableHead className="font-semibold w-[80px]">구분</TableHead>
-                  <TableHead className="font-semibold w-[200px]">프로젝트명</TableHead>
-                  <TableHead className="font-semibold w-[120px]">품명</TableHead>
-                  <TableHead className="font-semibold w-[120px]">규격</TableHead>
-                  <TableHead className="font-semibold text-right w-[70px]">수량</TableHead>
+                <TableRow className="h-11">
+                  <TableHead className="font-semibold w-[100px] text-center align-middle">날짜</TableHead>
+                  <TableHead className="font-semibold w-[100px] text-center align-middle">수령인</TableHead>
+                  <TableHead className="font-semibold w-[80px] text-center align-middle">구분</TableHead>
+                  <TableHead className="font-semibold w-[200px] text-center align-middle">프로젝트명</TableHead>
+                  <TableHead className="font-semibold w-[120px] text-center align-middle">품명</TableHead>
+                  <TableHead className="font-semibold w-[120px] text-center align-middle">규격</TableHead>
+                  <TableHead className="font-semibold w-[70px] text-center align-middle">수량</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -209,16 +209,16 @@ export default function TeamOutgoing() {
                   </TableRow>
                 ) : (
                   filteredRecords.map((record) => (
-                    <TableRow key={record.id} data-testid={`row-record-${record.id}`}>
-                      <TableCell className="whitespace-nowrap font-medium">{record.date}</TableCell>
-                      <TableCell>
+                    <TableRow key={record.id} className="h-11" data-testid={`row-record-${record.id}`}>
+                      <TableCell className="text-center align-middle whitespace-nowrap font-medium">{record.date}</TableCell>
+                      <TableCell className="text-center align-middle">
                         <Badge variant="outline">{record.recipient}</Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{record.teamCategory}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{record.projectName}</TableCell>
-                      <TableCell className="whitespace-nowrap">{record.productName}</TableCell>
-                      <TableCell className="max-w-[120px] truncate">{record.specification}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
+                      <TableCell className="text-center align-middle whitespace-nowrap">{record.teamCategory}</TableCell>
+                      <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
+                      <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
+                      <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
+                      <TableCell className="text-center align-middle whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
                     </TableRow>
                   ))
                 )}

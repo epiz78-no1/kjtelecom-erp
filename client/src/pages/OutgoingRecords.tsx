@@ -313,45 +313,45 @@ export default function OutgoingRecords() {
       <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-[40px]">
+            <TableRow className="h-11">
+              <TableHead className="w-[40px] text-center align-middle">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
-              <TableHead className="font-semibold w-[100px]">출고일</TableHead>
-              <TableHead className="font-semibold w-[50px]">사업</TableHead>
-              <TableHead className="font-semibold w-[80px]">구분</TableHead>
-              <TableHead className="font-semibold w-[200px]">공사명</TableHead>
-              <TableHead className="font-semibold w-[120px]">품명</TableHead>
-              <TableHead className="font-semibold w-[120px]">규격</TableHead>
-              <TableHead className="font-semibold text-right w-[70px]">수량</TableHead>
-              <TableHead className="font-semibold w-[80px]">수령인</TableHead>
-              <TableHead className="font-semibold w-[70px]">작업</TableHead>
+              <TableHead className="font-semibold w-[100px] text-center align-middle">출고일</TableHead>
+              <TableHead className="font-semibold w-[50px] text-center align-middle">사업</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle">구분</TableHead>
+              <TableHead className="font-semibold w-[200px] text-center align-middle">공사명</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle">품명</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle">규격</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle">수량</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle">수령인</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredRecords.map((record) => (
-              <TableRow key={record.id} data-testid={`row-outgoing-${record.id}`}>
-                <TableCell>
+              <TableRow key={record.id} className="h-11" data-testid={`row-outgoing-${record.id}`}>
+                <TableCell className="text-center align-middle">
                   <Checkbox
                     checked={selectedIds.has(record.id)}
                     onCheckedChange={() => toggleSelect(record.id)}
                     data-testid={`checkbox-${record.id}`}
                   />
                 </TableCell>
-                <TableCell className="whitespace-nowrap">{record.date}</TableCell>
-                <TableCell className="whitespace-nowrap">{record.division}</TableCell>
-                <TableCell className="whitespace-nowrap">{record.teamCategory}</TableCell>
-                <TableCell className="max-w-[200px] truncate">{record.projectName}</TableCell>
-                <TableCell className="whitespace-nowrap">{record.productName}</TableCell>
-                <TableCell className="max-w-[120px] truncate">{record.specification}</TableCell>
-                <TableCell className="text-right font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
-                <TableCell className="whitespace-nowrap">{record.recipient}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
+                <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{record.division}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{record.teamCategory}</TableCell>
+                <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
+                <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
+                <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
+                <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
+                <TableCell className="text-center align-middle">
+                  <div className="flex items-center justify-center gap-1">
                     <Button
                       size="icon"
                       variant="ghost"

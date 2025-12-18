@@ -5,7 +5,8 @@ import {
   type InventoryItem, type InsertInventoryItem,
   type OutgoingRecord, type InsertOutgoingRecord,
   type MaterialUsageRecord, type InsertMaterialUsageRecord,
-  users, divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords
+  type IncomingRecord, type InsertIncomingRecord,
+  users, divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray } from "drizzle-orm";
@@ -54,6 +55,13 @@ export interface IStorage {
   updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>): Promise<MaterialUsageRecord | undefined>;
   deleteMaterialUsageRecord(id: number): Promise<boolean>;
   bulkDeleteMaterialUsageRecords(ids: number[]): Promise<number>;
+  
+  getIncomingRecords(): Promise<IncomingRecord[]>;
+  getIncomingRecord(id: number): Promise<IncomingRecord | undefined>;
+  createIncomingRecord(record: InsertIncomingRecord): Promise<IncomingRecord>;
+  updateIncomingRecord(id: number, updates: Partial<InsertIncomingRecord>): Promise<IncomingRecord | undefined>;
+  deleteIncomingRecord(id: number): Promise<boolean>;
+  bulkDeleteIncomingRecords(ids: number[]): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -289,6 +297,40 @@ export class DatabaseStorage implements IStorage {
   async bulkDeleteMaterialUsageRecords(ids: number[]): Promise<number> {
     if (ids.length === 0) return 0;
     const result = await db.delete(materialUsageRecords).where(inArray(materialUsageRecords.id, ids)).returning();
+    return result.length;
+  }
+
+  async getIncomingRecords(): Promise<IncomingRecord[]> {
+    return db.select().from(incomingRecords);
+  }
+
+  async getIncomingRecord(id: number): Promise<IncomingRecord | undefined> {
+    const [record] = await db.select().from(incomingRecords).where(eq(incomingRecords.id, id));
+    return record;
+  }
+
+  async createIncomingRecord(record: InsertIncomingRecord): Promise<IncomingRecord> {
+    const [newRecord] = await db.insert(incomingRecords).values(record).returning();
+    return newRecord;
+  }
+
+  async updateIncomingRecord(id: number, updates: Partial<InsertIncomingRecord>): Promise<IncomingRecord | undefined> {
+    const [record] = await db
+      .update(incomingRecords)
+      .set(updates)
+      .where(eq(incomingRecords.id, id))
+      .returning();
+    return record;
+  }
+
+  async deleteIncomingRecord(id: number): Promise<boolean> {
+    const result = await db.delete(incomingRecords).where(eq(incomingRecords.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async bulkDeleteIncomingRecords(ids: number[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db.delete(incomingRecords).where(inArray(incomingRecords.id, ids)).returning();
     return result.length;
   }
 }
