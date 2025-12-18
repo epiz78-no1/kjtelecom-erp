@@ -314,22 +314,22 @@ export default function OutgoingRecords() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
+              <TableHead className="w-[40px]">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
-              <TableHead className="font-semibold min-w-[100px]">출고일</TableHead>
-              <TableHead className="font-semibold min-w-[60px]">사업</TableHead>
-              <TableHead className="font-semibold min-w-[80px]">구분</TableHead>
-              <TableHead className="font-semibold min-w-[200px]">공사명</TableHead>
-              <TableHead className="font-semibold min-w-[120px]">품명</TableHead>
-              <TableHead className="font-semibold min-w-[150px]">규격</TableHead>
-              <TableHead className="font-semibold text-right min-w-[60px]">수량</TableHead>
-              <TableHead className="font-semibold min-w-[80px]">수령인</TableHead>
-              <TableHead className="font-semibold min-w-[80px]">작업</TableHead>
+              <TableHead className="font-semibold w-[100px]">출고일</TableHead>
+              <TableHead className="font-semibold w-[50px]">사업</TableHead>
+              <TableHead className="font-semibold w-[80px]">구분</TableHead>
+              <TableHead className="font-semibold w-[200px]">공사명</TableHead>
+              <TableHead className="font-semibold w-[120px]">품명</TableHead>
+              <TableHead className="font-semibold w-[120px]">규격</TableHead>
+              <TableHead className="font-semibold text-right w-[70px]">수량</TableHead>
+              <TableHead className="font-semibold w-[80px]">수령인</TableHead>
+              <TableHead className="font-semibold w-[70px]">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -342,14 +342,14 @@ export default function OutgoingRecords() {
                     data-testid={`checkbox-${record.id}`}
                   />
                 </TableCell>
-                <TableCell>{record.date}</TableCell>
-                <TableCell>{record.division}</TableCell>
-                <TableCell>{record.teamCategory}</TableCell>
-                <TableCell className="max-w-[250px] truncate">{record.projectName}</TableCell>
-                <TableCell>{record.productName}</TableCell>
-                <TableCell className="max-w-[180px] truncate">{record.specification}</TableCell>
-                <TableCell className="text-right font-medium">{record.quantity.toLocaleString()}</TableCell>
-                <TableCell>{record.recipient}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.date}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.division}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.teamCategory}</TableCell>
+                <TableCell className="max-w-[200px] truncate">{record.projectName}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.productName}</TableCell>
+                <TableCell className="max-w-[120px] truncate">{record.specification}</TableCell>
+                <TableCell className="text-right font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.recipient}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button

@@ -259,23 +259,23 @@ export default function Inventory() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
+              <TableHead className="w-[40px]">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
-              <TableHead className="font-semibold">구분</TableHead>
-              <TableHead className="font-semibold">품명</TableHead>
-              <TableHead className="font-semibold">규격</TableHead>
-              <TableHead className="font-semibold text-right">이월재</TableHead>
-              <TableHead className="font-semibold text-right">입고량</TableHead>
-              <TableHead className="font-semibold text-right">출고량</TableHead>
-              <TableHead className="font-semibold text-right">잔량</TableHead>
-              <TableHead className="font-semibold text-right">단가</TableHead>
-              <TableHead className="font-semibold text-right">금액</TableHead>
-              <TableHead className="font-semibold">작업</TableHead>
+              <TableHead className="font-semibold w-[80px]">구분</TableHead>
+              <TableHead className="font-semibold w-[140px]">품명</TableHead>
+              <TableHead className="font-semibold w-[120px]">규격</TableHead>
+              <TableHead className="font-semibold text-right w-[80px]">이월재</TableHead>
+              <TableHead className="font-semibold text-right w-[80px]">입고량</TableHead>
+              <TableHead className="font-semibold text-right w-[80px]">출고량</TableHead>
+              <TableHead className="font-semibold text-right w-[80px]">잔량</TableHead>
+              <TableHead className="font-semibold text-right w-[100px]">단가</TableHead>
+              <TableHead className="font-semibold text-right w-[110px]">금액</TableHead>
+              <TableHead className="font-semibold w-[70px]">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -288,15 +288,15 @@ export default function Inventory() {
                     data-testid={`checkbox-${item.id}`}
                   />
                 </TableCell>
-                <TableCell>{item.category}</TableCell>
-                <TableCell>{item.productName}</TableCell>
-                <TableCell>{item.specification}</TableCell>
-                <TableCell className="text-right">{item.carriedOver.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{item.incoming.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{item.outgoing.toLocaleString()}</TableCell>
-                <TableCell className="text-right font-medium">{item.remaining.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{item.unitPrice.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{item.totalAmount.toLocaleString()}</TableCell>
+                <TableCell className="whitespace-nowrap">{item.category}</TableCell>
+                <TableCell className="whitespace-nowrap">{item.productName}</TableCell>
+                <TableCell className="max-w-[120px] truncate">{item.specification}</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{item.carriedOver.toLocaleString()}</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{item.outgoing.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-medium whitespace-nowrap">{item.remaining.toLocaleString()}</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{item.totalAmount.toLocaleString()}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button

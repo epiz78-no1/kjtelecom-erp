@@ -191,13 +191,13 @@ export default function TeamOutgoing() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">날짜</TableHead>
-                  <TableHead>수령인</TableHead>
-                  <TableHead>구분</TableHead>
-                  <TableHead>프로젝트명</TableHead>
-                  <TableHead>품명</TableHead>
-                  <TableHead>규격</TableHead>
-                  <TableHead className="text-right">수량</TableHead>
+                  <TableHead className="font-semibold w-[100px]">날짜</TableHead>
+                  <TableHead className="font-semibold w-[100px]">수령인</TableHead>
+                  <TableHead className="font-semibold w-[80px]">구분</TableHead>
+                  <TableHead className="font-semibold w-[200px]">프로젝트명</TableHead>
+                  <TableHead className="font-semibold w-[120px]">품명</TableHead>
+                  <TableHead className="font-semibold w-[120px]">규격</TableHead>
+                  <TableHead className="font-semibold text-right w-[70px]">수량</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -210,15 +210,15 @@ export default function TeamOutgoing() {
                 ) : (
                   filteredRecords.map((record) => (
                     <TableRow key={record.id} data-testid={`row-record-${record.id}`}>
-                      <TableCell className="font-medium">{record.date}</TableCell>
+                      <TableCell className="whitespace-nowrap font-medium">{record.date}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{record.recipient}</Badge>
                       </TableCell>
-                      <TableCell>{record.teamCategory}</TableCell>
-                      <TableCell>{record.projectName}</TableCell>
-                      <TableCell>{record.productName}</TableCell>
-                      <TableCell>{record.specification}</TableCell>
-                      <TableCell className="text-right">{record.quantity.toLocaleString()}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.teamCategory}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{record.projectName}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.productName}</TableCell>
+                      <TableCell className="max-w-[120px] truncate">{record.specification}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
                     </TableRow>
                   ))
                 )}

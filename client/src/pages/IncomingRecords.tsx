@@ -156,23 +156,23 @@ export default function IncomingRecords() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="font-semibold min-w-[100px]">입고일</TableHead>
-              <TableHead className="font-semibold min-w-[60px]">사업</TableHead>
-              <TableHead className="font-semibold min-w-[80px]">구매처</TableHead>
-              <TableHead className="font-semibold min-w-[250px]">공사명</TableHead>
-              <TableHead className="font-semibold min-w-[120px]">품명</TableHead>
-              <TableHead className="font-semibold min-w-[100px]">규격</TableHead>
-              <TableHead className="font-semibold text-right min-w-[80px]">수량</TableHead>
+              <TableHead className="font-semibold w-[100px]">입고일</TableHead>
+              <TableHead className="font-semibold w-[50px]">사업</TableHead>
+              <TableHead className="font-semibold w-[80px]">구매처</TableHead>
+              <TableHead className="font-semibold w-[200px]">공사명</TableHead>
+              <TableHead className="font-semibold w-[120px]">품명</TableHead>
+              <TableHead className="font-semibold w-[120px]">규격</TableHead>
+              <TableHead className="font-semibold text-right w-[70px]">수량</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredRecords.map((record) => (
               <TableRow key={record.id} data-testid={`row-incoming-${record.id}`}>
-                <TableCell>{record.date}</TableCell>
-                <TableCell>{record.division}</TableCell>
-                <TableCell>{record.supplier}</TableCell>
-                <TableCell className="max-w-[300px] truncate">{record.projectName}</TableCell>
-                <TableCell>{record.productName}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.date}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.division}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.supplier}</TableCell>
+                <TableCell className="max-w-[200px] truncate">{record.projectName}</TableCell>
+                <TableCell className="whitespace-nowrap">{record.productName}</TableCell>
                 <TableCell>{record.specification}</TableCell>
                 <TableCell className="text-right font-medium">{record.quantity.toLocaleString()}</TableCell>
               </TableRow>
