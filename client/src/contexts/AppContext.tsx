@@ -12,6 +12,7 @@ export interface FieldTeam {
   name: string;
   divisionId: string;
   divisionName: string;
+  teamCategory: string;
   memberCount: number;
   materialCount: number;
   lastActivity: string | null;

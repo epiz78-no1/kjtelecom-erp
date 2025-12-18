@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Bell, Shield, Database, Pencil, Check, X, Loader2, Plus, Trash2, Users } from "lucide-react";
-import { useAppContext } from "@/contexts/AppContext";
+import { useAppContext, type FieldTeam } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -36,13 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface FieldTeam {
-  id: string;
-  name: string;
-  divisionId: string;
-  memberCount: number;
-  isActive: boolean;
-}
+const teamCategories = ["외선팀", "접속팀", "유지보수팀", "설치팀"];
 
 export default function Settings() {
   const { divisions, divisionsLoading, addDivision, updateDivision, deleteDivision, teams, teamsLoading, addTeam, updateTeam, deleteTeam } = useAppContext();
@@ -65,7 +59,7 @@ export default function Settings() {
 
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<FieldTeam | null>(null);
-  const [teamFormData, setTeamFormData] = useState({ name: "", divisionId: "", memberCount: 0, isActive: true });
+  const [teamFormData, setTeamFormData] = useState({ name: "", divisionId: "", teamCategory: "외선팀", memberCount: 0, isActive: true });
   const [isTeamSubmitting, setIsTeamSubmitting] = useState(false);
   const [teamDeleteDialogOpen, setTeamDeleteDialogOpen] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<FieldTeam | null>(null);
@@ -135,7 +129,7 @@ export default function Settings() {
 
   const openAddTeamDialog = () => {
     setEditingTeam(null);
-    setTeamFormData({ name: "", divisionId: divisions[0]?.id || "", memberCount: 0, isActive: true });
+    setTeamFormData({ name: "", divisionId: divisions[0]?.id || "", teamCategory: "외선팀", memberCount: 0, isActive: true });
     setTeamDialogOpen(true);
   };
 
@@ -144,6 +138,7 @@ export default function Settings() {
     setTeamFormData({
       name: team.name,
       divisionId: team.divisionId,
+      teamCategory: team.teamCategory || "외선팀",
       memberCount: team.memberCount,
       isActive: team.isActive,
     });
@@ -376,6 +371,7 @@ export default function Settings() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">{team.name}</span>
                           <Badge variant="outline" className="text-xs">{getDivisionName(team.divisionId)}</Badge>
+                                          <Badge variant="secondary" className="text-xs">{team.teamCategory}</Badge>
                           {!team.isActive && <Badge variant="secondary" className="text-xs">비활성</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">{team.memberCount}명</p>
@@ -557,6 +553,24 @@ export default function Settings() {
                   {divisions.map((div) => (
                     <SelectItem key={div.id} value={div.id}>
                       {div.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="teamCategory">팀 구분 *</Label>
+              <Select
+                value={teamFormData.teamCategory}
+                onValueChange={(value) => setTeamFormData({ ...teamFormData, teamCategory: value })}
+              >
+                <SelectTrigger data-testid="select-team-category">
+                  <SelectValue placeholder="팀 구분 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
                     </SelectItem>
                   ))}
                 </SelectContent>

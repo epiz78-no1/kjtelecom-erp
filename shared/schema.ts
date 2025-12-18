@@ -30,6 +30,7 @@ export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   divisionId: varchar("division_id").notNull(),
+  teamCategory: text("team_category").notNull().default("외선팀"),
   memberCount: integer("member_count").notNull().default(0),
   materialCount: integer("material_count").notNull().default(0),
   lastActivity: text("last_activity"),
