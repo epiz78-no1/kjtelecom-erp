@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { BusinessDivisionSwitcher } from "@/components/BusinessDivisionSwitcher";
 import { UsageChart } from "@/components/UsageChart";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
 import {
   Select,
@@ -10,17 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 
-// todo: remove mock functionality
 const mockMonthlyData = [
   { month: "7월", usage: 4500 },
   { month: "8월", usage: 5200 },
@@ -30,15 +19,6 @@ const mockMonthlyData = [
   { month: "12월", usage: 4200 },
 ];
 
-// todo: remove mock functionality
-const mockTeamUsage = [
-  { team: "강남 1팀", cableUsage: 1250, junctionBox: 12, terminalBox: 8, ranking: 1 },
-  { team: "서초 2팀", cableUsage: 980, junctionBox: 8, terminalBox: 6, ranking: 2 },
-  { team: "강서 1팀", cableUsage: 850, junctionBox: 6, terminalBox: 5, ranking: 3 },
-  { team: "송파 1팀", cableUsage: 720, junctionBox: 5, terminalBox: 4, ranking: 4 },
-];
-
-// todo: remove mock functionality
 const mockCategoryData = [
   { month: "7월", usage: 45 },
   { month: "8월", usage: 52 },
@@ -104,45 +84,6 @@ export default function Statistics() {
         <UsageChart title={`${selectedCategory} 월별 사용량`} data={mockMonthlyData} />
         <UsageChart title={`${selectedCategory} 카테고리별 구매량`} data={mockCategoryData} />
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-medium">현장팀별 사용량 순위</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="font-semibold w-16">순위</TableHead>
-                  <TableHead className="font-semibold">현장팀</TableHead>
-                  <TableHead className="font-semibold text-right">광케이블 (m)</TableHead>
-                  <TableHead className="font-semibold text-right">접속함 (개)</TableHead>
-                  <TableHead className="font-semibold text-right">단자함 (개)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockTeamUsage.map((team) => (
-                  <TableRow key={team.team} data-testid={`row-stat-${team.ranking}`}>
-                    <TableCell>
-                      <Badge
-                        variant={team.ranking === 1 ? "default" : "secondary"}
-                        className={team.ranking === 1 ? "bg-yellow-500 dark:bg-yellow-600" : ""}
-                      >
-                        {team.ranking}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{team.team}</TableCell>
-                    <TableCell className="text-right">{team.cableUsage.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{team.junctionBox}</TableCell>
-                    <TableCell className="text-right">{team.terminalBox}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
