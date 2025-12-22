@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { Package, ShoppingCart, Users, AlertTriangle } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
-import { QuickActionButtons } from "@/components/QuickActionButtons";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import type { InventoryItem } from "@shared/schema";
 import {
   Table,
@@ -21,7 +19,6 @@ import {
 export default function Dashboard() {
   const { divisions, teams } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("all");
-  const [, setLocation] = useLocation();
 
   const { data: inventory = [] } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
@@ -90,10 +87,6 @@ export default function Dashboard() {
               SKB사업부
             </Button>
           </div>
-          <QuickActionButtons
-            onAddIncoming={() => setLocation("/incoming")}
-            onAddOutgoing={() => setLocation("/outgoing")}
-          />
         </div>
       </div>
 
