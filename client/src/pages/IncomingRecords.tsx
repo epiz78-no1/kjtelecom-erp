@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Plus, Calendar, Search, Trash2, Pencil, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { IncomingRecord } from "@shared/schema";
+import type { IncomingRecord, InventoryItem } from "@shared/schema";
 import {
   Table,
   TableBody,
@@ -75,12 +75,32 @@ export default function IncomingRecords() {
     queryKey: ["/api/incoming"],
   });
 
+  const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
+    queryKey: ["/api/inventory"],
+  });
+
+  // Get unique product names from inventory
+  const productNames = useMemo(() => {
+    const names = new Set(inventoryItems.map(item => item.productName));
+    return Array.from(names).sort();
+  }, [inventoryItems]);
+
+  // Get specifications for the selected product name
+  const specifications = useMemo(() => {
+    if (!formData.productName) return [];
+    const specs = inventoryItems
+      .filter(item => item.productName === formData.productName)
+      .map(item => item.specification);
+    return Array.from(new Set(specs)).sort();
+  }, [inventoryItems, formData.productName]);
+
   const createMutation = useMutation({
     mutationFn: async (data: Omit<IncomingRecord, "id">) => {
       return apiRequest("POST", "/api/incoming", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/incoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "입고가 등록되었습니다" });
       closeDialog();
     },
@@ -451,21 +471,40 @@ export default function IncomingRecords() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>품명 *</Label>
-                <Input
+                <Select
                   value={formData.productName}
-                  onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                  placeholder="예: 광접속함체 직선형"
-                  data-testid="input-incoming-product"
-                />
+                  onValueChange={(value) => setFormData({ ...formData, productName: value, specification: "" })}
+                >
+                  <SelectTrigger data-testid="select-incoming-product">
+                    <SelectValue placeholder="품명 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productNames.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-2">
                 <Label>규격</Label>
-                <Input
+                <Select
                   value={formData.specification}
-                  onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                  placeholder="예: 가공 24C"
-                  data-testid="input-incoming-spec"
-                />
+                  onValueChange={(value) => setFormData({ ...formData, specification: value })}
+                  disabled={!formData.productName}
+                >
+                  <SelectTrigger data-testid="select-incoming-spec">
+                    <SelectValue placeholder={formData.productName ? "규격 선택" : "품명을 먼저 선택하세요"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {specifications.map((spec) => (
+                      <SelectItem key={spec} value={spec}>
+                        {spec}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid gap-2">

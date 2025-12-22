@@ -352,7 +352,8 @@ export async function registerRoutes(
     );
     
     if (matchingItem) {
-      const newIncoming = matchingItem.incoming + parseResult.data.quantity;
+      const quantity = parseResult.data.quantity ?? 0;
+      const newIncoming = matchingItem.incoming + quantity;
       const newRemaining = matchingItem.carriedOver + newIncoming - matchingItem.outgoing;
       const newTotalAmount = newRemaining * matchingItem.unitPrice;
       await storage.updateInventoryItem(matchingItem.id, {
