@@ -41,14 +41,11 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-3">
+        <div className="flex items-center gap-3 px-2 py-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Cable className="h-4 w-4" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold">자재관리</span>
-            <span className="text-xs text-muted-foreground">SKT 광케이블</span>
-          </div>
+          <span className="text-lg font-bold">자재관리</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
