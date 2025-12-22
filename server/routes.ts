@@ -351,8 +351,9 @@ export async function registerRoutes(
               item.division === parseResult.data.division
     );
     
+    const quantity = parseResult.data.quantity ?? 0;
+    
     if (matchingItem) {
-      const quantity = parseResult.data.quantity ?? 0;
       const newIncoming = matchingItem.incoming + quantity;
       const newRemaining = matchingItem.carriedOver + newIncoming - matchingItem.outgoing;
       const newTotalAmount = newRemaining * matchingItem.unitPrice;
@@ -360,6 +361,20 @@ export async function registerRoutes(
         incoming: newIncoming,
         remaining: newRemaining,
         totalAmount: newTotalAmount,
+      });
+    } else {
+      // Create new inventory item if it doesn't exist
+      await storage.createInventoryItem({
+        division: parseResult.data.division,
+        category: "기타",
+        productName: parseResult.data.productName,
+        specification: parseResult.data.specification ?? "",
+        carriedOver: 0,
+        incoming: quantity,
+        outgoing: 0,
+        remaining: quantity,
+        unitPrice: 0,
+        totalAmount: 0,
       });
     }
     
