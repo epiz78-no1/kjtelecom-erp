@@ -57,7 +57,7 @@ export default function Dashboard() {
     .sort((a, b) => b.amount - a.amount);
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-auto space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">대시보드</h1>
