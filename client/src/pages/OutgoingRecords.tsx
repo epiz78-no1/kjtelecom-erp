@@ -171,7 +171,7 @@ export default function OutgoingRecords() {
   const openAddDialog = () => {
     setEditingRecord(null);
     setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
-    setSelectedDate(undefined);
+    setSelectedDate(new Date());
     setDialogOpen(true);
   };
 
@@ -194,7 +194,7 @@ export default function OutgoingRecords() {
     setDialogOpen(false);
     setEditingRecord(null);
     setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
-    setSelectedDate(undefined);
+    setSelectedDate(new Date());
   };
 
   const handleSubmit = () => {

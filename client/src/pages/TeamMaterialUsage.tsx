@@ -175,7 +175,7 @@ export default function TeamMaterialUsage() {
   const openAddDialog = () => {
     setEditingRecord(null);
     setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
-    setSelectedDate(undefined);
+    setSelectedDate(new Date());
     setDialogOpen(true);
   };
 
@@ -198,7 +198,7 @@ export default function TeamMaterialUsage() {
     setDialogOpen(false);
     setEditingRecord(null);
     setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
-    setSelectedDate(undefined);
+    setSelectedDate(new Date());
   };
 
   const handleSubmit = () => {
