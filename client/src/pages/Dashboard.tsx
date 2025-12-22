@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Package, ShoppingCart, Users, AlertTriangle } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { QuickActionButtons } from "@/components/QuickActionButtons";
-import { UsageChart } from "@/components/UsageChart";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,24 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const mockUsageData = [
-  { month: "7월", usage: 4500 },
-  { month: "8월", usage: 5200 },
-  { month: "9월", usage: 4800 },
-  { month: "10월", usage: 6100 },
-  { month: "11월", usage: 5500 },
-  { month: "12월", usage: 4200 },
-];
-
-const mockPurchaseData = [
-  { month: "7월", usage: 12000000 },
-  { month: "8월", usage: 15000000 },
-  { month: "9월", usage: 11000000 },
-  { month: "10월", usage: 18000000 },
-  { month: "11월", usage: 14000000 },
-  { month: "12월", usage: 9500000 },
-];
 
 export default function Dashboard() {
   const { divisions, teams } = useAppContext();
@@ -191,11 +172,6 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <UsageChart title="월별 자재 사용량 (단위)" data={mockUsageData} />
-        <UsageChart title="월별 구매 금액 (원)" data={mockPurchaseData} />
-      </div>
 
       <Card>
         <CardHeader>
