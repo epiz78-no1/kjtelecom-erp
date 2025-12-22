@@ -221,6 +221,23 @@ export default function IncomingRecords() {
       return;
     }
 
+    // Check if this is a new product (not in inventory)
+    const existingItem = inventoryItems.find(
+      item => item.productName === formData.productName && 
+              item.specification === formData.specification &&
+              item.division === formData.division
+    );
+
+    // For new products, unit price is required
+    if (!existingItem && !editingRecord && !formData.unitPrice) {
+      toast({ 
+        title: "단가를 입력해주세요", 
+        description: "새 품목 등록 시 단가 입력이 필수입니다.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
     const data = {
       date: format(selectedDate, "yyyy-MM-dd"),
       division: formData.division,
