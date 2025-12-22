@@ -342,6 +342,26 @@ export async function registerRoutes(
     }
 
     const record = await storage.createIncomingRecord(parseResult.data);
+    
+    // Update inventory: find matching item and increase incoming/remaining
+    const inventoryItems = await storage.getInventoryItems();
+    const matchingItem = inventoryItems.find(
+      item => item.productName === parseResult.data.productName && 
+              item.specification === parseResult.data.specification &&
+              item.division === parseResult.data.division
+    );
+    
+    if (matchingItem) {
+      const newIncoming = matchingItem.incoming + parseResult.data.quantity;
+      const newRemaining = matchingItem.carriedOver + newIncoming - matchingItem.outgoing;
+      const newTotalAmount = newRemaining * matchingItem.unitPrice;
+      await storage.updateInventoryItem(matchingItem.id, {
+        incoming: newIncoming,
+        remaining: newRemaining,
+        totalAmount: newTotalAmount,
+      });
+    }
+    
     res.status(201).json(record);
   });
 
