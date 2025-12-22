@@ -291,7 +291,6 @@ export default function Inventory() {
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
               <TableHead className="font-semibold w-[140px] text-center align-middle bg-background">품명</TableHead>
               <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">이월재</TableHead>
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입고량</TableHead>
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">출고량</TableHead>
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">잔량</TableHead>
@@ -313,7 +312,6 @@ export default function Inventory() {
                 <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
                 <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
                 <TableCell className="text-center align-middle max-w-[120px] truncate">{item.specification}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{item.carriedOver.toLocaleString()}</TableCell>
                 <TableCell className="text-center align-middle whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell>
                 <TableCell className="text-center align-middle whitespace-nowrap">{item.outgoing.toLocaleString()}</TableCell>
                 <TableCell className="text-center align-middle font-medium whitespace-nowrap">{item.remaining.toLocaleString()}</TableCell>
@@ -343,7 +341,7 @@ export default function Inventory() {
             ))}
             {filteredInventory.length === 0 && (
               <TableRow>
-                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                   재고 데이터가 없습니다
                 </TableCell>
               </TableRow>
