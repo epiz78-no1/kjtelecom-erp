@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Pencil, Loader2, Trash2, Plus } from "lucide-react";
+import { Pencil, Loader2, Trash2, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InventoryTable } from "@/components/InventoryTable";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
@@ -38,6 +39,7 @@ export default function Inventory() {
   const { toast } = useToast();
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("전체");
+  const [searchQuery, setSearchQuery] = useState("");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
@@ -112,9 +114,15 @@ export default function Inventory() {
   const categorySet = new Set(divisionFiltered.map((item) => item.category));
   const categories = ["전체", ...Array.from(categorySet)];
 
-  const filteredInventory = selectedCategory === "전체"
+  const categoryFiltered = selectedCategory === "전체"
     ? divisionFiltered
     : divisionFiltered.filter((item) => item.category === selectedCategory);
+
+  const filteredInventory = searchQuery
+    ? categoryFiltered.filter((item) =>
+        item.productName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : categoryFiltered;
 
   const allSelected = filteredInventory.length > 0 && filteredInventory.every(item => selectedIds.has(item.id));
 
@@ -225,35 +233,47 @@ export default function Inventory() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="w-48">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger data-testid="select-category-filter">
-                <SelectValue placeholder="카테고리 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="품명 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-inventory"
+              />
+            </div>
+            <div className="w-48">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger data-testid="select-category-filter">
+                  <SelectValue placeholder="카테고리 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteOpen(true)}
+                data-testid="button-bulk-delete"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                선택 삭제 ({selectedIds.size})
+              </Button>
+            )}
           </div>
           <div className="text-sm text-muted-foreground">
             총 <span className="font-semibold text-foreground">{filteredInventory.length}</span>개 품목
           </div>
-          {selectedIds.size > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setBulkDeleteOpen(true)}
-              data-testid="button-bulk-delete"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              선택 삭제 ({selectedIds.size})
-            </Button>
-          )}
         </div>
       </div>
 
