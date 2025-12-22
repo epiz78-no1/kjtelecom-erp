@@ -184,98 +184,100 @@ export default function Inventory() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">재고 현황</h1>
-          <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1">
-            <Button
-              variant={selectedDivision === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("all")}
-              data-testid="button-division-all"
-            >
-              전체
-            </Button>
-            <Button
-              variant={selectedDivision === "SKT" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("SKT")}
-              data-testid="button-division-skt"
-            >
-              SKT사업부
-            </Button>
-            <Button
-              variant={selectedDivision === "SKB" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("SKB")}
-              data-testid="button-division-skb"
-            >
-              SKB사업부
+    <div className="flex flex-col h-full">
+      <div className="flex-shrink-0 space-y-4 pb-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">재고 현황</h1>
+            <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1">
+              <Button
+                variant={selectedDivision === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDivision("all")}
+                data-testid="button-division-all"
+              >
+                전체
+              </Button>
+              <Button
+                variant={selectedDivision === "SKT" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDivision("SKT")}
+                data-testid="button-division-skt"
+              >
+                SKT사업부
+              </Button>
+              <Button
+                variant={selectedDivision === "SKB" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDivision("SKB")}
+                data-testid="button-division-skb"
+              >
+                SKB사업부
+              </Button>
+            </div>
+            <Button onClick={() => { setEditingItem(null); setMaterialDialogOpen(true); }} data-testid="button-add-material">
+              <Plus className="h-4 w-4 mr-2" />
+              자재 추가
             </Button>
           </div>
-          <Button onClick={() => { setEditingItem(null); setMaterialDialogOpen(true); }} data-testid="button-add-material">
-            <Plus className="h-4 w-4 mr-2" />
-            자재 추가
-          </Button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="w-48">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger data-testid="select-category-filter">
+                <SelectValue placeholder="카테고리 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            총 <span className="font-semibold text-foreground">{filteredInventory.length}</span>개 품목
+          </div>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkDeleteOpen(true)}
+              data-testid="button-bulk-delete"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              선택 삭제 ({selectedIds.size})
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="w-48">
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger data-testid="select-category-filter">
-              <SelectValue placeholder="카테고리 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          총 <span className="font-semibold text-foreground">{filteredInventory.length}</span>개 품목
-        </div>
-        {selectedIds.size > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setBulkDeleteOpen(true)}
-            data-testid="button-bulk-delete"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            선택 삭제 ({selectedIds.size})
-          </Button>
-        )}
-      </div>
-
-      <div className="rounded-md border overflow-x-auto">
+      <div className="flex-1 min-h-0 rounded-md border overflow-auto">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow className="h-11">
-              <TableHead className="w-[40px] text-center align-middle">
+              <TableHead className="w-[40px] text-center align-middle bg-background">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle">구분</TableHead>
-              <TableHead className="font-semibold w-[140px] text-center align-middle">품명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle">규격</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle">이월재</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle">입고량</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle">출고량</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle">잔량</TableHead>
-              <TableHead className="font-semibold w-[100px] text-center align-middle">단가</TableHead>
-              <TableHead className="font-semibold w-[110px] text-center align-middle">금액</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle">작업</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
+              <TableHead className="font-semibold w-[140px] text-center align-middle bg-background">품명</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">이월재</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입고량</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">출고량</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">잔량</TableHead>
+              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">단가</TableHead>
+              <TableHead className="font-semibold w-[110px] text-center align-middle bg-background">금액</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

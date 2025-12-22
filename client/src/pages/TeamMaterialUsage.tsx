@@ -244,98 +244,100 @@ export default function TeamMaterialUsage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">
-            {currentYear}년 {divisionLabel} 자재 사용내역
-          </h1>
-          <p className="text-muted-foreground">현장팀 자재 사용 이력을 조회합니다</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1">
-            <Button
-              variant={selectedDivision === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("all")}
-              data-testid="button-division-all"
-            >
-              전체
-            </Button>
-            <Button
-              variant={selectedDivision === "SKT" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("SKT")}
-              data-testid="button-division-skt"
-            >
-              SKT사업부
-            </Button>
-            <Button
-              variant={selectedDivision === "SKB" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("SKB")}
-              data-testid="button-division-skb"
-            >
-              SKB사업부
+    <div className="flex flex-col h-full">
+      <div className="flex-shrink-0 space-y-4 pb-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">
+              {currentYear}년 {divisionLabel} 자재 사용내역
+            </h1>
+            <p className="text-muted-foreground">현장팀 자재 사용 이력을 조회합니다</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1">
+              <Button
+                variant={selectedDivision === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDivision("all")}
+                data-testid="button-division-all"
+              >
+                전체
+              </Button>
+              <Button
+                variant={selectedDivision === "SKT" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDivision("SKT")}
+                data-testid="button-division-skt"
+              >
+                SKT사업부
+              </Button>
+              <Button
+                variant={selectedDivision === "SKB" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDivision("SKB")}
+                data-testid="button-division-skb"
+              >
+                SKB사업부
+              </Button>
+            </div>
+            <Button onClick={openAddDialog} data-testid="button-add-usage">
+              <Plus className="h-4 w-4 mr-2" />
+              사용 등록
             </Button>
           </div>
-          <Button onClick={openAddDialog} data-testid="button-add-usage">
-            <Plus className="h-4 w-4 mr-2" />
-            사용 등록
-          </Button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="품명, 공사명, 규격, 수령인 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-search"
+              />
+            </div>
+            {selectedIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteOpen(true)}
+                data-testid="button-bulk-delete"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                선택 삭제 ({selectedIds.size})
+              </Button>
+            )}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{totalRecords}</span>건 / 
+            수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="품명, 공사명, 규격, 수령인 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-              data-testid="input-search"
-            />
-          </div>
-          {selectedIds.size > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setBulkDeleteOpen(true)}
-              data-testid="button-bulk-delete"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              선택 삭제 ({selectedIds.size})
-            </Button>
-          )}
-        </div>
-        <div className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{totalRecords}</span>건 / 
-          수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
-        </div>
-      </div>
-
-      <div className="rounded-md border overflow-x-auto">
+      <div className="flex-1 min-h-0 rounded-md border overflow-auto">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow className="h-11">
-              <TableHead className="w-[40px] text-center align-middle">
+              <TableHead className="w-[40px] text-center align-middle bg-background">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
-              <TableHead className="font-semibold w-[100px] text-center align-middle">사용일</TableHead>
-              <TableHead className="font-semibold w-[50px] text-center align-middle">사업</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle">구분</TableHead>
-              <TableHead className="font-semibold w-[200px] text-center align-middle">공사명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle">품명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle">규격</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle">수량</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle">수령인</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle">작업</TableHead>
+              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
+              <TableHead className="font-semibold w-[50px] text-center align-middle bg-background">사업</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
+              <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">수령인</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
