@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Plus, Package, ShoppingCart, Truck } from "lucide-react";
+import { Plus, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,12 +8,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface QuickActionButtonsProps {
-  onAddMaterial: () => void;
-  onAddPurchase: () => void;
-  onAddUsage: () => void;
+  onAddIncoming: () => void;
+  onAddOutgoing: () => void;
 }
 
-export function QuickActionButtons({ onAddMaterial, onAddPurchase, onAddUsage }: QuickActionButtonsProps) {
+export function QuickActionButtons({ onAddIncoming, onAddOutgoing }: QuickActionButtonsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -23,17 +22,13 @@ export function QuickActionButtons({ onAddMaterial, onAddPurchase, onAddUsage }:
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onAddMaterial} data-testid="menu-add-material">
-          <Package className="h-4 w-4 mr-2" />
-          자재 추가
+        <DropdownMenuItem onClick={onAddIncoming} data-testid="menu-add-incoming">
+          <ArrowDownToLine className="h-4 w-4 mr-2" />
+          입고 등록
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onAddPurchase} data-testid="menu-add-purchase">
-          <ShoppingCart className="h-4 w-4 mr-2" />
-          구매 등록
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onAddUsage} data-testid="menu-add-usage">
-          <Truck className="h-4 w-4 mr-2" />
-          출고 기록
+        <DropdownMenuItem onClick={onAddOutgoing} data-testid="menu-add-outgoing">
+          <ArrowUpFromLine className="h-4 w-4 mr-2" />
+          출고 등록
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

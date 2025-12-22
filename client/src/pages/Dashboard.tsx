@@ -3,11 +3,11 @@ import { Package, ShoppingCart, Users, AlertTriangle } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { QuickActionButtons } from "@/components/QuickActionButtons";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
-import { MaterialFormDialog } from "@/components/MaterialFormDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import type { InventoryItem } from "@shared/schema";
 import {
   Table,
@@ -21,7 +21,7 @@ import {
 export default function Dashboard() {
   const { divisions, teams } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("all");
-  const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   const { data: inventory = [] } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
@@ -91,9 +91,8 @@ export default function Dashboard() {
             </Button>
           </div>
           <QuickActionButtons
-            onAddMaterial={() => setMaterialDialogOpen(true)}
-            onAddPurchase={() => console.log("구매 등록")}
-            onAddUsage={() => console.log("출고 기록")}
+            onAddIncoming={() => setLocation("/incoming")}
+            onAddOutgoing={() => setLocation("/outgoing")}
           />
         </div>
       </div>
@@ -194,12 +193,6 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
-
-      <MaterialFormDialog
-        open={materialDialogOpen}
-        onOpenChange={setMaterialDialogOpen}
-        onSubmit={(data) => console.log("자재 등록:", data)}
-      />
     </div>
   );
 }
