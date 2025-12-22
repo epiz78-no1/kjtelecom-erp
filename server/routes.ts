@@ -364,17 +364,18 @@ export async function registerRoutes(
       });
     } else {
       // Create new inventory item if it doesn't exist
+      const unitPrice = parseResult.data.unitPrice ?? 0;
       await storage.createInventoryItem({
         division: parseResult.data.division,
-        category: "기타",
+        category: parseResult.data.division, // Use division as category for new items
         productName: parseResult.data.productName,
         specification: parseResult.data.specification ?? "",
         carriedOver: 0,
         incoming: quantity,
         outgoing: 0,
         remaining: quantity,
-        unitPrice: 0,
-        totalAmount: 0,
+        unitPrice: unitPrice,
+        totalAmount: quantity * unitPrice,
       });
     }
     

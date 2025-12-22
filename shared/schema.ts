@@ -100,6 +100,7 @@ export const incomingRecords = pgTable("incoming_records", {
   productName: text("product_name").notNull(),
   specification: text("specification").notNull().default(""),
   quantity: integer("quantity").notNull().default(0),
+  unitPrice: integer("unit_price").notNull().default(0),
 });
 
 export const insertIncomingRecordSchema = createInsertSchema(incomingRecords).omit({ id: true });

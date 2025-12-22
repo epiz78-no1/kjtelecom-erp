@@ -69,6 +69,7 @@ export default function IncomingRecords() {
     productName: "",
     specification: "",
     quantity: "",
+    unitPrice: "",
   });
 
   const { data: records = [], isLoading } = useQuery<IncomingRecord[]>({
@@ -187,7 +188,7 @@ export default function IncomingRecords() {
 
   const openAddDialog = () => {
     setEditingRecord(null);
-    setFormData({ division: "SKT", supplier: "", projectName: "", productName: "", specification: "", quantity: "" });
+    setFormData({ division: "SKT", supplier: "", projectName: "", productName: "", specification: "", quantity: "", unitPrice: "" });
     setSelectedDate(new Date());
     setDialogOpen(true);
   };
@@ -201,6 +202,7 @@ export default function IncomingRecords() {
       productName: record.productName,
       specification: record.specification,
       quantity: record.quantity.toString(),
+      unitPrice: record.unitPrice?.toString() ?? "",
     });
     setSelectedDate(new Date(record.date));
     setDialogOpen(true);
@@ -209,7 +211,7 @@ export default function IncomingRecords() {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditingRecord(null);
-    setFormData({ division: "SKT", supplier: "", projectName: "", productName: "", specification: "", quantity: "" });
+    setFormData({ division: "SKT", supplier: "", projectName: "", productName: "", specification: "", quantity: "", unitPrice: "" });
     setSelectedDate(new Date());
   };
 
@@ -227,6 +229,7 @@ export default function IncomingRecords() {
       productName: formData.productName,
       specification: formData.specification,
       quantity: parseInt(formData.quantity),
+      unitPrice: formData.unitPrice ? parseInt(formData.unitPrice) : 0,
     };
 
     if (editingRecord) {
@@ -507,15 +510,27 @@ export default function IncomingRecords() {
                 </Select>
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label>수량 *</Label>
-              <Input
-                type="number"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                placeholder="10"
-                data-testid="input-incoming-quantity"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>수량 *</Label>
+                <Input
+                  type="number"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  placeholder="10"
+                  data-testid="input-incoming-quantity"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>단가 (원)</Label>
+                <Input
+                  type="number"
+                  value={formData.unitPrice}
+                  onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
+                  placeholder="새 품목 등록 시 필요"
+                  data-testid="input-incoming-unitprice"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
