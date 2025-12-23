@@ -59,8 +59,12 @@ export default function Inventory() {
       toast({ title: "자재가 추가되었습니다" });
       setMaterialDialogOpen(false);
     },
-    onError: () => {
-      toast({ title: "자재 추가 실패", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({
+        title: "자재 추가 실패",
+        description: error.message,
+        variant: "destructive"
+      });
     },
   });
 
@@ -120,8 +124,8 @@ export default function Inventory() {
 
   const filteredInventory = searchQuery
     ? categoryFiltered.filter((item) =>
-        item.productName.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      item.productName.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : categoryFiltered;
 
   const allSelected = filteredInventory.length > 0 && filteredInventory.every(item => selectedIds.has(item.id));

@@ -60,6 +60,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  if (!process.env.DATABASE_URL) {
+    const { db } = await import("./db");
+    const { migrate } = await import("drizzle-orm/pglite/migrator");
+    const path = await import("path");
+    // Resolve migrations relative to current working directory or file
+    // Assuming migrations are in "./migrations" relative to CWD
+    await migrate(db, { migrationsFolder: "./migrations" });
+    log("Migrated PGLite database");
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -89,7 +99,6 @@ app.use((req, res, next) => {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
     },
     () => {
       log(`serving on port ${port}`);

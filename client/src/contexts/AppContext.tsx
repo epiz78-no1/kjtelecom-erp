@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -19,6 +19,12 @@ export interface FieldTeam {
   isActive: boolean;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  role: string;
+}
+
 interface AppContextType {
   divisions: Division[];
   divisionsLoading: boolean;
@@ -31,11 +37,25 @@ interface AppContextType {
   updateTeam: (id: string, updates: Partial<FieldTeam>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
   refetchTeams: () => void;
+  user: User | null;
+  login: (username: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+
+  const login = async (username: string) => {
+    // Mock login
+    setUser({ id: "1", username, role: "admin" });
+  };
+
+  const logout = () => {
+    setUser(null);
+  };
+
   const divisionsQuery = useQuery<Division[]>({
     queryKey: ["/api/divisions"],
   });
@@ -146,6 +166,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateTeam,
         deleteTeam,
         refetchTeams,
+        user,
+        login,
+        logout,
       }}
     >
       {children}

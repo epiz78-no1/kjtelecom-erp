@@ -23,12 +23,12 @@ export interface MaterialFormData {
   category: string;
   productName: string;
   specification: string;
-  carriedOver: number;
-  incoming: number;
-  outgoing: number;
-  remaining: number;
-  unitPrice: number;
-  totalAmount: number;
+  carriedOver: number | string;
+  incoming: number | string;
+  outgoing: number | string;
+  remaining: number | string;
+  unitPrice: number | string;
+  totalAmount: number | string;
 }
 
 export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }: MaterialFormDialogProps) {
@@ -74,13 +74,27 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const remaining = formData.carriedOver + formData.incoming - formData.outgoing;
-    const totalAmount = remaining * formData.unitPrice;
-    onSubmit({ ...formData, remaining, totalAmount });
+    const carriedOver = Number(formData.carriedOver);
+    const incoming = Number(formData.incoming);
+    const outgoing = Number(formData.outgoing);
+    const unitPrice = Number(formData.unitPrice);
+
+    const remaining = carriedOver + incoming - outgoing;
+    const totalAmount = remaining * unitPrice;
+
+    onSubmit({
+      ...formData,
+      carriedOver,
+      incoming,
+      outgoing,
+      unitPrice,
+      remaining,
+      totalAmount
+    });
   };
 
-  const remaining = formData.carriedOver + formData.incoming - formData.outgoing;
-  const totalAmount = remaining * formData.unitPrice;
+  const remaining = Number(formData.carriedOver) + Number(formData.incoming) - Number(formData.outgoing);
+  const totalAmount = remaining * Number(formData.unitPrice);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -117,7 +131,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 />
               </div>
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="specification">규격 *</Label>
               <Input
@@ -136,8 +150,8 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 <Input
                   id="carriedOver"
                   type="number"
-                  value={formData.carriedOver || ""}
-                  onChange={(e) => setFormData({ ...formData, carriedOver: Number(e.target.value) })}
+                  value={formData.carriedOver}
+                  onChange={(e) => setFormData({ ...formData, carriedOver: e.target.value })}
                   placeholder="0"
                   data-testid="input-carried-over"
                 />
@@ -147,8 +161,8 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 <Input
                   id="incoming"
                   type="number"
-                  value={formData.incoming || ""}
-                  onChange={(e) => setFormData({ ...formData, incoming: Number(e.target.value) })}
+                  value={formData.incoming}
+                  onChange={(e) => setFormData({ ...formData, incoming: e.target.value })}
                   placeholder="0"
                   data-testid="input-incoming"
                 />
@@ -158,8 +172,8 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 <Input
                   id="outgoing"
                   type="number"
-                  value={formData.outgoing || ""}
-                  onChange={(e) => setFormData({ ...formData, outgoing: Number(e.target.value) })}
+                  value={formData.outgoing}
+                  onChange={(e) => setFormData({ ...formData, outgoing: e.target.value })}
                   placeholder="0"
                   data-testid="input-outgoing"
                 />
@@ -172,8 +186,8 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 <Input
                   id="unitPrice"
                   type="number"
-                  value={formData.unitPrice || ""}
-                  onChange={(e) => setFormData({ ...formData, unitPrice: Number(e.target.value) })}
+                  value={formData.unitPrice}
+                  onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
                   placeholder="10000"
                   required
                   data-testid="input-unit-price"

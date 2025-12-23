@@ -7,7 +7,9 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppProvider } from "@/contexts/AppContext";
+import { useAppContext } from "@/contexts/AppContext";
 import Dashboard from "@/pages/Dashboard";
+import Auth from "@/pages/Auth";
 import Inventory from "@/pages/Inventory";
 import IncomingRecords from "@/pages/IncomingRecords";
 import OutgoingRecords from "@/pages/OutgoingRecords";
@@ -31,30 +33,42 @@ function Router() {
   );
 }
 
-function App() {
+function AppContent() {
+  const { user } = useAppContext();
+
+  if (!user) {
+    return <Auth />;
+  }
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
 
   return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <ThemeToggle />
+          </header>
+          <main className="flex-1 overflow-hidden p-6">
+            <Router />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AppProvider>
-          <SidebarProvider style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full">
-              <AppSidebar />
-              <div className="flex flex-col flex-1 overflow-hidden">
-                <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" />
-                  <ThemeToggle />
-                </header>
-                <main className="flex-1 overflow-hidden p-6">
-                  <Router />
-                </main>
-              </div>
-            </div>
-          </SidebarProvider>
+          <AppContent />
         </AppProvider>
         <Toaster />
       </TooltipProvider>

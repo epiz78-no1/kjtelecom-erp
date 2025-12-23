@@ -18,7 +18,7 @@ export async function registerRoutes(
 
   app.post("/api/divisions", async (req, res) => {
     const { name } = req.body;
-    
+
     if (!name || typeof name !== "string") {
       return res.status(400).json({ error: "Name is required" });
     }
@@ -30,7 +30,7 @@ export async function registerRoutes(
   app.patch("/api/divisions/:id", async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
-    
+
     if (!name || typeof name !== "string") {
       return res.status(400).json({ error: "Name is required" });
     }
@@ -45,7 +45,7 @@ export async function registerRoutes(
   app.delete("/api/divisions/:id", async (req, res) => {
     const { id } = req.params;
     const success = await storage.deleteDivision(id);
-    
+
     if (!success) {
       return res.status(404).json({ error: "Division not found" });
     }
@@ -55,21 +55,21 @@ export async function registerRoutes(
   app.get("/api/teams", async (req, res) => {
     const { divisionId } = req.query;
     let teamList;
-    
+
     if (divisionId && typeof divisionId === "string") {
       teamList = await storage.getTeamsByDivision(divisionId);
     } else {
       teamList = await storage.getTeams();
     }
-    
+
     const divisions = await storage.getDivisions();
     const divisionMap = new Map(divisions.map(d => [d.id, d.name]));
-    
+
     const teamsWithDivisionName = teamList.map(team => ({
       ...team,
       divisionName: divisionMap.get(team.divisionId) || "",
     }));
-    
+
     res.json(teamsWithDivisionName);
   });
 
@@ -81,7 +81,7 @@ export async function registerRoutes(
 
     const team = await storage.createTeam(parseResult.data);
     const division = await storage.getDivision(team.divisionId);
-    
+
     res.status(201).json({
       ...team,
       divisionName: division?.name || "",
@@ -96,7 +96,7 @@ export async function registerRoutes(
     if (!team) {
       return res.status(404).json({ error: "Team not found" });
     }
-    
+
     const division = await storage.getDivision(team.divisionId);
     res.json({
       ...team,
@@ -107,7 +107,7 @@ export async function registerRoutes(
   app.delete("/api/teams/:id", async (req, res) => {
     const { id } = req.params;
     const success = await storage.deleteTeam(id);
-    
+
     if (!success) {
       return res.status(404).json({ error: "Team not found" });
     }
@@ -124,7 +124,7 @@ export async function registerRoutes(
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid ID" });
     }
-    
+
     const item = await storage.getInventoryItem(id);
     if (!item) {
       return res.status(404).json({ error: "Item not found" });
@@ -199,7 +199,7 @@ export async function registerRoutes(
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid ID" });
     }
-    
+
     const record = await storage.getOutgoingRecord(id);
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
@@ -263,7 +263,7 @@ export async function registerRoutes(
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid ID" });
     }
-    
+
     const record = await storage.getMaterialUsageRecord(id);
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
@@ -327,7 +327,7 @@ export async function registerRoutes(
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid ID" });
     }
-    
+
     const record = await storage.getIncomingRecord(id);
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
@@ -342,17 +342,17 @@ export async function registerRoutes(
     }
 
     const record = await storage.createIncomingRecord(parseResult.data);
-    
+
     // Update inventory: find matching item and increase incoming/remaining
     const inventoryItems = await storage.getInventoryItems();
     const matchingItem = inventoryItems.find(
-      item => item.productName === parseResult.data.productName && 
-              item.specification === parseResult.data.specification &&
-              item.division === parseResult.data.division
+      item => item.productName === parseResult.data.productName &&
+        item.specification === parseResult.data.specification &&
+        item.division === parseResult.data.division
     );
-    
+
     const quantity = parseResult.data.quantity ?? 0;
-    
+
     if (matchingItem) {
       const newIncoming = matchingItem.incoming + quantity;
       const newRemaining = matchingItem.carriedOver + newIncoming - matchingItem.outgoing;
@@ -378,7 +378,7 @@ export async function registerRoutes(
         totalAmount: quantity * unitPrice,
       });
     }
-    
+
     res.status(201).json(record);
   });
 
