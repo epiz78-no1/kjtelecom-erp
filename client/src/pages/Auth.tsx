@@ -70,7 +70,7 @@ export default function Auth() {
                     <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                         <Package className="h-6 w-6 text-primary" />
                     </div>
-                    <CardTitle className="text-2xl font-bold">Cable Tracker</CardTitle>
+                    <CardTitle className="text-2xl font-bold">자재관리</CardTitle>
                     <CardDescription>
                         재고 관리 시스템에 접속하려면 로그인하세요
                     </CardDescription>

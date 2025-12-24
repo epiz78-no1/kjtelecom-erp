@@ -6,10 +6,14 @@ import {
   type OutgoingRecord, type InsertOutgoingRecord,
   type MaterialUsageRecord, type InsertMaterialUsageRecord,
   type IncomingRecord, type InsertIncomingRecord,
-  users, divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords
+  type Position, type InsertPosition,
+  type Invitation, type InsertInvitation,
+  type UserTenant, type InsertUserTenant,
+  users, divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords,
+  positions, invitations, userTenants
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -17,55 +21,165 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
-  getDivisions(): Promise<Division[]>;
-  getDivision(id: string): Promise<Division | undefined>;
-  createDivision(name: string): Promise<Division>;
-  updateDivision(id: string, name: string): Promise<Division | undefined>;
-  deleteDivision(id: string): Promise<boolean>;
+  getDivisions(tenantId: string): Promise<Division[]>;
+  getDivision(id: string, tenantId: string): Promise<Division | undefined>;
+  createDivision(name: string, tenantId: string): Promise<Division>;
+  updateDivision(id: string, name: string, tenantId: string): Promise<Division | undefined>;
+  deleteDivision(id: string, tenantId: string): Promise<boolean>;
   initializeDivisions(): Promise<void>;
 
-  getTeams(): Promise<Team[]>;
-  getTeamsByDivision(divisionId: string): Promise<Team[]>;
-  getTeam(id: string): Promise<Team | undefined>;
+  getTeams(tenantId: string): Promise<Team[]>;
+  getTeamsByDivision(divisionId: string, tenantId: string): Promise<Team[]>;
+  getTeam(id: string, tenantId: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
-  updateTeam(id: string, updates: Partial<InsertTeam>): Promise<Team | undefined>;
-  deleteTeam(id: string): Promise<boolean>;
+  updateTeam(id: string, updates: Partial<InsertTeam>, tenantId: string): Promise<Team | undefined>;
+  deleteTeam(id: string, tenantId: string): Promise<boolean>;
   initializeTeams(): Promise<void>;
 
-  getInventoryItems(): Promise<InventoryItem[]>;
-  getInventoryItem(id: number): Promise<InventoryItem | undefined>;
+  getInventoryItems(tenantId: string): Promise<InventoryItem[]>;
+  getInventoryItem(id: number, tenantId: string): Promise<InventoryItem | undefined>;
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
-  updateInventoryItem(id: number, updates: Partial<InsertInventoryItem>): Promise<InventoryItem | undefined>;
-  deleteInventoryItem(id: number): Promise<boolean>;
-  bulkDeleteInventoryItems(ids: number[]): Promise<number>;
-  clearInventoryItems(): Promise<void>;
+  updateInventoryItem(id: number, updates: Partial<InsertInventoryItem>, tenantId: string): Promise<InventoryItem | undefined>;
+  deleteInventoryItem(id: number, tenantId: string): Promise<boolean>;
+  bulkDeleteInventoryItems(ids: number[], tenantId: string): Promise<number>;
+  clearInventoryItems(tenantId: string): Promise<void>;
   bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]>;
 
-  getOutgoingRecords(): Promise<OutgoingRecord[]>;
-  getOutgoingRecord(id: number): Promise<OutgoingRecord | undefined>;
+  getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]>;
+  getOutgoingRecord(id: number, tenantId: string): Promise<OutgoingRecord | undefined>;
   createOutgoingRecord(record: InsertOutgoingRecord): Promise<OutgoingRecord>;
-  updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>): Promise<OutgoingRecord | undefined>;
-  deleteOutgoingRecord(id: number): Promise<boolean>;
-  bulkDeleteOutgoingRecords(ids: number[]): Promise<number>;
-  clearOutgoingRecords(): Promise<void>;
+  updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>, tenantId: string): Promise<OutgoingRecord | undefined>;
+  deleteOutgoingRecord(id: number, tenantId: string): Promise<boolean>;
+  bulkDeleteOutgoingRecords(ids: number[], tenantId: string): Promise<number>;
+  clearOutgoingRecords(tenantId: string): Promise<void>;
   initializeOutgoingRecords(): Promise<void>;
 
-  getMaterialUsageRecords(): Promise<MaterialUsageRecord[]>;
-  getMaterialUsageRecord(id: number): Promise<MaterialUsageRecord | undefined>;
+  getMaterialUsageRecords(tenantId: string): Promise<MaterialUsageRecord[]>;
+  getMaterialUsageRecord(id: number, tenantId: string): Promise<MaterialUsageRecord | undefined>;
   createMaterialUsageRecord(record: InsertMaterialUsageRecord): Promise<MaterialUsageRecord>;
-  updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>): Promise<MaterialUsageRecord | undefined>;
-  deleteMaterialUsageRecord(id: number): Promise<boolean>;
-  bulkDeleteMaterialUsageRecords(ids: number[]): Promise<number>;
+  updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>, tenantId: string): Promise<MaterialUsageRecord | undefined>;
+  deleteMaterialUsageRecord(id: number, tenantId: string): Promise<boolean>;
+  bulkDeleteMaterialUsageRecords(ids: number[], tenantId: string): Promise<number>;
 
-  getIncomingRecords(): Promise<IncomingRecord[]>;
-  getIncomingRecord(id: number): Promise<IncomingRecord | undefined>;
+  getIncomingRecords(tenantId: string): Promise<IncomingRecord[]>;
+  getIncomingRecord(id: number, tenantId: string): Promise<IncomingRecord | undefined>;
   createIncomingRecord(record: InsertIncomingRecord): Promise<IncomingRecord>;
-  updateIncomingRecord(id: number, updates: Partial<InsertIncomingRecord>): Promise<IncomingRecord | undefined>;
-  deleteIncomingRecord(id: number): Promise<boolean>;
-  bulkDeleteIncomingRecords(ids: number[]): Promise<number>;
+  updateIncomingRecord(id: number, updates: Partial<InsertIncomingRecord>, tenantId: string): Promise<IncomingRecord | undefined>;
+  deleteIncomingRecord(id: number, tenantId: string): Promise<boolean>;
+  bulkDeleteIncomingRecords(ids: number[], tenantId: string): Promise<number>;
+
+  // Admin: Positions
+  getPositions(tenantId: string): Promise<Position[]>;
+  getPosition(id: string, tenantId: string): Promise<Position | undefined>;
+  createPosition(position: InsertPosition): Promise<Position>;
+  updatePosition(id: string, updates: Partial<InsertPosition>, tenantId: string): Promise<Position | undefined>;
+  deletePosition(id: string, tenantId: string): Promise<boolean>;
+
+  // Admin: Members
+  getMembers(tenantId: string): Promise<any[]>;
+  updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant>): Promise<UserTenant | undefined>;
+  deleteMember(userId: string, tenantId: string): Promise<boolean>;
+
+  // Admin: Invitations
+  getInvitations(tenantId: string): Promise<Invitation[]>;
+  getInvitationByToken(token: string): Promise<Invitation | undefined>;
+  createInvitation(invitation: InsertInvitation): Promise<Invitation>;
+  updateInvitationStatus(id: string, status: string): Promise<void>;
+  deleteInvitation(id: string, tenantId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // ... (previous methods remain same, but I'll add the new ones)
+
+  async getPositions(tenantId: string): Promise<Position[]> {
+    return db.select().from(positions).where(eq(positions.tenantId, tenantId)).orderBy(positions.rankOrder);
+  }
+
+  async getPosition(id: string, tenantId: string): Promise<Position | undefined> {
+    const [position] = await db.select().from(positions).where(and(eq(positions.id, id), eq(positions.tenantId, tenantId)));
+    return position;
+  }
+
+  async createPosition(position: InsertPosition): Promise<Position> {
+    const [newPosition] = await db.insert(positions).values({
+      id: randomUUID(),
+      ...position
+    }).returning();
+    return newPosition;
+  }
+
+  async updatePosition(id: string, updates: Partial<InsertPosition>, tenantId: string): Promise<Position | undefined> {
+    const [updated] = await db.update(positions).set(updates).where(and(eq(positions.id, id), eq(positions.tenantId, tenantId))).returning();
+    return updated;
+  }
+
+  async deletePosition(id: string, tenantId: string): Promise<boolean> {
+    const result = await db.delete(positions).where(and(eq(positions.id, id), eq(positions.tenantId, tenantId))).returning();
+    return result.length > 0;
+  }
+
+  async getMembers(tenantId: string): Promise<any[]> {
+    return db
+      .select({
+        id: users.id,
+        name: users.name,
+        username: users.username,
+        role: userTenants.role,
+        status: userTenants.status,
+        joinDate: userTenants.joinDate,
+        positionName: positions.name,
+        divisionName: divisions.name,
+        teamName: teams.name,
+      })
+      .from(userTenants)
+      .innerJoin(users, eq(userTenants.userId, users.id))
+      .leftJoin(positions, eq(userTenants.positionId, positions.id))
+      .leftJoin(divisions, eq(userTenants.divisionId, divisions.id))
+      .leftJoin(teams, eq(userTenants.teamId, teams.id))
+      .where(eq(userTenants.tenantId, tenantId));
+  }
+
+  async updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant>): Promise<UserTenant | undefined> {
+    const [updated] = await db
+      .update(userTenants)
+      .set(updates)
+      .where(and(eq(userTenants.userId, userId), eq(userTenants.tenantId, tenantId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteMember(userId: string, tenantId: string): Promise<boolean> {
+    const result = await db.delete(userTenants).where(and(eq(userTenants.userId, userId), eq(userTenants.tenantId, tenantId))).returning();
+    return result.length > 0;
+  }
+
+  async getInvitations(tenantId: string): Promise<Invitation[]> {
+    return db.select().from(invitations).where(eq(invitations.tenantId, tenantId));
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
+    return inv;
+  }
+
+  async createInvitation(invitation: InsertInvitation): Promise<Invitation> {
+    const [newInv] = await db.insert(invitations).values({
+      id: randomUUID(),
+      ...invitation
+    }).returning();
+    return newInv;
+  }
+
+  async updateInvitationStatus(id: string, status: string): Promise<void> {
+    await db.update(invitations).set({ status }).where(eq(invitations.id, id));
+  }
+
+  async deleteInvitation(id: string, tenantId: string): Promise<boolean> {
+    const result = await db.delete(invitations).where(and(eq(invitations.id, id), eq(invitations.tenantId, tenantId))).returning();
+    return result.length > 0;
+  }
+
+  // Existing methods implementation (keeping original for brevity in replacement)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -81,55 +195,49 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getDivisions(): Promise<Division[]> {
-    return db.select().from(divisions);
+  async getDivisions(tenantId: string): Promise<Division[]> {
+    return db.select().from(divisions).where(eq(divisions.tenantId, tenantId));
   }
 
-  async getDivision(id: string): Promise<Division | undefined> {
-    const [division] = await db.select().from(divisions).where(eq(divisions.id, id));
+  async getDivision(id: string, tenantId: string): Promise<Division | undefined> {
+    const [division] = await db.select().from(divisions).where(and(eq(divisions.id, id), eq(divisions.tenantId, tenantId)));
     return division;
   }
 
-  async createDivision(name: string): Promise<Division> {
+  async createDivision(name: string, tenantId: string): Promise<Division> {
     const id = `div${Date.now()}`;
-    const [division] = await db.insert(divisions).values({ id, name }).returning();
+    const [division] = await db.insert(divisions).values({ id, name, tenantId }).returning();
     return division;
   }
 
-  async updateDivision(id: string, name: string): Promise<Division | undefined> {
+  async updateDivision(id: string, name: string, tenantId: string): Promise<Division | undefined> {
     const [division] = await db
       .update(divisions)
       .set({ name })
-      .where(eq(divisions.id, id))
+      .where(and(eq(divisions.id, id), eq(divisions.tenantId, tenantId)))
       .returning();
     return division;
   }
 
-  async deleteDivision(id: string): Promise<boolean> {
-    const result = await db.delete(divisions).where(eq(divisions.id, id)).returning();
+  async deleteDivision(id: string, tenantId: string): Promise<boolean> {
+    const result = await db.delete(divisions).where(and(eq(divisions.id, id), eq(divisions.tenantId, tenantId))).returning();
     return result.length > 0;
   }
 
   async initializeDivisions(): Promise<void> {
-    const existing = await db.select().from(divisions);
-    if (existing.length === 0) {
-      await db.insert(divisions).values([
-        { id: "div1", name: "사업부 1" },
-        { id: "div2", name: "사업부 2" },
-      ]);
-    }
+    // Initial data handled via migrations/seeds if needed
   }
 
-  async getTeams(): Promise<Team[]> {
-    return db.select().from(teams);
+  async getTeams(tenantId: string): Promise<Team[]> {
+    return db.select().from(teams).where(eq(teams.tenantId, tenantId));
   }
 
-  async getTeamsByDivision(divisionId: string): Promise<Team[]> {
-    return db.select().from(teams).where(eq(teams.divisionId, divisionId));
+  async getTeamsByDivision(divisionId: string, tenantId: string): Promise<Team[]> {
+    return db.select().from(teams).where(and(eq(teams.divisionId, divisionId), eq(teams.tenantId, tenantId)));
   }
 
-  async getTeam(id: string): Promise<Team | undefined> {
-    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+  async getTeam(id: string, tenantId: string): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(and(eq(teams.id, id), eq(teams.tenantId, tenantId)));
     return team;
   }
 
@@ -141,40 +249,30 @@ export class DatabaseStorage implements IStorage {
     return newTeam;
   }
 
-  async updateTeam(id: string, updates: Partial<InsertTeam>): Promise<Team | undefined> {
+  async updateTeam(id: string, updates: Partial<InsertTeam>, tenantId: string): Promise<Team | undefined> {
     const [team] = await db
       .update(teams)
       .set(updates)
-      .where(eq(teams.id, id))
+      .where(and(eq(teams.id, id), eq(teams.tenantId, tenantId)))
       .returning();
     return team;
   }
 
-  async deleteTeam(id: string): Promise<boolean> {
-    const result = await db.delete(teams).where(eq(teams.id, id)).returning();
+  async deleteTeam(id: string, tenantId: string): Promise<boolean> {
+    const result = await db.delete(teams).where(and(eq(teams.id, id), eq(teams.tenantId, tenantId))).returning();
     return result.length > 0;
   }
 
   async initializeTeams(): Promise<void> {
-    const existing = await db.select().from(teams);
-    if (existing.length === 0) {
-      await db.insert(teams).values([
-        { id: randomUUID(), name: "강남 1팀", divisionId: "div1", memberCount: 5, materialCount: 12, lastActivity: "2024-12-15", isActive: true },
-        { id: randomUUID(), name: "서초 2팀", divisionId: "div1", memberCount: 4, materialCount: 8, lastActivity: "2024-12-14", isActive: true },
-        { id: randomUUID(), name: "강서 1팀", divisionId: "div1", memberCount: 6, materialCount: 10, lastActivity: "2024-12-12", isActive: true },
-        { id: randomUUID(), name: "송파 1팀", divisionId: "div2", memberCount: 6, materialCount: 15, lastActivity: "2024-12-13", isActive: true },
-        { id: randomUUID(), name: "강동 1팀", divisionId: "div2", memberCount: 3, materialCount: 6, lastActivity: "2024-12-10", isActive: false },
-        { id: randomUUID(), name: "광진 1팀", divisionId: "div2", memberCount: 5, materialCount: 9, lastActivity: "2024-12-11", isActive: true },
-      ]);
-    }
+    // Initial data handled via migrations/seeds if needed
   }
 
-  async getInventoryItems(): Promise<InventoryItem[]> {
-    return db.select().from(inventoryItems);
+  async getInventoryItems(tenantId: string): Promise<InventoryItem[]> {
+    return db.select().from(inventoryItems).where(eq(inventoryItems.tenantId, tenantId));
   }
 
-  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
-    const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+  async getInventoryItem(id: number, tenantId: string): Promise<InventoryItem | undefined> {
+    const [item] = await db.select().from(inventoryItems).where(and(eq(inventoryItems.id, id), eq(inventoryItems.tenantId, tenantId)));
     return item;
   }
 
@@ -183,28 +281,28 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
 
-  async updateInventoryItem(id: number, updates: Partial<InsertInventoryItem>): Promise<InventoryItem | undefined> {
+  async updateInventoryItem(id: number, updates: Partial<InsertInventoryItem>, tenantId: string): Promise<InventoryItem | undefined> {
     const [item] = await db
       .update(inventoryItems)
       .set(updates)
-      .where(eq(inventoryItems.id, id))
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.tenantId, tenantId)))
       .returning();
     return item;
   }
 
-  async deleteInventoryItem(id: number): Promise<boolean> {
-    const result = await db.delete(inventoryItems).where(eq(inventoryItems.id, id)).returning();
+  async deleteInventoryItem(id: number, tenantId: string): Promise<boolean> {
+    const result = await db.delete(inventoryItems).where(and(eq(inventoryItems.id, id), eq(inventoryItems.tenantId, tenantId))).returning();
     return result.length > 0;
   }
 
-  async bulkDeleteInventoryItems(ids: number[]): Promise<number> {
+  async bulkDeleteInventoryItems(ids: number[], tenantId: string): Promise<number> {
     if (ids.length === 0) return 0;
-    const result = await db.delete(inventoryItems).where(inArray(inventoryItems.id, ids)).returning();
+    const result = await db.delete(inventoryItems).where(and(inArray(inventoryItems.id, ids), eq(inventoryItems.tenantId, tenantId))).returning();
     return result.length;
   }
 
-  async clearInventoryItems(): Promise<void> {
-    await db.delete(inventoryItems);
+  async clearInventoryItems(tenantId: string): Promise<void> {
+    await db.delete(inventoryItems).where(eq(inventoryItems.tenantId, tenantId));
   }
 
   async bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]> {
@@ -213,12 +311,12 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getOutgoingRecords(): Promise<OutgoingRecord[]> {
-    return db.select().from(outgoingRecords);
+  async getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]> {
+    return db.select().from(outgoingRecords).where(eq(outgoingRecords.tenantId, tenantId));
   }
 
-  async getOutgoingRecord(id: number): Promise<OutgoingRecord | undefined> {
-    const [record] = await db.select().from(outgoingRecords).where(eq(outgoingRecords.id, id));
+  async getOutgoingRecord(id: number, tenantId: string): Promise<OutgoingRecord | undefined> {
+    const [record] = await db.select().from(outgoingRecords).where(and(eq(outgoingRecords.id, id), eq(outgoingRecords.tenantId, tenantId)));
     return record;
   }
 
@@ -227,40 +325,40 @@ export class DatabaseStorage implements IStorage {
     return newRecord;
   }
 
-  async updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>): Promise<OutgoingRecord | undefined> {
+  async updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>, tenantId: string): Promise<OutgoingRecord | undefined> {
     const [record] = await db
       .update(outgoingRecords)
       .set(updates)
-      .where(eq(outgoingRecords.id, id))
+      .where(and(eq(outgoingRecords.id, id), eq(outgoingRecords.tenantId, tenantId)))
       .returning();
     return record;
   }
 
-  async deleteOutgoingRecord(id: number): Promise<boolean> {
-    const result = await db.delete(outgoingRecords).where(eq(outgoingRecords.id, id)).returning();
+  async deleteOutgoingRecord(id: number, tenantId: string): Promise<boolean> {
+    const result = await db.delete(outgoingRecords).where(and(eq(outgoingRecords.id, id), eq(outgoingRecords.tenantId, tenantId))).returning();
     return result.length > 0;
   }
 
-  async bulkDeleteOutgoingRecords(ids: number[]): Promise<number> {
+  async bulkDeleteOutgoingRecords(ids: number[], tenantId: string): Promise<number> {
     if (ids.length === 0) return 0;
-    const result = await db.delete(outgoingRecords).where(inArray(outgoingRecords.id, ids)).returning();
+    const result = await db.delete(outgoingRecords).where(and(inArray(outgoingRecords.id, ids), eq(outgoingRecords.tenantId, tenantId))).returning();
     return result.length;
   }
 
-  async clearOutgoingRecords(): Promise<void> {
-    await db.delete(outgoingRecords);
+  async clearOutgoingRecords(tenantId: string): Promise<void> {
+    await db.delete(outgoingRecords).where(eq(outgoingRecords.tenantId, tenantId));
   }
 
   async initializeOutgoingRecords(): Promise<void> {
-    // Sample data initialization removed
+    // Initial data handled via migrations/seeds if needed
   }
 
-  async getMaterialUsageRecords(): Promise<MaterialUsageRecord[]> {
-    return db.select().from(materialUsageRecords);
+  async getMaterialUsageRecords(tenantId: string): Promise<MaterialUsageRecord[]> {
+    return db.select().from(materialUsageRecords).where(eq(materialUsageRecords.tenantId, tenantId));
   }
 
-  async getMaterialUsageRecord(id: number): Promise<MaterialUsageRecord | undefined> {
-    const [record] = await db.select().from(materialUsageRecords).where(eq(materialUsageRecords.id, id));
+  async getMaterialUsageRecord(id: number, tenantId: string): Promise<MaterialUsageRecord | undefined> {
+    const [record] = await db.select().from(materialUsageRecords).where(and(eq(materialUsageRecords.id, id), eq(materialUsageRecords.tenantId, tenantId)));
     return record;
   }
 
@@ -269,32 +367,32 @@ export class DatabaseStorage implements IStorage {
     return newRecord;
   }
 
-  async updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>): Promise<MaterialUsageRecord | undefined> {
+  async updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>, tenantId: string): Promise<MaterialUsageRecord | undefined> {
     const [record] = await db
       .update(materialUsageRecords)
       .set(updates)
-      .where(eq(materialUsageRecords.id, id))
+      .where(and(eq(materialUsageRecords.id, id), eq(materialUsageRecords.tenantId, tenantId)))
       .returning();
     return record;
   }
 
-  async deleteMaterialUsageRecord(id: number): Promise<boolean> {
-    const result = await db.delete(materialUsageRecords).where(eq(materialUsageRecords.id, id)).returning();
+  async deleteMaterialUsageRecord(id: number, tenantId: string): Promise<boolean> {
+    const result = await db.delete(materialUsageRecords).where(and(eq(materialUsageRecords.id, id), eq(materialUsageRecords.tenantId, tenantId))).returning();
     return result.length > 0;
   }
 
-  async bulkDeleteMaterialUsageRecords(ids: number[]): Promise<number> {
+  async bulkDeleteMaterialUsageRecords(ids: number[], tenantId: string): Promise<number> {
     if (ids.length === 0) return 0;
-    const result = await db.delete(materialUsageRecords).where(inArray(materialUsageRecords.id, ids)).returning();
+    const result = await db.delete(materialUsageRecords).where(and(inArray(materialUsageRecords.id, ids), eq(materialUsageRecords.tenantId, tenantId))).returning();
     return result.length;
   }
 
-  async getIncomingRecords(): Promise<IncomingRecord[]> {
-    return db.select().from(incomingRecords);
+  async getIncomingRecords(tenantId: string): Promise<IncomingRecord[]> {
+    return db.select().from(incomingRecords).where(eq(incomingRecords.tenantId, tenantId));
   }
 
-  async getIncomingRecord(id: number): Promise<IncomingRecord | undefined> {
-    const [record] = await db.select().from(incomingRecords).where(eq(incomingRecords.id, id));
+  async getIncomingRecord(id: number, tenantId: string): Promise<IncomingRecord | undefined> {
+    const [record] = await db.select().from(incomingRecords).where(and(eq(incomingRecords.id, id), eq(incomingRecords.tenantId, tenantId)));
     return record;
   }
 
@@ -303,23 +401,23 @@ export class DatabaseStorage implements IStorage {
     return newRecord;
   }
 
-  async updateIncomingRecord(id: number, updates: Partial<InsertIncomingRecord>): Promise<IncomingRecord | undefined> {
+  async updateIncomingRecord(id: number, updates: Partial<InsertIncomingRecord>, tenantId: string): Promise<IncomingRecord | undefined> {
     const [record] = await db
       .update(incomingRecords)
       .set(updates)
-      .where(eq(incomingRecords.id, id))
+      .where(and(eq(incomingRecords.id, id), eq(incomingRecords.tenantId, tenantId)))
       .returning();
     return record;
   }
 
-  async deleteIncomingRecord(id: number): Promise<boolean> {
-    const result = await db.delete(incomingRecords).where(eq(incomingRecords.id, id)).returning();
+  async deleteIncomingRecord(id: number, tenantId: string): Promise<boolean> {
+    const result = await db.delete(incomingRecords).where(and(eq(incomingRecords.id, id), eq(incomingRecords.tenantId, tenantId))).returning();
     return result.length > 0;
   }
 
-  async bulkDeleteIncomingRecords(ids: number[]): Promise<number> {
+  async bulkDeleteIncomingRecords(ids: number[], tenantId: string): Promise<number> {
     if (ids.length === 0) return 0;
-    const result = await db.delete(incomingRecords).where(inArray(incomingRecords.id, ids)).returning();
+    const result = await db.delete(incomingRecords).where(and(inArray(incomingRecords.id, ids), eq(incomingRecords.tenantId, tenantId))).returning();
     return result.length;
   }
 }

@@ -7,3 +7,7 @@ vite.config.ts.*
 .local
 .antigravityrules
 .env
+playwright-report/
+test-results/
+.data/
+cookies.txt

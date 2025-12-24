@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Pencil, Loader2, Trash2, Plus, Search } from "lucide-react";
+import { Pencil, Loader2, Trash2, Plus, Search, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InventoryTable } from "@/components/InventoryTable";
 import { MaterialFormDialog } from "@/components/MaterialFormDialog";
+import { BulkUploadDialog } from "@/components/BulkUploadDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +46,7 @@ export default function Inventory() {
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
   const { data: inventoryItems = [], isLoading } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
@@ -108,6 +110,24 @@ export default function Inventory() {
     },
     onError: () => {
       toast({ title: "삭제 실패", variant: "destructive" });
+    },
+  });
+
+  const bulkUploadMutation = useMutation({
+    mutationFn: async (items: any[]) => {
+      return apiRequest("POST", "/api/inventory/bulk", { items });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: "재고가 일괄 등록되었습니다" });
+      setBulkUploadOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "일괄 등록 실패",
+        description: error.message,
+        variant: "destructive"
+      });
     },
   });
 
@@ -187,6 +207,28 @@ export default function Inventory() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
+  const handleBulkUpload = (items: any[]) => {
+    bulkUploadMutation.mutate(items);
+  };
+
+  const handleDownloadTemplate = () => {
+    const template = `구분,품명,규격,이월재고,입고량,출고량,잔량,단가,금액
+SKT,광접속함체 무여장중간분기형,24C,7,102,100,9,147882,1330938
+SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
+
+    const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "inventory_template.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({ title: "템플릿이 다운로드되었습니다" });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -230,6 +272,14 @@ export default function Inventory() {
                 SKB사업부
               </Button>
             </div>
+            <Button onClick={handleDownloadTemplate} variant="outline" data-testid="button-download-template">
+              <Download className="h-4 w-4 mr-2" />
+              템플릿 다운로드
+            </Button>
+            <Button onClick={() => setBulkUploadOpen(true)} variant="outline" data-testid="button-bulk-upload">
+              <Upload className="h-4 w-4 mr-2" />
+              일괄등록
+            </Button>
             <Button onClick={() => { setEditingItem(null); setMaterialDialogOpen(true); }} data-testid="button-add-material">
               <Plus className="h-4 w-4 mr-2" />
               자재 추가
@@ -393,6 +443,12 @@ export default function Inventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkUploadDialog
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onUpload={handleBulkUpload}
+      />
     </div>
   );
 }

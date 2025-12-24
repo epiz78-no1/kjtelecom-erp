@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Calendar, Search, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Plus, Calendar, Search, Loader2, Pencil, Trash2, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,6 +49,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { OutgoingBulkUploadDialog } from "@/components/OutgoingBulkUploadDialog";
 
 const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
 
@@ -61,6 +62,7 @@ export default function OutgoingRecords() {
   const [deleteRecord, setDeleteRecord] = useState<OutgoingRecord | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [formData, setFormData] = useState({
     division: "SKT",
@@ -231,6 +233,36 @@ export default function OutgoingRecords() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
+  const handleBulkUpload = async (items: any[]) => {
+    try {
+      for (const item of items) {
+        await createMutation.mutateAsync(item);
+      }
+      toast({ title: `${items.length}건의 출고내역이 등록되었습니다` });
+      setBulkUploadOpen(false);
+    } catch (error) {
+      toast({ title: "일괄등록 실패", variant: "destructive" });
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const template = `출고일,사업부,구분,공사명,품명,규격,수량,수령인
+2024-12-24,SKT,접속팀,효자동 2가 함체교체,광접속함체 돔형,가공 96C,5,홍길동
+2024-12-24,SKT,외선팀,종로구 광케이블 설치,광점퍼코드,SM 1C SC/APC-SC/APC 3M,20,김철수`;
+
+    const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "outgoing_template.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({ title: "템플릿이 다운로드되었습니다" });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -274,6 +306,14 @@ export default function OutgoingRecords() {
                 SKB사업부
               </Button>
             </div>
+            <Button onClick={handleDownloadTemplate} variant="outline" data-testid="button-download-template">
+              <Download className="h-4 w-4 mr-2" />
+              템플릿 다운로드
+            </Button>
+            <Button onClick={() => setBulkUploadOpen(true)} variant="outline" data-testid="button-bulk-upload">
+              <Upload className="h-4 w-4 mr-2" />
+              일괄등록
+            </Button>
             <Button onClick={openAddDialog} data-testid="button-add-outgoing">
               <Plus className="h-4 w-4 mr-2" />
               출고 등록
@@ -306,7 +346,7 @@ export default function OutgoingRecords() {
             )}
           </div>
           <div className="text-sm text-muted-foreground">
-            총 <span className="font-semibold text-foreground">{filteredRecords.length}</span>건 / 
+            총 <span className="font-semibold text-foreground">{filteredRecords.length}</span>건 /
             수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
           </div>
         </div>
@@ -492,8 +532,8 @@ export default function OutgoingRecords() {
             <Button variant="outline" onClick={closeDialog}>
               취소
             </Button>
-            <Button 
-              onClick={handleSubmit} 
+            <Button
+              onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-submit-outgoing"
             >
@@ -532,6 +572,12 @@ export default function OutgoingRecords() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <OutgoingBulkUploadDialog
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onUpload={handleBulkUpload}
+      />
     </div>
   );
 }

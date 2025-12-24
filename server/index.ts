@@ -1,10 +1,32 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
+import { registerAuthRoutes } from "./auth";
+import { tenantContext } from "./middleware/tenant";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Extend Express types for session and tenant data
+declare module "express-session" {
+  interface SessionData {
+    userId?: string;
+    tenantId?: string;
+  }
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      tenant?: any;
+      userRole?: string;
+    }
+  }
+}
 
 declare module "http" {
   interface IncomingMessage {
@@ -12,15 +34,36 @@ declare module "http" {
   }
 }
 
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 
 app.use(express.urlencoded({ extended: false }));
+
+// Session configuration
+const PgSession = connectPgSimple(session);
+
+app.use(session({
+  store: pool ? new PgSession({
+    pool: pool,
+    tableName: 'user_sessions',
+    createTableIfMissing: true
+  }) : undefined, // Use memory store for PGlite
+  secret: process.env.SESSION_SECRET || 'pro-tracker-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
+}));
+
+// Tenant context middleware - applies to all routes
+app.use(tenantContext);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -70,6 +113,60 @@ app.use((req, res, next) => {
     log("Migrated PGLite database");
   }
 
+  // Temporary route for user request: setup 'admin' / '123456' with '광텔', '한주통신'
+  app.post("/api/setup-test-data", async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { users, tenants, userTenants } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const bcrypt = await import("bcrypt");
+
+      const hashedPassword = await bcrypt.hash("123456", 10);
+      let adminUser = await db.query.users.findFirst({ where: eq(users.username, "admin") });
+
+      if (!adminUser) {
+        [adminUser] = await db.insert(users).values({
+          username: "admin",
+          password: hashedPassword,
+          name: "최고관리자"
+        }).returning();
+      } else {
+        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, adminUser.id));
+      }
+
+      const companies = ["광텔", "한주통신"];
+      for (const name of companies) {
+        let tenant = await db.query.tenants.findFirst({ where: eq(tenants.name, name) });
+        if (!tenant) {
+          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + "-" + Date.now();
+          [tenant] = await db.insert(tenants).values({ name, slug, isActive: true }).returning();
+        }
+
+        const existing = await db.query.userTenants.findFirst({
+          where: and(eq(userTenants.userId, adminUser.id), eq(userTenants.tenantId, tenant.id))
+        });
+        if (!existing) {
+          await db.insert(userTenants).values({
+            userId: adminUser.id,
+            tenantId: tenant.id,
+            role: "owner",
+            status: "active"
+          });
+        }
+      }
+      res.json({ message: "Test data setup complete: admin / 123456 with 광텔, 한주통신" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Register authentication routes
+  registerAuthRoutes(app);
+
+  const { registerAdminRoutes } = await import("./admin");
+  registerAdminRoutes(app);
+
+  // Register application routes
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

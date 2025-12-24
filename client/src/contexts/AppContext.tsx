@@ -1,10 +1,16 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Division {
   id: string;
   name: string;
+}
+
+interface Position {
+  id: string;
+  name: string;
+  rankOrder: number;
 }
 
 export interface FieldTeam {
@@ -22,7 +28,15 @@ export interface FieldTeam {
 export interface User {
   id: string;
   username: string;
+  name?: string;
+}
+
+interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
   role: string;
+  isActive: boolean;
 }
 
 interface AppContextType {
@@ -37,23 +51,42 @@ interface AppContextType {
   updateTeam: (id: string, updates: Partial<FieldTeam>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
   refetchTeams: () => void;
+  positions: Position[];
+  positionsLoading: boolean;
   user: User | null;
-  login: (username: string) => Promise<void>;
-  logout: () => void;
+  tenants: Tenant[];
+  currentTenant?: string;
+  isLoading: boolean;
+  logout: () => Promise<void>;
+  refetchAuth: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  // Fetch current user from /api/auth/me
+  const authQuery = useQuery<{ user: User; tenants: Tenant[]; currentTenant: string }>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  const login = async (username: string) => {
-    // Mock login
-    setUser({ id: "1", username, role: "admin" });
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/auth/logout");
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      window.location.href = "/login";
+    },
+  });
+
+  const logout = async () => {
+    await logoutMutation.mutateAsync();
   };
 
-  const logout = () => {
-    setUser(null);
+  const refetchAuth = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
   };
 
   const divisionsQuery = useQuery<Division[]>({
@@ -62,6 +95,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const teamsQuery = useQuery<FieldTeam[]>({
     queryKey: ["/api/teams"],
+  });
+
+  const positionsQuery = useQuery<Position[]>({
+    queryKey: ["/api/admin/positions"],
   });
 
   const addDivisionMutation = useMutation({
@@ -166,9 +203,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateTeam,
         deleteTeam,
         refetchTeams,
-        user,
-        login,
+        positions: positionsQuery.data || [],
+        positionsLoading: positionsQuery.isLoading,
+        user: authQuery.data?.user || null,
+        tenants: authQuery.data?.tenants || [],
+        currentTenant: authQuery.data?.currentTenant,
+        isLoading: authQuery.isLoading,
         logout,
+        refetchAuth,
       }}
     >
       {children}

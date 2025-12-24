@@ -9,10 +9,10 @@ const { Pool } = pg;
 export let db: ReturnType<typeof drizzlePglite<typeof schema>> | ReturnType<typeof drizzlePg<typeof schema>>;
 
 if (!process.env.DATABASE_URL) {
-  // Use PGLite for local testing
-  const client = new PGlite();
+  // Use PGLite for local testing with persistent storage
+  const client = new PGlite("./.data/pglite");
   db = drizzlePglite(client, { schema });
-  console.log("Using PGLite (in-memory) database for testing");
+  console.log("Using PGLite (file-based) database at ./.data/pglite");
 } else {
   // Use real Postgres for production/Supabase
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });

@@ -8,6 +8,8 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   ClipboardList,
+  Network,
+  Award,
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,6 +23,7 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { useAppContext } from "@/contexts/AppContext";
 
 const menuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard },
@@ -31,12 +34,24 @@ const menuItems = [
   { title: "현장팀 자재 사용등록", url: "/team-material-usage", icon: ClipboardList },
 ];
 
+const adminItems = [
+  { title: "멤버 관리", url: "/admin/members", icon: Users },
+  { title: "조직 관리", url: "/admin/org", icon: Network },
+  { title: "직급/직책 관리", url: "/admin/positions", icon: Award },
+];
+
 const settingsItems = [
   { title: "설정", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user, tenants, currentTenant: contextTenantId } = useAppContext();
+
+  // Check if current user is admin/owner of current tenant
+  const currentTenantId = contextTenantId || window.localStorage.getItem('currentTenantId') || tenants?.[0]?.id;
+  const currentTenant = tenants?.find(t => t.id === currentTenantId);
+  const isAdmin = currentTenant?.role === 'admin' || currentTenant?.role === 'owner';
 
   return (
     <Sidebar>
@@ -66,6 +81,26 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>관리</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={location === item.url}>
+                      <Link href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>

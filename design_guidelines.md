@@ -1,4 +1,4 @@
-# Design Guidelines: SKT 광케이블 자재 관리 시스템
+# Design Guidelines: Pro-Tracker (통합 자재 관리 시스템)
 
 ## Design Approach
 

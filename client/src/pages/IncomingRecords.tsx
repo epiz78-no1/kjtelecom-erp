@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Calendar, Search, Trash2, Pencil, Loader2 } from "lucide-react";
+import { Plus, Calendar, Search, Trash2, Pencil, Loader2, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,6 +49,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { IncomingBulkUploadDialog } from "@/components/IncomingBulkUploadDialog";
 
 const suppliers = ["텔레시스", "삼성전자", "LG유플러스", "SK텔레콤", "한국통신", "대한광통신"];
 
@@ -61,6 +62,7 @@ export default function IncomingRecords() {
   const [deleteRecord, setDeleteRecord] = useState<IncomingRecord | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [formData, setFormData] = useState({
     division: "SKT",
@@ -223,17 +225,17 @@ export default function IncomingRecords() {
 
     // Check if this is a new product (not in inventory)
     const existingItem = inventoryItems.find(
-      item => item.productName === formData.productName && 
-              item.specification === formData.specification &&
-              item.division === formData.division
+      item => item.productName === formData.productName &&
+        item.specification === formData.specification &&
+        item.division === formData.division
     );
 
     // For new products, unit price is required
     if (!existingItem && !editingRecord && !formData.unitPrice) {
-      toast({ 
-        title: "단가를 입력해주세요", 
+      toast({
+        title: "단가를 입력해주세요",
         description: "새 품목 등록 시 단가 입력이 필수입니다.",
-        variant: "destructive" 
+        variant: "destructive"
       });
       return;
     }
@@ -258,6 +260,36 @@ export default function IncomingRecords() {
 
   const confirmBulkDelete = () => {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
+  };
+
+  const handleBulkUpload = async (items: any[]) => {
+    try {
+      for (const item of items) {
+        await createMutation.mutateAsync(item);
+      }
+      toast({ title: `${items.length}건의 입고내역이 등록되었습니다` });
+      setBulkUploadOpen(false);
+    } catch (error) {
+      toast({ title: "일괄등록 실패", variant: "destructive" });
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const template = `입고일,사업부,구매처,공사명,품명,규격,수량,단가
+2024-12-24,SKT,텔레시스,[광텔] 2025년 SKT 운용사업,광접속함체 돔형,가공 96C,10,39398
+2024-12-24,SKT,삼성전자,[광텔] 2025년 SKT 운용사업,광점퍼코드,SM 1C SC/APC-SC/APC 3M,50,2806`;
+
+    const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "incoming_template.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({ title: "템플릿이 다운로드되었습니다" });
   };
 
   if (isLoading) {
@@ -303,6 +335,14 @@ export default function IncomingRecords() {
                 SKB사업부
               </Button>
             </div>
+            <Button onClick={handleDownloadTemplate} variant="outline" data-testid="button-download-template">
+              <Download className="h-4 w-4 mr-2" />
+              템플릿 다운로드
+            </Button>
+            <Button onClick={() => setBulkUploadOpen(true)} variant="outline" data-testid="button-bulk-upload">
+              <Upload className="h-4 w-4 mr-2" />
+              일괄등록
+            </Button>
             <Button onClick={openAddDialog} data-testid="button-add-incoming">
               <Plus className="h-4 w-4 mr-2" />
               입고 등록
@@ -335,7 +375,7 @@ export default function IncomingRecords() {
             )}
           </div>
           <div className="text-sm text-muted-foreground">
-            총 <span className="font-semibold text-foreground">{filteredRecords.length}</span>건 / 
+            총 <span className="font-semibold text-foreground">{filteredRecords.length}</span>건 /
             수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
           </div>
         </div>
@@ -554,8 +594,8 @@ export default function IncomingRecords() {
             <Button variant="outline" onClick={closeDialog}>
               취소
             </Button>
-            <Button 
-              onClick={handleSubmit} 
+            <Button
+              onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-submit-incoming"
             >
@@ -599,6 +639,12 @@ export default function IncomingRecords() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <IncomingBulkUploadDialog
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onUpload={handleBulkUpload}
+      />
     </div>
   );
 }
