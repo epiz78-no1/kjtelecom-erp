@@ -14,6 +14,7 @@ import Dashboard from "@/pages/Dashboard";
 import Auth from "@/pages/Auth";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import TenantSelect from "@/pages/TenantSelect";
 import Inventory from "@/pages/Inventory";
 import IncomingRecords from "@/pages/IncomingRecords";
 import OutgoingRecords from "@/pages/OutgoingRecords";
@@ -60,6 +61,7 @@ function AppContent() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/tenant-select" component={TenantSelect} />
       <Route>
         {() => {
           // Protected routes - require authentication
@@ -82,7 +84,7 @@ function AppContent() {
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <User className="h-4 w-4" />
-                        <span>{user.email}</span>
+                        <span>{user.username}</span>
                       </div>
                       <Button
                         variant="ghost"

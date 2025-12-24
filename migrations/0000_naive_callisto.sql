@@ -1,5 +1,5 @@
 CREATE TABLE "divisions" (
-	"id" varchar PRIMARY KEY NOT NULL,
+	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" varchar NOT NULL,
 	"name" text NOT NULL
 );
@@ -32,6 +32,19 @@ CREATE TABLE "inventory_items" (
 	"total_amount" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "invitations" (
+	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" varchar NOT NULL,
+	"email" text NOT NULL,
+	"role" text DEFAULT 'member' NOT NULL,
+	"token" text NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"invited_by" varchar NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "invitations_token_unique" UNIQUE("token")
+);
+--> statement-breakpoint
 CREATE TABLE "material_usage_records" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"tenant_id" varchar NOT NULL,
@@ -56,6 +69,13 @@ CREATE TABLE "outgoing_records" (
 	"specification" text NOT NULL,
 	"quantity" integer DEFAULT 0 NOT NULL,
 	"recipient" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "positions" (
+	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" varchar NOT NULL,
+	"name" text NOT NULL,
+	"rank_order" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "teams" (
@@ -86,24 +106,33 @@ CREATE TABLE "user_tenants" (
 	"user_id" varchar NOT NULL,
 	"tenant_id" varchar NOT NULL,
 	"role" text DEFAULT 'member' NOT NULL,
+	"position_id" varchar,
+	"division_id" varchar,
+	"team_id" varchar,
+	"status" text DEFAULT 'active' NOT NULL,
+	"join_date" timestamp DEFAULT now() NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"email" text NOT NULL,
+	"username" text NOT NULL,
 	"password" text NOT NULL,
 	"name" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"last_login_at" timestamp,
-	CONSTRAINT "users_email_unique" UNIQUE("email")
+	CONSTRAINT "users_username_unique" UNIQUE("username")
 );
 --> statement-breakpoint
 ALTER TABLE "divisions" ADD CONSTRAINT "divisions_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "incoming_records" ADD CONSTRAINT "incoming_records_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "inventory_items" ADD CONSTRAINT "inventory_items_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "material_usage_records" ADD CONSTRAINT "material_usage_records_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "outgoing_records" ADD CONSTRAINT "outgoing_records_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "positions" ADD CONSTRAINT "positions_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "teams" ADD CONSTRAINT "teams_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "teams" ADD CONSTRAINT "teams_division_id_divisions_id_fk" FOREIGN KEY ("division_id") REFERENCES "public"."divisions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_tenants" ADD CONSTRAINT "user_tenants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_tenants" ADD CONSTRAINT "user_tenants_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;

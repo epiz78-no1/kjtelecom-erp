@@ -44,8 +44,13 @@ export default function Login() {
             // Refresh auth state before redirecting
             refetchAuth();
 
-            // Redirect to dashboard
-            setLocation("/");
+            // If user has multiple tenants, redirect to tenant selection page
+            if (data.tenants && data.tenants.length > 1) {
+                setLocation("/tenant-select");
+            } else {
+                // Otherwise, redirect to dashboard
+                setLocation("/");
+            }
         } catch (error: any) {
             toast({
                 title: "로그인 실패",

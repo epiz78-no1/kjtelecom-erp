@@ -43,14 +43,14 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: false }));
 
 // Session configuration
-const PgSession = connectPgSimple(session);
+import sessionFileStore from "session-file-store";
+const FileStore = sessionFileStore(session);
 
 app.use(session({
-  store: pool ? new PgSession({
-    pool: pool,
-    tableName: 'user_sessions',
-    createTableIfMissing: true
-  }) : undefined, // Use memory store for PGlite
+  store: new FileStore({
+    path: './.data/sessions',
+    ttl: 30 * 24 * 60 * 60, // 30 days
+  }),
   secret: process.env.SESSION_SECRET || 'pro-tracker-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
@@ -105,12 +105,38 @@ app.use((req, res, next) => {
 (async () => {
   if (!process.env.DATABASE_URL) {
     const { db } = await import("./db");
+    const { users } = await import("@shared/schema");
     const { migrate } = await import("drizzle-orm/pglite/migrator");
+    const fs = await import("fs");
     const path = await import("path");
-    // Resolve migrations relative to current working directory or file
-    // Assuming migrations are in "./migrations" relative to CWD
-    await migrate(db, { migrationsFolder: "./migrations" });
-    log("Migrated PGLite database");
+
+    // Check if migrations folder exists and has files
+    const migrationsDir = "./migrations";
+    if (fs.existsSync(migrationsDir)) {
+      const { execSync } = await import("child_process");
+      try {
+        log("Checking for database migrations...");
+        // Use our manual migration script for PGLite consistency
+        execSync("npx tsx migrate_pglite.ts", { stdio: 'inherit' });
+        log("Migrated PGLite database");
+      } catch (e) {
+        log("Migration failed, attempting automatic migration...", "error");
+        await migrate(db, { migrationsFolder: migrationsDir });
+      }
+    }
+
+    // Auto-seed if no users exist
+    const userCount = await db.select().from(users);
+    if (userCount.length === 0) {
+      log("No users found. Running automatic seeding...");
+      const { execSync } = await import("child_process");
+      try {
+        execSync("npm run db:seed", { stdio: 'inherit' });
+        log("Automatic seeding complete");
+      } catch (e) {
+        log("Automatic seeding failed", "error");
+      }
+    }
   }
 
   // Temporary route for user request: setup 'admin' / '123456' with '광텔', '한주통신'
