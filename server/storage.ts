@@ -1,4 +1,4 @@
-import { 
+import {
   type User, type InsertUser,
   type Division, type InsertDivision,
   type Team, type InsertTeam,
@@ -16,14 +16,14 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   getDivisions(): Promise<Division[]>;
   getDivision(id: string): Promise<Division | undefined>;
   createDivision(name: string): Promise<Division>;
   updateDivision(id: string, name: string): Promise<Division | undefined>;
   deleteDivision(id: string): Promise<boolean>;
   initializeDivisions(): Promise<void>;
-  
+
   getTeams(): Promise<Team[]>;
   getTeamsByDivision(divisionId: string): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
@@ -31,7 +31,7 @@ export interface IStorage {
   updateTeam(id: string, updates: Partial<InsertTeam>): Promise<Team | undefined>;
   deleteTeam(id: string): Promise<boolean>;
   initializeTeams(): Promise<void>;
-  
+
   getInventoryItems(): Promise<InventoryItem[]>;
   getInventoryItem(id: number): Promise<InventoryItem | undefined>;
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
@@ -40,22 +40,23 @@ export interface IStorage {
   bulkDeleteInventoryItems(ids: number[]): Promise<number>;
   clearInventoryItems(): Promise<void>;
   bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]>;
-  
+
   getOutgoingRecords(): Promise<OutgoingRecord[]>;
   getOutgoingRecord(id: number): Promise<OutgoingRecord | undefined>;
   createOutgoingRecord(record: InsertOutgoingRecord): Promise<OutgoingRecord>;
   updateOutgoingRecord(id: number, updates: Partial<InsertOutgoingRecord>): Promise<OutgoingRecord | undefined>;
   deleteOutgoingRecord(id: number): Promise<boolean>;
   bulkDeleteOutgoingRecords(ids: number[]): Promise<number>;
+  clearOutgoingRecords(): Promise<void>;
   initializeOutgoingRecords(): Promise<void>;
-  
+
   getMaterialUsageRecords(): Promise<MaterialUsageRecord[]>;
   getMaterialUsageRecord(id: number): Promise<MaterialUsageRecord | undefined>;
   createMaterialUsageRecord(record: InsertMaterialUsageRecord): Promise<MaterialUsageRecord>;
   updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>): Promise<MaterialUsageRecord | undefined>;
   deleteMaterialUsageRecord(id: number): Promise<boolean>;
   bulkDeleteMaterialUsageRecords(ids: number[]): Promise<number>;
-  
+
   getIncomingRecords(): Promise<IncomingRecord[]>;
   getIncomingRecord(id: number): Promise<IncomingRecord | undefined>;
   createIncomingRecord(record: InsertIncomingRecord): Promise<IncomingRecord>;
@@ -246,24 +247,12 @@ export class DatabaseStorage implements IStorage {
     return result.length;
   }
 
+  async clearOutgoingRecords(): Promise<void> {
+    await db.delete(outgoingRecords);
+  }
+
   async initializeOutgoingRecords(): Promise<void> {
-    const existing = await db.select().from(outgoingRecords);
-    if (existing.length === 0) {
-      await db.insert(outgoingRecords).values([
-        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "효성선70R6R16R1", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 1, recipient: "채성범" },
-        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 3, recipient: "채성범" },
-        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-SC/APC, 3M", quantity: 2, recipient: "채성범" },
-        { date: "2025-12-01", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "케이블명찰", specification: "재질:PVC W:70 H:50", quantity: 100, recipient: "채성범" },
-        { date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "재난유선망정읍(김제요천 비정읍통합국사)", productName: "광점퍼파코드", specification: "SM, 1C, SC/PC-SC/APC, 30M", quantity: 4, recipient: "채성범" },
-        { date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "재난유선망남원(곡성교촌", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-LC/PC, 30M", quantity: 4, recipient: "박정훈" },
-        { date: "2025-12-03", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "가공 96C", quantity: 1, recipient: "박정훈" },
-        { date: "2025-12-04", division: "SKT", teamCategory: "접속팀", projectName: "예비용", productName: "광점퍼파코드", specification: "SM, 1C, SC/APC-SC/APC, 30M", quantity: 4, recipient: "채성범" },
-        { date: "2025-12-08", division: "SKT", teamCategory: "외선팀", projectName: "예비용", productName: "낙뢰방지캡", specification: "표준형", quantity: 3, recipient: "김병현" },
-        { date: "2025-12-08", division: "SKT", teamCategory: "외선팀", projectName: "예비용", productName: "지선보호커버", specification: "상/하 1조", quantity: 3, recipient: "김병현" },
-        { date: "2025-12-06", division: "SKB", teamCategory: "접속팀", projectName: "예비용", productName: "광접속함체 돔형", specification: "지중 144C", quantity: 1, recipient: "정시정" },
-        { date: "2025-12-07", division: "SKT", teamCategory: "접속팀", projectName: "효자동 2가 함체교체", productName: "광접속함체 직선형", specification: "가공 24", quantity: 2, recipient: "채성범" },
-      ]);
-    }
+    // Sample data initialization removed
   }
 
   async getMaterialUsageRecords(): Promise<MaterialUsageRecord[]> {

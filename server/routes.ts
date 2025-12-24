@@ -7,9 +7,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  await storage.initializeDivisions();
-  await storage.initializeTeams();
-  await storage.initializeOutgoingRecords();
+  // await storage.initializeDivisions();
+  // await storage.initializeTeams();
+  // await storage.initializeOutgoingRecords();
+  console.log("Server routes initialized");
 
   app.get("/api/divisions", async (req, res) => {
     const divisions = await storage.getDivisions();
