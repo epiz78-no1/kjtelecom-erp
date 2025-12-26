@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Search, Loader2, Trash2, Plus, Calendar, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { MaterialUsageRecord } from "@shared/schema";
+import type { MaterialUsageRecord, InventoryItem } from "@shared/schema";
 import {
   Table,
   TableBody,
@@ -78,6 +78,30 @@ export default function TeamMaterialUsage() {
   const { data: records = [], isLoading } = useQuery<MaterialUsageRecord[]>({
     queryKey: ["/api/material-usage"],
   });
+
+  const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
+    queryKey: ["/api/inventory"],
+  });
+
+  // Get unique product names from inventory
+  const productNames = useMemo(() => {
+    const names = new Set(
+      inventoryItems
+        .map(item => item.productName)
+        .filter(name => name && name.trim() !== '')
+    );
+    return Array.from(names).sort();
+  }, [inventoryItems]);
+
+  // Get specifications for the selected product name
+  const specifications = useMemo(() => {
+    if (!formData.productName) return [];
+    const specs = inventoryItems
+      .filter(item => item.productName === formData.productName)
+      .map(item => item.specification)
+      .filter(spec => spec && spec.trim() !== '');
+    return Array.from(new Set(specs)).sort();
+  }, [inventoryItems, formData.productName]);
 
   const createMutation = useMutation({
     mutationFn: async (data: Omit<MaterialUsageRecord, "id" | "tenantId">) => {
@@ -536,21 +560,59 @@ export default function TeamMaterialUsage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>품명 *</Label>
-                <Input
+                <Select
                   value={formData.productName}
-                  onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                  placeholder="예: 광접속함체 돔형"
-                  data-testid="input-usage-product"
-                />
+                  onValueChange={(value) => {
+                    const item = inventoryItems.find(i => i.productName === value);
+                    setFormData({
+                      ...formData,
+                      productName: value,
+                      specification: "",
+                      division: item?.division || "SKT",
+                      type: item?.type || "general"
+                    });
+                  }}
+                >
+                  <SelectTrigger data-testid="select-usage-product">
+                    <SelectValue placeholder="품명 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productNames.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-2">
                 <Label>규격 *</Label>
-                <Input
+                <Select
                   value={formData.specification}
-                  onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                  placeholder="예: 가공 96C"
-                  data-testid="input-usage-spec"
-                />
+                  onValueChange={(value) => {
+                    const item = inventoryItems.find(
+                      i => i.productName === formData.productName &&
+                        i.specification === value
+                    );
+                    setFormData({
+                      ...formData,
+                      specification: value,
+                      division: item?.division || formData.division
+                    });
+                  }}
+                  disabled={!formData.productName}
+                >
+                  <SelectTrigger data-testid="select-usage-spec">
+                    <SelectValue placeholder={formData.productName ? "규격 선택" : "품명을 먼저 선택하세요"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {specifications.map((spec) => (
+                      <SelectItem key={spec} value={spec}>
+                        {spec}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid gap-2">

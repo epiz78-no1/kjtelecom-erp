@@ -17,6 +17,54 @@ export async function registerRoutes(
   // await storage.initializeOutgoingRecords();
   console.log("Server routes initialized");
 
+  async function syncInventoryItem(
+    productName: string,
+    specification: string,
+    division: string,
+    tenantId: string
+  ) {
+    console.log(`[SYNC] Recalculating inventory for: ${productName} (${specification}) [${division}]`);
+
+    const inventoryItemsList = await storage.getInventoryItems(tenantId);
+    const matchingItem = inventoryItemsList.find(
+      item => item.productName === productName &&
+        item.specification === specification &&
+        item.division === division
+    );
+
+    if (!matchingItem) {
+      console.log(`[SYNC] No inventory item found for: ${productName}`);
+      return;
+    }
+
+    const incomingList = await storage.getIncomingRecords(tenantId);
+    const totalIncoming = incomingList
+      .filter(r => r.productName === productName && (r.specification || "") === specification && r.division === division)
+      .reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+    const outgoingList = await storage.getOutgoingRecords(tenantId);
+    const totalOutgoingFromRecords = outgoingList
+      .filter(r => r.productName === productName && r.specification === specification && r.division === division)
+      .reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+    const usageList = await storage.getMaterialUsageRecords(tenantId);
+    const totalUsage = usageList
+      .filter(r => r.productName === productName && r.specification === specification && r.division === division)
+      .reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+    const totalOutgoing = totalOutgoingFromRecords + totalUsage;
+    const newRemaining = matchingItem.carriedOver + totalIncoming - totalOutgoing;
+
+    console.log(`[SYNC] New totals - Incoming: ${totalIncoming}, Outgoing: ${totalOutgoing}, Remaining: ${newRemaining}`);
+
+    await storage.updateInventoryItem(matchingItem.id, {
+      incoming: totalIncoming,
+      outgoing: totalOutgoing,
+      remaining: newRemaining,
+      totalAmount: newRemaining * matchingItem.unitPrice
+    }, tenantId);
+  }
+
   // Divisions API - require authentication and tenant isolation
   app.get("/api/divisions", requireAuth, requireTenant, async (req, res) => {
     const tenantId = req.session!.tenantId!;
@@ -273,26 +321,12 @@ export async function registerRoutes(
       tenantId
     });
 
-    // Update inventory: find matching item and increase outgoing/decrease remaining
-    const inventoryItemsList = await storage.getInventoryItems(tenantId);
-    const matchingItem = inventoryItemsList.find(
-      item => item.productName === parseResult.data.productName &&
-        item.specification === parseResult.data.specification &&
-        item.division === parseResult.data.division
+    await syncInventoryItem(
+      parseResult.data.productName,
+      parseResult.data.specification,
+      parseResult.data.division,
+      tenantId
     );
-
-    const quantity = parseResult.data.quantity ?? 0;
-
-    if (matchingItem) {
-      const newOutgoing = matchingItem.outgoing + quantity;
-      const newRemaining = matchingItem.carriedOver + matchingItem.incoming - newOutgoing;
-      const newTotalAmount = newRemaining * matchingItem.unitPrice;
-      await storage.updateInventoryItem(matchingItem.id, {
-        outgoing: newOutgoing,
-        remaining: newRemaining,
-        totalAmount: newTotalAmount,
-      }, tenantId);
-    }
 
     res.status(201).json(record);
   });
@@ -304,10 +338,20 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const oldRecord = await storage.getOutgoingRecord(id, tenantId);
     const record = await storage.updateOutgoingRecord(id, req.body, tenantId);
+
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
     }
+
+    if (oldRecord) {
+      await syncInventoryItem(oldRecord.productName, oldRecord.specification, oldRecord.division, tenantId);
+    }
+    if (record && (record.productName !== oldRecord?.productName || record.specification !== oldRecord?.specification || record.division !== oldRecord?.division)) {
+      await syncInventoryItem(record.productName, record.specification, record.division, tenantId);
+    }
+
     res.json(record);
   });
 
@@ -318,10 +362,17 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const record = await storage.getOutgoingRecord(id, tenantId);
     const success = await storage.deleteOutgoingRecord(id, tenantId);
+
     if (!success) {
       return res.status(404).json({ error: "Record not found" });
     }
+
+    if (record) {
+      await syncInventoryItem(record.productName, record.specification, record.division, tenantId);
+    }
+
     res.status(204).send();
   });
 
@@ -332,7 +383,18 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const records = await storage.getOutgoingRecords(tenantId);
+    const recordsToDelete = records.filter(r => ids.includes(r.id));
+
     const deletedCount = await storage.bulkDeleteOutgoingRecords(ids, tenantId);
+
+    // Get unique items to sync
+    const itemsToSync = new Set(recordsToDelete.map(r => `${r.productName}|${r.specification}|${r.division}`));
+    await Promise.all(Array.from(itemsToSync).map(async (itemKey) => {
+      const [productName, specification, division] = itemKey.split('|');
+      await syncInventoryItem(productName, specification, division, tenantId);
+    }));
+
     res.json({ deletedCount });
   });
 
@@ -367,6 +429,14 @@ export async function registerRoutes(
       ...parseResult.data,
       tenantId
     });
+
+    await syncInventoryItem(
+      parseResult.data.productName,
+      parseResult.data.specification,
+      parseResult.data.division,
+      tenantId
+    );
+
     res.status(201).json(record);
   });
 
@@ -377,10 +447,20 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const oldRecord = await storage.getMaterialUsageRecord(id, tenantId);
     const record = await storage.updateMaterialUsageRecord(id, req.body, tenantId);
+
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
     }
+
+    if (oldRecord) {
+      await syncInventoryItem(oldRecord.productName, oldRecord.specification, oldRecord.division, tenantId);
+    }
+    if (record && (record.productName !== oldRecord?.productName || record.specification !== oldRecord?.specification || record.division !== oldRecord?.division)) {
+      await syncInventoryItem(record.productName, record.specification, record.division, tenantId);
+    }
+
     res.json(record);
   });
 
@@ -391,10 +471,17 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const record = await storage.getMaterialUsageRecord(id, tenantId);
     const success = await storage.deleteMaterialUsageRecord(id, tenantId);
+
     if (!success) {
       return res.status(404).json({ error: "Record not found" });
     }
+
+    if (record) {
+      await syncInventoryItem(record.productName, record.specification, record.division, tenantId);
+    }
+
     res.status(204).send();
   });
 
@@ -405,7 +492,18 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const records = await storage.getMaterialUsageRecords(tenantId);
+    const recordsToDelete = records.filter(r => ids.includes(r.id));
+
     const deletedCount = await storage.bulkDeleteMaterialUsageRecords(ids, tenantId);
+
+    // Get unique items to sync
+    const itemsToSync = new Set(recordsToDelete.map(r => `${r.productName}|${r.specification}|${r.division}`));
+    await Promise.all(Array.from(itemsToSync).map(async (itemKey) => {
+      const [productName, specification, division] = itemKey.split('|');
+      await syncInventoryItem(productName, specification, division, tenantId);
+    }));
+
     res.json({ deletedCount });
   });
 
@@ -443,42 +541,37 @@ export async function registerRoutes(
       tenantId
     });
 
-    // Update inventory: find matching item and increase incoming/remaining
+    // Ensure inventory item exists
     const inventoryItemsList = await storage.getInventoryItems(tenantId);
     const matchingItem = inventoryItemsList.find(
       item => item.productName === parseResult.data.productName &&
-        item.specification === parseResult.data.specification &&
+        item.specification === (parseResult.data.specification || "") &&
         item.division === parseResult.data.division
     );
 
-    const quantity = parseResult.data.quantity ?? 0;
-
-    if (matchingItem) {
-      const newIncoming = matchingItem.incoming + quantity;
-      const newRemaining = matchingItem.carriedOver + newIncoming - matchingItem.outgoing;
-      const newTotalAmount = newRemaining * matchingItem.unitPrice;
-      await storage.updateInventoryItem(matchingItem.id, {
-        incoming: newIncoming,
-        remaining: newRemaining,
-        totalAmount: newTotalAmount,
-      }, tenantId);
-    } else {
-      // Create new inventory item if it doesn't exist
+    if (!matchingItem) {
       const unitPrice = parseResult.data.unitPrice ?? 0;
       await storage.createInventoryItem({
         tenantId,
         division: parseResult.data.division,
-        category: parseResult.data.division, // Using division as category as per original logic
+        category: parseResult.data.division,
         productName: parseResult.data.productName,
         specification: parseResult.data.specification ?? "",
         carriedOver: 0,
-        incoming: quantity,
+        incoming: 0,
         outgoing: 0,
-        remaining: quantity,
+        remaining: 0,
         unitPrice: unitPrice,
-        totalAmount: quantity * unitPrice,
+        totalAmount: 0,
       });
     }
+
+    await syncInventoryItem(
+      parseResult.data.productName,
+      parseResult.data.specification || "",
+      parseResult.data.division,
+      tenantId
+    );
 
     res.status(201).json(record);
   });
@@ -490,10 +583,20 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const oldRecord = await storage.getIncomingRecord(id, tenantId);
     const record = await storage.updateIncomingRecord(id, req.body, tenantId);
+
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
     }
+
+    if (oldRecord) {
+      await syncInventoryItem(oldRecord.productName, oldRecord.specification || "", oldRecord.division, tenantId);
+    }
+    if (record && (record.productName !== oldRecord?.productName || record.specification !== oldRecord?.specification || record.division !== oldRecord?.division)) {
+      await syncInventoryItem(record.productName, record.specification || "", record.division, tenantId);
+    }
+
     res.json(record);
   });
 
@@ -504,10 +607,17 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const record = await storage.getIncomingRecord(id, tenantId);
     const success = await storage.deleteIncomingRecord(id, tenantId);
+
     if (!success) {
       return res.status(404).json({ error: "Record not found" });
     }
+
+    if (record) {
+      await syncInventoryItem(record.productName, record.specification || "", record.division, tenantId);
+    }
+
     res.status(204).send();
   });
 
@@ -518,7 +628,18 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const records = await storage.getIncomingRecords(tenantId);
+    const recordsToDelete = records.filter(r => ids.includes(r.id));
+
     const deletedCount = await storage.bulkDeleteIncomingRecords(ids, tenantId);
+
+    // Get unique items to sync
+    const itemsToSync = new Set(recordsToDelete.map(r => `${r.productName}|${r.specification || ""}|${r.division}`));
+    await Promise.all(Array.from(itemsToSync).map(async (itemKey) => {
+      const [productName, specification, division] = itemKey.split('|');
+      await syncInventoryItem(productName, specification, division, tenantId);
+    }));
+
     res.json({ deletedCount });
   });
 

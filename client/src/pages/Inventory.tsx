@@ -146,7 +146,7 @@ export default function Inventory() {
     ? inventoryItems
     : inventoryItems.filter((item) => item.division === selectedDivision);
 
-  const categorySet = new Set(divisionFiltered.map((item) => item.category));
+  const categorySet = new Set(divisionFiltered.map((item) => item.category).filter(cat => cat && cat.trim() !== ''));
   const categories = ["전체", ...Array.from(categorySet)];
 
   const categoryFiltered = selectedCategory === "전체"

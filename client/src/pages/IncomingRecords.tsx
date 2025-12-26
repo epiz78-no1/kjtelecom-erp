@@ -87,7 +87,7 @@ export default function IncomingRecords() {
 
   // Get unique product names from inventory
   const productNames = useMemo(() => {
-    const names = new Set(inventoryItems.map(item => item.productName));
+    const names = new Set(inventoryItems.map(item => item.productName).filter(name => name && name.trim() !== ''));
     return Array.from(names).sort();
   }, [inventoryItems]);
 
@@ -96,7 +96,8 @@ export default function IncomingRecords() {
     if (!formData.productName) return [];
     const specs = inventoryItems
       .filter(item => item.productName === formData.productName)
-      .map(item => item.specification);
+      .map(item => item.specification)
+      .filter(spec => spec && spec.trim() !== '');
     return Array.from(new Set(specs)).sort();
   }, [inventoryItems, formData.productName]);
 
