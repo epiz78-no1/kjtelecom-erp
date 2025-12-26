@@ -45,7 +45,7 @@ export default function TeamOutgoing() {
 
   const filteredRecords = divisionFiltered.filter((record) => {
     const matchesRecipient = selectedRecipient === "all" || record.recipient === selectedRecipient;
-    const matchesSearch = 
+    const matchesSearch =
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -57,13 +57,13 @@ export default function TeamOutgoing() {
     const outgoingTotal = divisionFiltered
       .filter((r) => r.recipient === recipient)
       .reduce((sum, r) => sum + r.quantity, 0);
-    
+
     const usageTotal = usageRecords
       .filter((r) => r.recipient === recipient && (selectedDivision === "all" || r.division === selectedDivision))
       .reduce((sum, r) => sum + r.quantity, 0);
-    
+
     const remaining = outgoingTotal - usageTotal;
-    
+
     return {
       name: recipient,
       outgoingTotal,
@@ -90,31 +90,17 @@ export default function TeamOutgoing() {
             <p className="text-muted-foreground">수령인별 자재 출고/사용 현황을 조회합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1">
-              <Button
-                variant={selectedDivision === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("all")}
-                data-testid="button-division-all"
-              >
-                전체
-              </Button>
-              <Button
-                variant={selectedDivision === "SKT" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKT")}
-                data-testid="button-division-skt"
-              >
-                SKT사업부
-              </Button>
-              <Button
-                variant={selectedDivision === "SKB" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKB")}
-                data-testid="button-division-skb"
-              >
-                SKB사업부
-              </Button>
+            <div className="w-[180px]">
+              <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                <SelectTrigger data-testid="select-division">
+                  <SelectValue placeholder="사업부 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="SKT">SKT사업부</SelectItem>
+                  <SelectItem value="SKB">SKB사업부</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

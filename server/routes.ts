@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords } from "@shared/schema";
 import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema, insertIncomingRecordSchema } from "@shared/schema";
+import { apiInsertTeamSchema, apiInsertInventoryItemSchema, apiInsertOutgoingRecordSchema, apiInsertMaterialUsageRecordSchema, apiInsertIncomingRecordSchema } from "@shared/schema";
 import { requireAuth, requireTenant } from "./middleware/auth";
 import { eq, and } from "drizzle-orm";
 
@@ -89,7 +90,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/teams", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = insertTeamSchema.safeParse(req.body);
+    const parseResult = apiInsertTeamSchema.safeParse(req.body);
     if (!parseResult.success) {
       return res.status(400).json({ error: parseResult.error.message });
     }
@@ -162,9 +163,19 @@ export async function registerRoutes(
   });
 
   app.post("/api/inventory", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = insertInventoryItemSchema.safeParse(req.body);
+    console.log("POST /api/inventory - body:", JSON.stringify(req.body, null, 2));
+    // Diagnostic: check what keys the schema expects
+    const schemaKeys = (apiInsertInventoryItemSchema as any)._def?.shape ? Object.keys((apiInsertInventoryItemSchema as any)._def.shape()) : "unknown";
+    console.log("apiInsertInventoryItemSchema keys:", schemaKeys);
+
+    const parseResult = apiInsertInventoryItemSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ error: parseResult.error.message });
+      console.log("POST /api/inventory - validation failed:", JSON.stringify(parseResult.error.format(), null, 2));
+      return res.status(400).json({
+        error: parseResult.error.message,
+        details: parseResult.error.format(),
+        schemaKeys: schemaKeys
+      });
     }
 
     const tenantId = req.session!.tenantId!;
@@ -251,7 +262,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/outgoing", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = insertOutgoingRecordSchema.safeParse(req.body);
+    const parseResult = apiInsertOutgoingRecordSchema.safeParse(req.body);
     if (!parseResult.success) {
       return res.status(400).json({ error: parseResult.error.message });
     }
@@ -261,6 +272,28 @@ export async function registerRoutes(
       ...parseResult.data,
       tenantId
     });
+
+    // Update inventory: find matching item and increase outgoing/decrease remaining
+    const inventoryItemsList = await storage.getInventoryItems(tenantId);
+    const matchingItem = inventoryItemsList.find(
+      item => item.productName === parseResult.data.productName &&
+        item.specification === parseResult.data.specification &&
+        item.division === parseResult.data.division
+    );
+
+    const quantity = parseResult.data.quantity ?? 0;
+
+    if (matchingItem) {
+      const newOutgoing = matchingItem.outgoing + quantity;
+      const newRemaining = matchingItem.carriedOver + matchingItem.incoming - newOutgoing;
+      const newTotalAmount = newRemaining * matchingItem.unitPrice;
+      await storage.updateInventoryItem(matchingItem.id, {
+        outgoing: newOutgoing,
+        remaining: newRemaining,
+        totalAmount: newTotalAmount,
+      }, tenantId);
+    }
+
     res.status(201).json(record);
   });
 
@@ -324,7 +357,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/material-usage", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = insertMaterialUsageRecordSchema.safeParse(req.body);
+    const parseResult = apiInsertMaterialUsageRecordSchema.safeParse(req.body);
     if (!parseResult.success) {
       return res.status(400).json({ error: parseResult.error.message });
     }
@@ -399,7 +432,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/incoming", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = insertIncomingRecordSchema.safeParse(req.body);
+    const parseResult = apiInsertIncomingRecordSchema.safeParse(req.body);
     if (!parseResult.success) {
       return res.status(400).json({ error: parseResult.error.message });
     }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InventoryTable } from "@/components/InventoryTable";
-import { MaterialFormDialog } from "@/components/MaterialFormDialog";
+import { MaterialFormDialog, type MaterialSubmitData } from "@/components/MaterialFormDialog";
 import { BulkUploadDialog } from "@/components/BulkUploadDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -53,7 +53,7 @@ export default function Inventory() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: Omit<InventoryItem, "id">) => {
+    mutationFn: async (data: Omit<InventoryItem, "id" | "tenantId">) => {
       return apiRequest("POST", "/api/inventory", data);
     },
     onSuccess: () => {
@@ -83,6 +83,17 @@ export default function Inventory() {
       toast({ title: "자재 수정 실패", variant: "destructive" });
     },
   });
+
+
+
+  const handleSubmit = (data: MaterialSubmitData) => {
+    const submitData = { ...data, division: (data as any).division || "SKT" };
+    if (editingItem) {
+      updateMutation.mutate({ ...submitData, id: editingItem.id } as InventoryItem);
+    } else {
+      createMutation.mutate(submitData as Omit<InventoryItem, "id" | "tenantId">);
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -168,25 +179,7 @@ export default function Inventory() {
     setSelectedIds(newSet);
   };
 
-  const handleSubmit = (data: {
-    division?: string;
-    category: string;
-    productName: string;
-    specification: string;
-    carriedOver: number;
-    incoming: number;
-    outgoing: number;
-    remaining: number;
-    unitPrice: number;
-    totalAmount: number;
-  }) => {
-    const submitData = { ...data, division: data.division || "SKT" };
-    if (editingItem) {
-      updateMutation.mutate({ ...submitData, id: editingItem.id });
-    } else {
-      createMutation.mutate(submitData);
-    }
-  };
+
 
   const handleEdit = (item: InventoryItem) => {
     setEditingItem(item);
@@ -246,31 +239,17 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
             <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1">
-              <Button
-                variant={selectedDivision === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("all")}
-                data-testid="button-division-all"
-              >
-                전체
-              </Button>
-              <Button
-                variant={selectedDivision === "SKT" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKT")}
-                data-testid="button-division-skt"
-              >
-                SKT사업부
-              </Button>
-              <Button
-                variant={selectedDivision === "SKB" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKB")}
-                data-testid="button-division-skb"
-              >
-                SKB사업부
-              </Button>
+            <div className="w-[180px]">
+              <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                <SelectTrigger data-testid="select-division">
+                  <SelectValue placeholder="사업부 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="SKT">SKT사업부</SelectItem>
+                  <SelectItem value="SKB">SKB사업부</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={handleDownloadTemplate} variant="outline" data-testid="button-download-template">
               <Download className="h-4 w-4 mr-2" />

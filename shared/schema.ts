@@ -15,6 +15,7 @@ export const tenants = pgTable("tenants", {
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
+export const apiInsertTenantSchema = insertTenantSchema.omit({}); // Already handled by insertTenantSchema omit, but for consistency
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Tenant = typeof tenants.$inferSelect;
 
@@ -64,6 +65,10 @@ export const positions = pgTable("positions", {
 });
 
 export const insertPositionSchema = createInsertSchema(positions).omit({ id: true });
+export const apiInsertPositionSchema = z.object({
+  name: z.string(),
+  rankOrder: z.number().optional(),
+});
 export type InsertPosition = z.infer<typeof insertPositionSchema>;
 export type Position = typeof positions.$inferSelect;
 
@@ -81,6 +86,10 @@ export const invitations = pgTable("invitations", {
 });
 
 export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
+export const apiInsertInvitationSchema = z.object({
+  email: z.string().email(),
+  role: z.string().optional(),
+});
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 export type Invitation = typeof invitations.$inferSelect;
 
@@ -91,6 +100,9 @@ export const divisions = pgTable("divisions", {
 });
 
 export const insertDivisionSchema = createInsertSchema(divisions).omit({ id: true });
+export const apiInsertDivisionSchema = z.object({
+  name: z.string(),
+});
 export type InsertDivision = z.infer<typeof insertDivisionSchema>;
 export type Division = typeof divisions.$inferSelect;
 
@@ -107,6 +119,12 @@ export const teams = pgTable("teams", {
 });
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true });
+export const apiInsertTeamSchema = z.object({
+  name: z.string(),
+  divisionId: z.string(),
+  teamCategory: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
 
@@ -116,6 +134,8 @@ export const inventoryItems = pgTable("inventory_items", {
   division: text("division").notNull().default("SKT"),
   category: text("category").notNull(),
   productName: text("product_name").notNull(),
+  type: text("type").notNull().default("general"), // general or cable
+  attributes: text("attributes"), // JSON string for extra attributes like drum number, length, etc.
   specification: text("specification").notNull(),
   carriedOver: integer("carried_over").notNull().default(0),
   incoming: integer("incoming").notNull().default(0),
@@ -126,6 +146,20 @@ export const inventoryItems = pgTable("inventory_items", {
 });
 
 export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true });
+export const apiInsertInventoryItemSchema = z.object({
+  division: z.string().optional(),
+  category: z.string(),
+  productName: z.string(),
+  type: z.string().optional(),
+  attributes: z.string().optional(),
+  specification: z.string(),
+  carriedOver: z.number().optional(),
+  incoming: z.number().optional(),
+  outgoing: z.number().optional(),
+  remaining: z.number().optional(),
+  unitPrice: z.number().optional(),
+  totalAmount: z.number().optional(),
+});
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
 export type InventoryItem = typeof inventoryItems.$inferSelect;
 
@@ -137,12 +171,26 @@ export const outgoingRecords = pgTable("outgoing_records", {
   teamCategory: text("team_category").notNull(),
   projectName: text("project_name").notNull(),
   productName: text("product_name").notNull(),
+  type: text("type").notNull().default("general"),
+  attributes: text("attributes"),
   specification: text("specification").notNull(),
   quantity: integer("quantity").notNull().default(0),
   recipient: text("recipient").notNull(),
 });
 
 export const insertOutgoingRecordSchema = createInsertSchema(outgoingRecords).omit({ id: true });
+export const apiInsertOutgoingRecordSchema = z.object({
+  date: z.string(),
+  division: z.string(),
+  teamCategory: z.string(),
+  projectName: z.string(),
+  productName: z.string(),
+  type: z.string().optional(),
+  attributes: z.string().optional(),
+  specification: z.string(),
+  quantity: z.number(),
+  recipient: z.string(),
+});
 export type InsertOutgoingRecord = z.infer<typeof insertOutgoingRecordSchema>;
 export type OutgoingRecord = typeof outgoingRecords.$inferSelect;
 
@@ -154,12 +202,26 @@ export const materialUsageRecords = pgTable("material_usage_records", {
   teamCategory: text("team_category").notNull(),
   projectName: text("project_name").notNull(),
   productName: text("product_name").notNull(),
+  type: text("type").notNull().default("general"),
+  attributes: text("attributes"),
   specification: text("specification").notNull(),
   quantity: integer("quantity").notNull().default(0),
   recipient: text("recipient").notNull(),
 });
 
 export const insertMaterialUsageRecordSchema = createInsertSchema(materialUsageRecords).omit({ id: true });
+export const apiInsertMaterialUsageRecordSchema = z.object({
+  date: z.string(),
+  division: z.string(),
+  teamCategory: z.string(),
+  projectName: z.string(),
+  productName: z.string(),
+  type: z.string().optional(),
+  attributes: z.string().optional(),
+  specification: z.string(),
+  quantity: z.number(),
+  recipient: z.string(),
+});
 export type InsertMaterialUsageRecord = z.infer<typeof insertMaterialUsageRecordSchema>;
 export type MaterialUsageRecord = typeof materialUsageRecords.$inferSelect;
 
@@ -171,12 +233,26 @@ export const incomingRecords = pgTable("incoming_records", {
   supplier: text("supplier").notNull(),
   projectName: text("project_name").notNull(),
   productName: text("product_name").notNull(),
+  type: text("type").notNull().default("general"),
+  attributes: text("attributes"),
   specification: text("specification").notNull().default(""),
   quantity: integer("quantity").notNull().default(0),
   unitPrice: integer("unit_price").notNull().default(0),
 });
 
 export const insertIncomingRecordSchema = createInsertSchema(incomingRecords).omit({ id: true });
+export const apiInsertIncomingRecordSchema = z.object({
+  date: z.string(),
+  division: z.string(),
+  supplier: z.string(),
+  projectName: z.string(),
+  productName: z.string(),
+  type: z.string().optional(),
+  attributes: z.string().optional(),
+  specification: z.string().optional(),
+  quantity: z.number(),
+  unitPrice: z.number().optional(),
+});
 export type InsertIncomingRecord = z.infer<typeof insertIncomingRecordSchema>;
 export type IncomingRecord = typeof incomingRecords.$inferSelect;
 

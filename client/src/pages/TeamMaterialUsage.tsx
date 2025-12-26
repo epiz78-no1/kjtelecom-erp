@@ -46,6 +46,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -70,6 +71,8 @@ export default function TeamMaterialUsage() {
     specification: "",
     quantity: "",
     recipient: "",
+    type: "general",
+    drumNumber: "",
   });
 
   const { data: records = [], isLoading } = useQuery<MaterialUsageRecord[]>({
@@ -77,7 +80,7 @@ export default function TeamMaterialUsage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: Omit<MaterialUsageRecord, "id">) => {
+    mutationFn: async (data: Omit<MaterialUsageRecord, "id" | "tenantId">) => {
       return apiRequest("POST", "/api/material-usage", data);
     },
     onSuccess: () => {
@@ -91,7 +94,7 @@ export default function TeamMaterialUsage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: MaterialUsageRecord) => {
+    mutationFn: async ({ id, ...data }: Omit<MaterialUsageRecord, "tenantId">) => {
       return apiRequest("PATCH", `/api/material-usage/${id}`, data);
     },
     onSuccess: () => {
@@ -174,13 +177,29 @@ export default function TeamMaterialUsage() {
 
   const openAddDialog = () => {
     setEditingRecord(null);
-    setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
+    setFormData({
+      division: "SKT",
+      teamCategory: "",
+      projectName: "",
+      productName: "",
+      specification: "",
+      quantity: "",
+      recipient: "",
+      type: "general",
+      drumNumber: ""
+    });
     setSelectedDate(new Date());
     setDialogOpen(true);
   };
 
   const openEditDialog = (record: MaterialUsageRecord) => {
     setEditingRecord(record);
+    let drumNo = "";
+    try {
+      const attrs = JSON.parse(record.attributes || "{}");
+      drumNo = attrs.drumNumber || "";
+    } catch (e) { }
+
     setFormData({
       division: record.division,
       teamCategory: record.teamCategory,
@@ -189,6 +208,8 @@ export default function TeamMaterialUsage() {
       specification: record.specification,
       quantity: String(record.quantity),
       recipient: record.recipient,
+      type: record.type || "general",
+      drumNumber: drumNo,
     });
     setSelectedDate(new Date(record.date));
     setDialogOpen(true);
@@ -197,7 +218,17 @@ export default function TeamMaterialUsage() {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditingRecord(null);
-    setFormData({ division: "SKT", teamCategory: "", projectName: "", productName: "", specification: "", quantity: "", recipient: "" });
+    setFormData({
+      division: "SKT",
+      teamCategory: "",
+      projectName: "",
+      productName: "",
+      specification: "",
+      quantity: "",
+      recipient: "",
+      type: "general",
+      drumNumber: ""
+    });
     setSelectedDate(new Date());
   };
 
@@ -207,6 +238,12 @@ export default function TeamMaterialUsage() {
       return;
     }
 
+    let attributesObj: any = {};
+    if (formData.type === "cable") {
+      attributesObj.drumNumber = formData.drumNumber;
+    }
+    const attributes = JSON.stringify(attributesObj);
+
     const data = {
       date: format(selectedDate, "yyyy-MM-dd"),
       division: formData.division,
@@ -214,14 +251,16 @@ export default function TeamMaterialUsage() {
       projectName: formData.projectName,
       productName: formData.productName,
       specification: formData.specification,
-      quantity: parseInt(formData.quantity),
+      quantity: parseInt(formData.quantity) || 0,
       recipient: formData.recipient,
+      type: formData.type,
+      attributes: attributes,
     };
 
     if (editingRecord) {
-      updateMutation.mutate({ ...data, id: editingRecord.id });
+      updateMutation.mutate({ ...data, id: editingRecord.id } as Omit<MaterialUsageRecord, "tenantId">);
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(data as Omit<MaterialUsageRecord, "id" | "tenantId">);
     }
   };
 
@@ -254,31 +293,17 @@ export default function TeamMaterialUsage() {
             <p className="text-muted-foreground">현장팀 자재 사용 이력을 조회합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1">
-              <Button
-                variant={selectedDivision === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("all")}
-                data-testid="button-division-all"
-              >
-                전체
-              </Button>
-              <Button
-                variant={selectedDivision === "SKT" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKT")}
-                data-testid="button-division-skt"
-              >
-                SKT사업부
-              </Button>
-              <Button
-                variant={selectedDivision === "SKB" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKB")}
-                data-testid="button-division-skb"
-              >
-                SKB사업부
-              </Button>
+            <div className="w-[180px]">
+              <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                <SelectTrigger data-testid="select-division">
+                  <SelectValue placeholder="사업부 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="SKT">SKT사업부</SelectItem>
+                  <SelectItem value="SKB">SKB사업부</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={openAddDialog} data-testid="button-add-usage">
               <Plus className="h-4 w-4 mr-2" />
@@ -312,7 +337,7 @@ export default function TeamMaterialUsage() {
             )}
           </div>
           <div className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">{totalRecords}</span>건 / 
+            <span className="font-semibold text-foreground">{totalRecords}</span>건 /
             수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
           </div>
         </div>
@@ -478,6 +503,36 @@ export default function TeamMaterialUsage() {
                 data-testid="input-usage-project"
               />
             </div>
+
+            <div className="flex flex-col gap-3">
+              <Label>자재 유형</Label>
+              <RadioGroup
+                defaultValue="general"
+                value={formData.type}
+                onValueChange={(val) => setFormData({ ...formData, type: val })}
+                className="flex flex-row gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="general" id="r1" />
+                  <Label htmlFor="r1">일반 자재</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cable" id="r2" />
+                  <Label htmlFor="r2">케이블 (Drum/M)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {formData.type === "cable" && (
+              <div className="grid gap-2 bg-muted/30 p-2 rounded-md">
+                <Label className="text-blue-600">드럼 번호 (Drum No.)</Label>
+                <Input
+                  value={formData.drumNumber}
+                  onChange={(e) => setFormData({ ...formData, drumNumber: e.target.value })}
+                  placeholder="D-12345"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>품명 *</Label>
@@ -513,8 +568,8 @@ export default function TeamMaterialUsage() {
             <Button variant="outline" onClick={closeDialog}>
               취소
             </Button>
-            <Button 
-              onClick={handleSubmit} 
+            <Button
+              onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-submit-usage"
             >
@@ -553,6 +608,6 @@ export default function TeamMaterialUsage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </div >
   );
 }

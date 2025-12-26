@@ -10,16 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InventoryItem } from "@shared/schema";
 
-interface MaterialFormDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (data: MaterialFormData) => void;
-  editingItem?: InventoryItem | null;
-}
-
 export interface MaterialFormData {
+  type: string;
   category: string;
   productName: string;
   specification: string;
@@ -29,10 +24,33 @@ export interface MaterialFormData {
   remaining: number | string;
   unitPrice: number | string;
   totalAmount: number | string;
+  attributes: string; // JSON string
+}
+
+export interface MaterialSubmitData {
+  type: string;
+  category: string;
+  productName: string;
+  specification: string;
+  carriedOver: number;
+  incoming: number;
+  outgoing: number;
+  remaining: number;
+  unitPrice: number;
+  totalAmount: number;
+  attributes: string;
+}
+
+interface MaterialFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: MaterialSubmitData) => void;
+  editingItem?: InventoryItem | null;
 }
 
 export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }: MaterialFormDialogProps) {
   const [formData, setFormData] = useState<MaterialFormData>({
+    type: "general",
     category: "",
     productName: "",
     specification: "",
@@ -42,11 +60,23 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
     remaining: 0,
     unitPrice: 0,
     totalAmount: 0,
+    attributes: "{}",
   });
+
+  const [drumNumber, setDrumNumber] = useState("");
+  const [cableLength, setCableLength] = useState("");
 
   useEffect(() => {
     if (editingItem) {
+      let attrs: any = {};
+      try {
+        attrs = JSON.parse(editingItem.attributes || "{}");
+      } catch (e) {
+        attrs = {};
+      }
+
       setFormData({
+        type: editingItem.type || "general",
         category: editingItem.category,
         productName: editingItem.productName,
         specification: editingItem.specification,
@@ -56,9 +86,14 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
         remaining: editingItem.remaining,
         unitPrice: editingItem.unitPrice,
         totalAmount: editingItem.totalAmount,
+        attributes: editingItem.attributes || "{}",
       });
+
+      setDrumNumber(attrs.drumNumber || "");
+      setCableLength(attrs.cableLength || "");
     } else {
       setFormData({
+        type: "general",
         category: "",
         productName: "",
         specification: "",
@@ -68,7 +103,10 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
         remaining: 0,
         unitPrice: 0,
         totalAmount: 0,
+        attributes: "{}",
       });
+      setDrumNumber("");
+      setCableLength("");
     }
   }, [editingItem, open]);
 
@@ -82,8 +120,17 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
     const remaining = carriedOver + incoming - outgoing;
     const totalAmount = remaining * unitPrice;
 
+    // Attributes construction
+    let attributesObj: any = {};
+    if (formData.type === "cable") {
+      attributesObj.drumNumber = drumNumber;
+      // If quantity is length, we might want to store it explicitly or just rely on main quantity fields
+    }
+    const attributes = JSON.stringify(attributesObj);
+
     onSubmit({
       ...formData,
+      attributes,
       carriedOver,
       incoming,
       outgoing,
@@ -107,6 +154,26 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+
+            <div className="flex flex-col gap-3 mb-2">
+              <Label>자재 유형</Label>
+              <RadioGroup
+                defaultValue="general"
+                value={formData.type}
+                onValueChange={(val) => setFormData({ ...formData, type: val })}
+                className="flex flex-row gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="general" id="r1" />
+                  <Label htmlFor="r1">일반 자재</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cable" id="r2" />
+                  <Label htmlFor="r2">케이블 (Drum/M)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="category">구분 *</Label>
@@ -138,15 +205,29 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 id="specification"
                 value={formData.specification}
                 onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                placeholder="예: 가공 24C"
+                placeholder={formData.type === 'cable' ? "예: 가공 96C" : "예: 가공 24C"}
                 required
                 data-testid="input-specification"
               />
             </div>
 
+            {formData.type === "cable" && (
+              <div className="grid grid-cols-2 gap-4 bg-muted/30 p-2 rounded-md">
+                <div className="grid gap-2">
+                  <Label htmlFor="drumNumber" className="text-blue-600">드럼 번호 (Drum No.)</Label>
+                  <Input
+                    id="drumNumber"
+                    value={drumNumber}
+                    onChange={(e) => setDrumNumber(e.target.value)}
+                    placeholder="D-12345"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="carriedOver">이월재</Label>
+                <Label htmlFor="carriedOver">{formData.type === 'cable' ? "이월(M)" : "이월재"}</Label>
                 <Input
                   id="carriedOver"
                   type="number"
@@ -157,7 +238,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="incoming">입고량</Label>
+                <Label htmlFor="incoming">{formData.type === 'cable' ? "입고(M)" : "입고량"}</Label>
                 <Input
                   id="incoming"
                   type="number"
@@ -168,7 +249,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="outgoing">출고량</Label>
+                <Label htmlFor="outgoing">{formData.type === 'cable' ? "출고(M)" : "출고량"}</Label>
                 <Input
                   id="outgoing"
                   type="number"
@@ -196,7 +277,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
               <div className="grid gap-2">
                 <Label>잔량 / 금액 (자동계산)</Label>
                 <div className="flex items-center h-9 px-3 rounded-md border bg-muted text-sm">
-                  {remaining.toLocaleString()} / ₩{totalAmount.toLocaleString()}
+                  {remaining.toLocaleString()} {formData.type === 'cable' ? 'M' : ''} / ₩{totalAmount.toLocaleString()}
                 </div>
               </div>
             </div>

@@ -16,6 +16,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 export default function Dashboard() {
   const { divisions, teams } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("all");
@@ -24,14 +32,14 @@ export default function Dashboard() {
     queryKey: ["/api/inventory"],
   });
 
-  const filteredInventory = selectedDivision === "all" 
-    ? inventory 
+  const filteredInventory = selectedDivision === "all"
+    ? inventory
     : inventory.filter((item) => item.division === selectedDivision);
 
   const filteredTeams = selectedDivision === "all"
     ? teams
     : teams.filter((t) => t.divisionId === selectedDivision);
-  
+
   const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
 
   const totalRemaining = filteredInventory.reduce((sum, item) => sum + (item.remaining || 0), 0);
@@ -61,31 +69,17 @@ export default function Dashboard() {
           <p className="text-muted-foreground">자재 현황을 한눈에 확인하세요</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1">
-            <Button
-              variant={selectedDivision === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("all")}
-              data-testid="button-division-all"
-            >
-              전체
-            </Button>
-            <Button
-              variant={selectedDivision === "SKT" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("SKT")}
-              data-testid="button-division-skt"
-            >
-              SKT사업부
-            </Button>
-            <Button
-              variant={selectedDivision === "SKB" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedDivision("SKB")}
-              data-testid="button-division-skb"
-            >
-              SKB사업부
-            </Button>
+          <div className="w-[180px]">
+            <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+              <SelectTrigger data-testid="select-division">
+                <SelectValue placeholder="사업부 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체</SelectItem>
+                <SelectItem value="SKT">SKT사업부</SelectItem>
+                <SelectItem value="SKB">SKB사업부</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

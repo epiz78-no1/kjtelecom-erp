@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import { requireAuth, requireTenant, requireAdmin } from "./middleware/auth";
 import { insertPositionSchema, insertInvitationSchema } from "@shared/schema";
+import { apiInsertPositionSchema, apiInsertInvitationSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 
 export function registerAdminRoutes(app: Express) {
@@ -65,11 +66,11 @@ export function registerAdminRoutes(app: Express) {
     app.post(`${adminRouter}/positions`, requireAuth, requireTenant, requireAdmin, async (req, res) => {
         try {
             const tenantId = req.session!.tenantId!;
-            const parseResult = insertPositionSchema.safeParse({ ...req.body, tenantId });
+            const parseResult = apiInsertPositionSchema.safeParse(req.body);
             if (!parseResult.success) {
                 return res.status(400).json({ error: parseResult.error.message });
             }
-            const position = await storage.createPosition(parseResult.data);
+            const position = await storage.createPosition({ ...parseResult.data, tenantId });
             res.status(201).json(position);
         } catch (error) {
             console.error("Create position error:", error);

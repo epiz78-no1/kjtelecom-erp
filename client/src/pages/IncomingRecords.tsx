@@ -46,6 +46,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -72,6 +73,8 @@ export default function IncomingRecords() {
     specification: "",
     quantity: "",
     unitPrice: "",
+    type: "general",
+    drumNumber: "",
   });
 
   const { data: records = [], isLoading } = useQuery<IncomingRecord[]>({
@@ -98,7 +101,7 @@ export default function IncomingRecords() {
   }, [inventoryItems, formData.productName]);
 
   const createMutation = useMutation({
-    mutationFn: async (data: Omit<IncomingRecord, "id">) => {
+    mutationFn: async (data: Omit<IncomingRecord, "id" | "tenantId">) => {
       return apiRequest("POST", "/api/incoming", data);
     },
     onSuccess: () => {
@@ -113,7 +116,7 @@ export default function IncomingRecords() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: IncomingRecord) => {
+    mutationFn: async ({ id, ...data }: Omit<IncomingRecord, "tenantId">) => {
       return apiRequest("PATCH", `/api/incoming/${id}`, data);
     },
     onSuccess: () => {
@@ -190,13 +193,29 @@ export default function IncomingRecords() {
 
   const openAddDialog = () => {
     setEditingRecord(null);
-    setFormData({ division: "SKT", supplier: "", projectName: "", productName: "", specification: "", quantity: "", unitPrice: "" });
+    setFormData({
+      division: "SKT",
+      supplier: "",
+      projectName: "",
+      productName: "",
+      specification: "",
+      quantity: "",
+      unitPrice: "",
+      type: "general",
+      drumNumber: ""
+    });
     setSelectedDate(new Date());
     setDialogOpen(true);
   };
 
   const openEditDialog = (record: IncomingRecord) => {
     setEditingRecord(record);
+    let drumNo = "";
+    try {
+      const attrs = JSON.parse(record.attributes || "{}");
+      drumNo = attrs.drumNumber || "";
+    } catch (e) { }
+
     setFormData({
       division: record.division,
       supplier: record.supplier,
@@ -205,6 +224,8 @@ export default function IncomingRecords() {
       specification: record.specification,
       quantity: record.quantity.toString(),
       unitPrice: record.unitPrice?.toString() ?? "",
+      type: record.type || "general",
+      drumNumber: drumNo,
     });
     setSelectedDate(new Date(record.date));
     setDialogOpen(true);
@@ -213,7 +234,17 @@ export default function IncomingRecords() {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditingRecord(null);
-    setFormData({ division: "SKT", supplier: "", projectName: "", productName: "", specification: "", quantity: "", unitPrice: "" });
+    setFormData({
+      division: "SKT",
+      supplier: "",
+      projectName: "",
+      productName: "",
+      specification: "",
+      quantity: "",
+      unitPrice: "",
+      type: "general",
+      drumNumber: ""
+    });
     setSelectedDate(new Date());
   };
 
@@ -240,6 +271,12 @@ export default function IncomingRecords() {
       return;
     }
 
+    let attributesObj: any = {};
+    if (formData.type === "cable") {
+      attributesObj.drumNumber = formData.drumNumber;
+    }
+    const attributes = JSON.stringify(attributesObj);
+
     const data = {
       date: format(selectedDate, "yyyy-MM-dd"),
       division: formData.division,
@@ -247,14 +284,16 @@ export default function IncomingRecords() {
       projectName: formData.projectName,
       productName: formData.productName,
       specification: formData.specification,
-      quantity: parseInt(formData.quantity),
+      quantity: parseInt(formData.quantity) || 0,
       unitPrice: formData.unitPrice ? parseInt(formData.unitPrice) : 0,
+      type: formData.type,
+      attributes: attributes,
     };
 
     if (editingRecord) {
-      updateMutation.mutate({ ...data, id: editingRecord.id });
+      updateMutation.mutate({ ...data, id: editingRecord.id } as Omit<IncomingRecord, "tenantId">);
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(data as Omit<IncomingRecord, "id" | "tenantId">);
     }
   };
 
@@ -309,31 +348,17 @@ export default function IncomingRecords() {
             <p className="text-muted-foreground">자재 입고 이력을 조회하고 관리합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1">
-              <Button
-                variant={selectedDivision === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("all")}
-                data-testid="button-division-all"
-              >
-                전체
-              </Button>
-              <Button
-                variant={selectedDivision === "SKT" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKT")}
-                data-testid="button-division-skt"
-              >
-                SKT사업부
-              </Button>
-              <Button
-                variant={selectedDivision === "SKB" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDivision("SKB")}
-                data-testid="button-division-skb"
-              >
-                SKB사업부
-              </Button>
+            <div className="w-[180px]">
+              <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                <SelectTrigger data-testid="select-division">
+                  <SelectValue placeholder="사업부 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="SKT">SKT사업부</SelectItem>
+                  <SelectItem value="SKB">SKB사업부</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={handleDownloadTemplate} variant="outline" data-testid="button-download-template">
               <Download className="h-4 w-4 mr-2" />
@@ -528,12 +553,50 @@ export default function IncomingRecords() {
                 data-testid="input-incoming-project"
               />
             </div>
+
+            <div className="flex flex-col gap-3">
+              <Label>자재 유형</Label>
+              <RadioGroup
+                defaultValue="general"
+                value={formData.type}
+                onValueChange={(val) => setFormData({ ...formData, type: val })}
+                className="flex flex-row gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="general" id="r1" />
+                  <Label htmlFor="r1">일반 자재</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cable" id="r2" />
+                  <Label htmlFor="r2">케이블 (Drum/M)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {formData.type === "cable" && (
+              <div className="grid gap-2 bg-muted/30 p-2 rounded-md">
+                <Label className="text-blue-600">드럼 번호 (Drum No.)</Label>
+                <Input
+                  value={formData.drumNumber}
+                  onChange={(e) => setFormData({ ...formData, drumNumber: e.target.value })}
+                  placeholder="D-12345"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>품명 *</Label>
                 <Select
                   value={formData.productName}
-                  onValueChange={(value) => setFormData({ ...formData, productName: value, specification: "" })}
+                  onValueChange={(value) => {
+                    const item = inventoryItems.find(i => i.productName === value);
+                    setFormData({
+                      ...formData,
+                      productName: value,
+                      specification: "",
+                      type: item?.type || "general"
+                    });
+                  }}
                 >
                   <SelectTrigger data-testid="select-incoming-product">
                     <SelectValue placeholder="품명 선택" />
