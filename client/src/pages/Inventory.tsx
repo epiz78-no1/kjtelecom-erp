@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Loader2, Trash2, Plus, Search, Upload, Download } from "lucide-react";
+import { MoreHorizontal, Pencil, Loader2, Trash2, Plus, Search, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +18,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -35,9 +43,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useAppContext } from "@/contexts/AppContext";
 
 export default function Inventory() {
   const { toast } = useToast();
+  const { user, checkPermission, tenants, currentTenant } = useAppContext();
+  const isAdmin = tenants.find(t => t.id === currentTenant)?.role === 'admin' || tenants.find(t => t.id === currentTenant)?.role === 'owner';
+  const canWrite = checkPermission("inventory", "write");
+
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,7 +61,7 @@ export default function Inventory() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
-  const { data: inventoryItems = [], isLoading } = useQuery<InventoryItem[]>({
+  const { data: inventoryItems = [], isLoading, refetch } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
   });
 
@@ -78,6 +91,7 @@ export default function Inventory() {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "자재가 수정되었습니다" });
       setEditingItem(null);
+      setMaterialDialogOpen(false);
     },
     onError: () => {
       toast({ title: "자재 수정 실패", variant: "destructive" });
@@ -87,7 +101,9 @@ export default function Inventory() {
 
 
   const handleSubmit = (data: MaterialSubmitData) => {
-    const submitData = { ...data, division: (data as any).division || "SKT" };
+    // Auto-determine division from category
+    const division = data.category.includes("SKB") ? "SKB" : "SKT";
+    const submitData = { ...data, division };
     if (editingItem) {
       updateMutation.mutate({ ...submitData, id: editingItem.id } as InventoryItem);
     } else {
@@ -126,11 +142,20 @@ export default function Inventory() {
 
   const bulkUploadMutation = useMutation({
     mutationFn: async (items: any[]) => {
-      return apiRequest("POST", "/api/inventory/bulk", { items });
+      const response = await apiRequest("POST", "/api/inventory/bulk", { items });
+      return await response.json(); // Response 객체를 JSON으로 파싱
     },
-    onSuccess: () => {
+    onSuccess: (data: any, variables: any[]) => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
-      toast({ title: "재고가 일괄 등록되었습니다" });
+      refetch(); // 즉시 데이터 새로고침
+
+      const uploadedCount = Array.isArray(data) ? data.length : 0;
+      const requestedCount = variables?.length || 0;
+
+      toast({
+        title: "재고가 일괄 등록되었습니다",
+        description: `요청: ${requestedCount}개 / 등록 완료: ${uploadedCount}개`
+      });
       setBulkUploadOpen(false);
     },
     onError: (error: Error) => {
@@ -196,6 +221,15 @@ export default function Inventory() {
     }
   };
 
+  const openMaterialDialog = (item?: InventoryItem) => {
+    if (item) {
+      setEditingItem(item);
+    } else {
+      setEditingItem(null);
+    }
+    setMaterialDialogOpen(true);
+  };
+
   const confirmBulkDelete = () => {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
@@ -204,22 +238,23 @@ export default function Inventory() {
     bulkUploadMutation.mutate(items);
   };
 
-  const handleDownloadTemplate = () => {
-    const template = `구분,품명,규격,이월재고,입고량,출고량,잔량,단가,금액
-SKT,광접속함체 무여장중간분기형,24C,7,102,100,9,147882,1330938
-SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
-
-    const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "inventory_template.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast({ title: "템플릿이 다운로드되었습니다" });
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetch("/api/templates/inventory");
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "inventory_template.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "템플릿이 다운로드되었습니다" });
+    } catch (error) {
+      toast({ title: "다운로드 실패", variant: "destructive" });
+    }
   };
 
   if (isLoading) {
@@ -239,30 +274,28 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
             <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="w-[180px]">
-              <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-                <SelectTrigger data-testid="select-division">
-                  <SelectValue placeholder="사업부 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체</SelectItem>
-                  <SelectItem value="SKT">SKT사업부</SelectItem>
-                  <SelectItem value="SKB">SKB사업부</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleDownloadTemplate} variant="outline" data-testid="button-download-template">
-              <Download className="h-4 w-4 mr-2" />
-              템플릿 다운로드
-            </Button>
-            <Button onClick={() => setBulkUploadOpen(true)} variant="outline" data-testid="button-bulk-upload">
-              <Upload className="h-4 w-4 mr-2" />
-              일괄등록
-            </Button>
-            <Button onClick={() => { setEditingItem(null); setMaterialDialogOpen(true); }} data-testid="button-add-material">
-              <Plus className="h-4 w-4 mr-2" />
-              자재 추가
-            </Button>
+            {canWrite ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button data-testid="button-add-item-menu">
+                    <Plus className="h-4 w-4 mr-2" />
+                    자재 추가
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => openMaterialDialog()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    자재 직접 추가
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      일괄 등록
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         </div>
 
@@ -324,54 +357,86 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
               <TableHead className="font-semibold w-[140px] text-center align-middle bg-background">품명</TableHead>
               <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입고량</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">출고량</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">잔량</TableHead>
+              {/* <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입고량</TableHead> REMOVED */}
+              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">재고현황</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀<br />보유재고</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">사무실<br />보유재고</TableHead>
               <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">단가</TableHead>
               <TableHead className="font-semibold w-[110px] text-center align-middle bg-background">금액</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">작업</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredInventory.map((item) => (
-              <TableRow key={item.id} className="h-11" data-testid={`row-inventory-${item.id}`}>
-                <TableCell className="text-center align-middle">
-                  <Checkbox
-                    checked={selectedIds.has(item.id)}
-                    onCheckedChange={() => toggleSelect(item.id)}
-                    data-testid={`checkbox-${item.id}`}
-                  />
-                </TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
-                <TableCell className="text-center align-middle max-w-[120px] truncate">{item.specification}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{item.outgoing.toLocaleString()}</TableCell>
-                <TableCell className="text-center align-middle font-medium whitespace-nowrap">{item.remaining.toLocaleString()}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{item.totalAmount.toLocaleString()}</TableCell>
-                <TableCell className="text-center align-middle">
-                  <div className="flex items-center justify-center gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleEdit(item)}
-                      data-testid={`button-edit-${item.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDelete(item)}
-                      data-testid={`button-delete-${item.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filteredInventory.map((item) => {
+              // Calculate values based on new logic
+              // remaining = Office Stock (DB value)
+              // outgoing = Sent to Team (DB value)
+              // usage = Used by Team (DB value)
+
+              const teamStock = item.outgoing - (item.usage || 0);
+              const officeStock = item.remaining;
+              const totalStock = officeStock + teamStock; // 재고현황
+
+              return (
+                <TableRow key={item.id} className="h-11" data-testid={`row-inventory-${item.id}`}>
+                  <TableCell className="text-center align-middle">
+                    <Checkbox
+                      checked={selectedIds.has(item.id)}
+                      onCheckedChange={() => toggleSelect(item.id)}
+                      data-testid={`checkbox-${item.id}`}
+                    />
+                  </TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[120px] truncate">{item.specification}</TableCell>
+                  {/* <TableCell className="text-center align-middle whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell> REMOVED */}
+
+                  {/* 재고현황 (Total) - Black text */}
+                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">
+                    {totalStock.toLocaleString()}
+                  </TableCell>
+
+                  {/* 현장팀출고량 (Team Stock) */}
+                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">
+                    {teamStock.toLocaleString()}
+                  </TableCell>
+
+                  {/* 사무실재고량 (Office Stock) */}
+                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">
+                    {officeStock.toLocaleString()}
+                  </TableCell>
+
+                  <TableCell className="text-center align-middle whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{(totalStock * item.unitPrice).toLocaleString()}</TableCell>
+                  <TableCell className="text-center align-middle">
+                    {canWrite && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>자재 관리</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => openMaterialDialog(item)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            수정
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeleteItem(item)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            삭제
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {filteredInventory.length === 0 && (
               <TableRow>
                 <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
@@ -428,6 +493,6 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
         onOpenChange={setBulkUploadOpen}
         onUpload={handleBulkUpload}
       />
-    </div>
+    </div >
   );
 }

@@ -46,7 +46,7 @@ export default function Auth() {
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setIsLoading(true);
         try {
-            await login(values.username);
+            await login({ username: values.username });
             toast({
                 title: "로그인 성공",
                 description: `${values.username}님 환영합니다.`,

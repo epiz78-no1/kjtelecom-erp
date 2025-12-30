@@ -13,7 +13,7 @@ import {
   positions, invitations, userTenants
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql, count, getTableColumns, asc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -31,8 +31,8 @@ export interface IStorage {
   getTeams(tenantId: string): Promise<Team[]>;
   getTeamsByDivision(divisionId: string, tenantId: string): Promise<Team[]>;
   getTeam(id: string, tenantId: string): Promise<Team | undefined>;
-  createTeam(team: InsertTeam): Promise<Team>;
-  updateTeam(id: string, updates: Partial<InsertTeam>, tenantId: string): Promise<Team | undefined>;
+  createTeam(team: InsertTeam, memberIds?: string[]): Promise<Team>;
+  updateTeam(id: string, updates: Partial<InsertTeam>, tenantId: string, memberIds?: string[]): Promise<Team | undefined>;
   deleteTeam(id: string, tenantId: string): Promise<boolean>;
   initializeTeams(): Promise<void>;
 
@@ -58,6 +58,7 @@ export interface IStorage {
   getMaterialUsageRecord(id: number, tenantId: string): Promise<MaterialUsageRecord | undefined>;
   createMaterialUsageRecord(record: InsertMaterialUsageRecord): Promise<MaterialUsageRecord>;
   updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>, tenantId: string): Promise<MaterialUsageRecord | undefined>;
+  getTeamItemStock(tenantId: string, teamCategory: string, productName: string, specification: string, division: string): Promise<number>;
   deleteMaterialUsageRecord(id: number, tenantId: string): Promise<boolean>;
   bulkDeleteMaterialUsageRecords(ids: number[], tenantId: string): Promise<number>;
 
@@ -77,7 +78,7 @@ export interface IStorage {
 
   // Admin: Members
   getMembers(tenantId: string): Promise<any[]>;
-  updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant>): Promise<UserTenant | undefined>;
+  updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant> & { name?: string; phoneNumber?: string }): Promise<UserTenant | undefined>;
   deleteMember(userId: string, tenantId: string): Promise<boolean>;
 
   // Admin: Invitations
@@ -127,9 +128,14 @@ export class DatabaseStorage implements IStorage {
         role: userTenants.role,
         status: userTenants.status,
         joinDate: userTenants.joinDate,
+        phoneNumber: users.phoneNumber,
         positionName: positions.name,
+        positionId: userTenants.positionId,
         divisionName: divisions.name,
+        divisionId: userTenants.divisionId,
         teamName: teams.name,
+        teamId: teams.id,
+        permissions: userTenants.permissions,
       })
       .from(userTenants)
       .innerJoin(users, eq(userTenants.userId, users.id))
@@ -139,13 +145,40 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userTenants.tenantId, tenantId));
   }
 
-  async updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant>): Promise<UserTenant | undefined> {
-    const [updated] = await db
-      .update(userTenants)
-      .set(updates)
-      .where(and(eq(userTenants.userId, userId), eq(userTenants.tenantId, tenantId)))
-      .returning();
-    return updated;
+  async updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant> & { name?: string; phoneNumber?: string }): Promise<UserTenant | undefined> {
+    const { name, phoneNumber, ...tenantUpdates } = updates;
+    return await db.transaction(async (tx) => {
+      // 1. Update userTenants if there are tenant-specific updates
+      let updatedTenant;
+      if (Object.keys(tenantUpdates).length > 0) {
+        [updatedTenant] = await tx
+          .update(userTenants)
+          .set(tenantUpdates as any)
+          .where(and(eq(userTenants.userId, userId), eq(userTenants.tenantId, tenantId)))
+          .returning();
+      } else {
+        // Just verify existence if no tenant updates
+        [updatedTenant] = await tx
+          .select()
+          .from(userTenants)
+          .where(and(eq(userTenants.userId, userId), eq(userTenants.tenantId, tenantId)));
+      }
+
+      if (!updatedTenant) return undefined;
+
+      // 2. Update users table if name or phoneNumber is provided
+      if (name !== undefined || phoneNumber !== undefined) {
+        await tx
+          .update(users)
+          .set({
+            ...(name !== undefined ? { name } : {}),
+            ...(phoneNumber !== undefined ? { phoneNumber } : {})
+          })
+          .where(eq(users.id, userId));
+      }
+
+      return updatedTenant;
+    });
   }
 
   async deleteMember(userId: string, tenantId: string): Promise<boolean> {
@@ -229,11 +262,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTeams(tenantId: string): Promise<Team[]> {
-    return db.select().from(teams).where(eq(teams.tenantId, tenantId));
+    const result = await db.select({
+      ...getTableColumns(teams),
+      memberCount: count(userTenants.id)
+    })
+      .from(teams)
+      .leftJoin(userTenants, eq(teams.id, userTenants.teamId))
+      .where(eq(teams.tenantId, tenantId))
+      .groupBy(teams.id);
+
+    // Cast memberCount to number as aggregation usually returns string/number depending on driver
+    return result.map(t => ({ ...t, memberCount: Number(t.memberCount) }));
   }
 
   async getTeamsByDivision(divisionId: string, tenantId: string): Promise<Team[]> {
-    return db.select().from(teams).where(and(eq(teams.divisionId, divisionId), eq(teams.tenantId, tenantId)));
+    const result = await db.select({
+      ...getTableColumns(teams),
+      memberCount: count(userTenants.id)
+    })
+      .from(teams)
+      .leftJoin(userTenants, eq(teams.id, userTenants.teamId))
+      .where(and(eq(teams.divisionId, divisionId), eq(teams.tenantId, tenantId)))
+      .groupBy(teams.id);
+
+    return result.map(t => ({ ...t, memberCount: Number(t.memberCount) }));
   }
 
   async getTeam(id: string, tenantId: string): Promise<Team | undefined> {
@@ -241,21 +293,63 @@ export class DatabaseStorage implements IStorage {
     return team;
   }
 
-  async createTeam(team: InsertTeam): Promise<Team> {
-    const [newTeam] = await db.insert(teams).values({
-      id: randomUUID(),
-      ...team,
-    }).returning();
-    return newTeam;
+  async createTeam(team: InsertTeam, memberIds?: string[]): Promise<Team> {
+    return await db.transaction(async (tx) => {
+      const [newTeam] = await tx.insert(teams).values({
+        id: randomUUID(),
+        ...team,
+        memberCount: memberIds ? memberIds.length : (team.memberCount || 0)
+      }).returning();
+
+      if (memberIds && memberIds.length > 0) {
+        // Update userTenants for these members to belong to this team
+        await tx.update(userTenants)
+          .set({ teamId: newTeam.id })
+          .where(and(
+            inArray(userTenants.userId, memberIds),
+            eq(userTenants.tenantId, team.tenantId)
+          ));
+      }
+
+      return newTeam;
+    });
   }
 
-  async updateTeam(id: string, updates: Partial<InsertTeam>, tenantId: string): Promise<Team | undefined> {
-    const [team] = await db
-      .update(teams)
-      .set(updates)
-      .where(and(eq(teams.id, id), eq(teams.tenantId, tenantId)))
-      .returning();
-    return team;
+  async updateTeam(id: string, updates: Partial<InsertTeam>, tenantId: string, memberIds?: string[]): Promise<Team | undefined> {
+    return await db.transaction(async (tx) => {
+      const [team] = await tx
+        .update(teams)
+        .set({
+          ...updates,
+          memberCount: memberIds ? memberIds.length : updates.memberCount
+        })
+        .where(and(eq(teams.id, id), eq(teams.tenantId, tenantId)))
+        .returning();
+
+      if (!team) return undefined;
+
+      if (memberIds) {
+        // 1. Remove all current members from this team
+        await tx.update(userTenants)
+          .set({ teamId: null })
+          .where(and(
+            eq(userTenants.teamId, id),
+            eq(userTenants.tenantId, tenantId)
+          ));
+
+        // 2. Add selected members to this team
+        if (memberIds.length > 0) {
+          await tx.update(userTenants)
+            .set({ teamId: id })
+            .where(and(
+              inArray(userTenants.userId, memberIds),
+              eq(userTenants.tenantId, tenantId)
+            ));
+        }
+      }
+
+      return team;
+    });
   }
 
   async deleteTeam(id: string, tenantId: string): Promise<boolean> {
@@ -268,7 +362,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInventoryItems(tenantId: string): Promise<InventoryItem[]> {
-    return db.select().from(inventoryItems).where(eq(inventoryItems.tenantId, tenantId));
+    return db.select().from(inventoryItems).where(eq(inventoryItems.tenantId, tenantId)).orderBy(asc(inventoryItems.productName));
   }
 
   async getInventoryItem(id: number, tenantId: string): Promise<InventoryItem | undefined> {
@@ -277,6 +371,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    const [existing] = await db
+      .select()
+      .from(inventoryItems)
+      .where(
+        and(
+          eq(inventoryItems.tenantId, item.tenantId),
+          eq(inventoryItems.productName, item.productName),
+          eq(inventoryItems.specification, item.specification),
+          eq(inventoryItems.division, item.division || "SKT"),
+        )
+      );
+
+    if (existing) {
+      throw new Error("Item already exists");
+    }
+
     const [newItem] = await db.insert(inventoryItems).values(item).returning();
     return newItem;
   }
@@ -309,6 +419,62 @@ export class DatabaseStorage implements IStorage {
     if (items.length === 0) return [];
     const result = await db.insert(inventoryItems).values(items).returning();
     return result;
+  }
+
+  async syncInventoryItems(items: InsertInventoryItem[], tenantId: string): Promise<InventoryItem[]> {
+    // 1. Get all existing items
+    const existingItems = await this.getInventoryItems(tenantId);
+    const existingMap = new Map<string, InventoryItem>();
+
+    existingItems.forEach(item => {
+      // Key: division|productName|specification
+      const key = `${item.division}|${item.productName}|${item.specification}`;
+      existingMap.set(key, item);
+    });
+
+    const results: InventoryItem[] = [];
+    const processedIds = new Set<number>();
+
+    // 2. Upsert (Update existing, Insert new)
+    for (const newItem of items) {
+      const key = `${newItem.division || "SKT"}|${newItem.productName}|${newItem.specification}`;
+      const existing = existingMap.get(key);
+
+      if (existing) {
+        // Update
+        processedIds.add(existing.id);
+        const [updated] = await db
+          .update(inventoryItems)
+          .set({
+            ...newItem,
+            // Preserve keys that shouldn't change if not provided?
+            // But bulk upload provides full state usually.
+            // We definitely want to update stock counts.
+          })
+          .where(eq(inventoryItems.id, existing.id))
+          .returning();
+        if (updated) results.push(updated);
+      } else {
+        // Insert
+        const [inserted] = await db.insert(inventoryItems).values(newItem).returning();
+        if (inserted) results.push(inserted);
+      }
+    }
+
+    // 3. Optional: Delete items that were not in the upload
+    // Only attempt to delete if they are NOT in processedIds
+    const itemsToDelete = existingItems.filter(item => !processedIds.has(item.id));
+
+    for (const item of itemsToDelete) {
+      try {
+        await db.delete(inventoryItems).where(eq(inventoryItems.id, item.id));
+      } catch (e) {
+        // Ignore FK constraint violations - simply keep the item if it has history
+        console.warn(`Could not delete inventory item ${item.id} (${item.productName}) due to dependencies.`);
+      }
+    }
+
+    return results;
   }
 
   async getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]> {
@@ -389,6 +555,45 @@ export class DatabaseStorage implements IStorage {
 
   async getIncomingRecords(tenantId: string): Promise<IncomingRecord[]> {
     return db.select().from(incomingRecords).where(eq(incomingRecords.tenantId, tenantId));
+  }
+
+  async getTeamItemStock(
+    tenantId: string,
+    teamCategory: string,
+    productName: string,
+    specification: string,
+    division: string
+  ): Promise<number> {
+    const outgoing = await db
+      .select({ quantity: outgoingRecords.quantity })
+      .from(outgoingRecords)
+      .where(
+        and(
+          eq(outgoingRecords.tenantId, tenantId),
+          eq(outgoingRecords.teamCategory, teamCategory),
+          eq(outgoingRecords.productName, productName),
+          eq(outgoingRecords.specification, specification),
+          eq(outgoingRecords.division, division)
+        )
+      );
+
+    const usage = await db
+      .select({ quantity: materialUsageRecords.quantity })
+      .from(materialUsageRecords)
+      .where(
+        and(
+          eq(materialUsageRecords.tenantId, tenantId),
+          eq(materialUsageRecords.teamCategory, teamCategory),
+          eq(materialUsageRecords.productName, productName),
+          eq(materialUsageRecords.specification, specification),
+          eq(materialUsageRecords.division, division)
+        )
+      );
+
+    const totalReceived = outgoing.reduce((sum, r) => sum + r.quantity, 0);
+    const totalUsed = usage.reduce((sum, r) => sum + r.quantity, 0);
+
+    return totalReceived - totalUsed;
   }
 
   async getIncomingRecord(id: number, tenantId: string): Promise<IncomingRecord | undefined> {

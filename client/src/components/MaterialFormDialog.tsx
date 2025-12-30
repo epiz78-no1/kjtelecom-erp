@@ -21,6 +21,7 @@ export interface MaterialFormData {
   carriedOver: number | string;
   incoming: number | string;
   outgoing: number | string;
+  usage: number | string;
   remaining: number | string;
   unitPrice: number | string;
   totalAmount: number | string;
@@ -35,6 +36,7 @@ export interface MaterialSubmitData {
   carriedOver: number;
   incoming: number;
   outgoing: number;
+  usage: number;
   remaining: number;
   unitPrice: number;
   totalAmount: number;
@@ -57,6 +59,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
     carriedOver: 0,
     incoming: 0,
     outgoing: 0,
+    usage: 0,
     remaining: 0,
     unitPrice: 0,
     totalAmount: 0,
@@ -83,6 +86,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
         carriedOver: editingItem.carriedOver,
         incoming: editingItem.incoming,
         outgoing: editingItem.outgoing,
+        usage: editingItem.usage || 0,
         remaining: editingItem.remaining,
         unitPrice: editingItem.unitPrice,
         totalAmount: editingItem.totalAmount,
@@ -115,16 +119,19 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
     const carriedOver = Number(formData.carriedOver);
     const incoming = Number(formData.incoming);
     const outgoing = Number(formData.outgoing);
+    const usage = Number(formData.usage);
     const unitPrice = Number(formData.unitPrice);
 
     const remaining = carriedOver + incoming - outgoing;
-    const totalAmount = remaining * unitPrice;
+    // Total Amount = Total Stock * Unit Price
+    // Total Stock = Office (remaining) + Team (outgoing - usage)
+    const totalStock = remaining + (outgoing - usage);
+    const totalAmount = totalStock * unitPrice;
 
     // Attributes construction
     let attributesObj: any = {};
     if (formData.type === "cable") {
       attributesObj.drumNumber = drumNumber;
-      // If quantity is length, we might want to store it explicitly or just rely on main quantity fields
     }
     const attributes = JSON.stringify(attributesObj);
 
@@ -134,6 +141,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
       carriedOver,
       incoming,
       outgoing,
+      usage,
       unitPrice,
       remaining,
       totalAmount
@@ -225,7 +233,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="carriedOver">{formData.type === 'cable' ? "이월(M)" : "이월재"}</Label>
                 <Input
@@ -238,26 +246,57 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="incoming">{formData.type === 'cable' ? "입고(M)" : "입고량"}</Label>
+                <Label htmlFor="incoming" className="text-muted-foreground">{formData.type === 'cable' ? "입고(M)" : "입고량"} (Read-Only)</Label>
                 <Input
                   id="incoming"
                   type="number"
                   value={formData.incoming}
-                  onChange={(e) => setFormData({ ...formData, incoming: e.target.value })}
+                  readOnly
+                  className="bg-muted"
                   placeholder="0"
                   data-testid="input-incoming"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="outgoing">{formData.type === 'cable' ? "출고(M)" : "출고량"}</Label>
+                <Label htmlFor="outgoing" className="text-muted-foreground">{formData.type === 'cable' ? "출고(M)" : "출고량"} (To Team)</Label>
                 <Input
                   id="outgoing"
                   type="number"
                   value={formData.outgoing}
-                  onChange={(e) => setFormData({ ...formData, outgoing: e.target.value })}
+                  readOnly
+                  className="bg-muted"
                   placeholder="0"
                   data-testid="input-outgoing"
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="usage" className="text-muted-foreground">사용량 (Used)</Label>
+                <Input
+                  id="usage"
+                  type="number"
+                  value={formData.usage}
+                  readOnly
+                  className="bg-muted"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 bg-slate-50 p-4 rounded-lg border">
+              <h4 className="font-semibold text-sm text-slate-700">재고 현황 미리보기</h4>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">사무실 보유재고</div>
+                  <div className="font-bold text-lg">{remaining.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">현장팀 보유재고</div>
+                  <div className="font-bold text-lg text-blue-600">{(Number(formData.outgoing) - Number(formData.usage)).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">총 재고 (합계)</div>
+                  <div className="font-bold text-lg text-slate-900">{(remaining + (Number(formData.outgoing) - Number(formData.usage))).toLocaleString()}</div>
+                </div>
               </div>
             </div>
 
@@ -275,9 +314,9 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                 />
               </div>
               <div className="grid gap-2">
-                <Label>잔량 / 금액 (자동계산)</Label>
+                <Label>총 금액 (Total Amt)</Label>
                 <div className="flex items-center h-9 px-3 rounded-md border bg-muted text-sm">
-                  {remaining.toLocaleString()} {formData.type === 'cable' ? 'M' : ''} / ₩{totalAmount.toLocaleString()}
+                  ₩{((remaining + (Number(formData.outgoing) - Number(formData.usage))) * Number(formData.unitPrice)).toLocaleString()}
                 </div>
               </div>
             </div>

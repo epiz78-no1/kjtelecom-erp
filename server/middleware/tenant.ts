@@ -20,21 +20,26 @@ export async function tenantContext(req: Request, res: Response, next: NextFunct
             });
 
             if (!userTenant) {
-                return res.status(403).json({ error: "이 테넌트에 대한 접근 권한이 없습니다" });
+                // If the session has a tenant ID but the user does not have access (or DB was reset),
+                // clear the stale session data and allow the request to proceed as unauthenticated/partial.
+                // This prevents blocking the main page load with a JSON error.
+                delete req.session.tenantId;
+                // We might also want to check if the user exists at all, but for now allow flow to continue.
+            } else {
+
+                // Load tenant data
+                const tenant = await db.query.tenants.findFirst({
+                    where: eq(tenants.id, req.session.tenantId)
+                });
+
+                if (!tenant || !tenant.isActive) {
+                    return res.status(403).json({ error: "테넌트를 찾을 수 없거나 비활성화되었습니다" });
+                }
+
+                // Attach tenant and role to request
+                req.tenant = tenant;
+                req.userRole = userTenant.role;
             }
-
-            // Load tenant data
-            const tenant = await db.query.tenants.findFirst({
-                where: eq(tenants.id, req.session.tenantId)
-            });
-
-            if (!tenant || !tenant.isActive) {
-                return res.status(403).json({ error: "테넌트를 찾을 수 없거나 비활성화되었습니다" });
-            }
-
-            // Attach tenant and role to request
-            req.tenant = tenant;
-            req.userRole = userTenant.role;
         } catch (error) {
             console.error("Tenant context error:", error);
             return res.status(500).json({ error: "테넌트 정보를 불러오는 중 오류가 발생했습니다" });

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
 import { useQuery } from "@tanstack/react-query";
-import type { InventoryItem } from "@shared/schema";
+import type { InventoryItem, OutgoingRecord, MaterialUsageRecord } from "@shared/schema";
 import {
   Table,
   TableBody,
@@ -32,13 +32,52 @@ export default function Dashboard() {
     queryKey: ["/api/inventory"],
   });
 
+  const { data: outgoingRecords = [] } = useQuery<OutgoingRecord[]>({
+    queryKey: ["/api/outgoing"],
+  });
+
+  const { data: usageRecords = [] } = useQuery<MaterialUsageRecord[]>({
+    queryKey: ["/api/material-usage"],
+  });
+
+  // Aggregate stock - Exact logic from TeamOutgoing.tsx
+  const stockMap = new Map<string, any>();
+
+  outgoingRecords.forEach(record => {
+    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    if (!stockMap.has(key)) {
+      stockMap.set(key, {
+        id: key,
+        division: record.division,
+        teamCategory: record.teamCategory,
+        productName: record.productName,
+        specification: record.specification,
+        quantity: 0
+      });
+    }
+    stockMap.get(key).quantity += record.quantity;
+  });
+
+  usageRecords.forEach(record => {
+    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    if (stockMap.has(key)) {
+      stockMap.get(key).quantity -= record.quantity;
+    }
+  });
+
+  // Convert to array and filter out zero/negative stock
+  const allStockItems = Array.from(stockMap.values()).filter(item => item.quantity > 0);
+
   const filteredInventory = selectedDivision === "all"
     ? inventory
     : inventory.filter((item) => item.division === selectedDivision);
 
   const filteredTeams = selectedDivision === "all"
     ? teams
-    : teams.filter((t) => t.divisionId === selectedDivision);
+    : teams.filter((t) => {
+      const division = divisions?.find(d => d.id === t.divisionId);
+      return division?.name === selectedDivision;
+    });
 
   const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
 
@@ -76,8 +115,8 @@ export default function Dashboard() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">전체</SelectItem>
-                <SelectItem value="SKT">SKT사업부</SelectItem>
-                <SelectItem value="SKB">SKB사업부</SelectItem>
+                <SelectItem value="SKT">SKT</SelectItem>
+                <SelectItem value="SKB">SKB</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -165,13 +204,18 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {filteredTeams.map((team) => (
-              <FieldTeamCard
-                key={team.id}
-                team={team}
-                onClick={(t) => console.log("팀 상세:", t.name)}
-              />
-            ))}
+            {filteredTeams.map((team) => {
+              // Calculate current material count for this team using aggregated list
+              const teamStockCount = allStockItems.filter(item => item.teamCategory === team.name).length;
+
+              return (
+                <FieldTeamCard
+                  key={team.id}
+                  team={{ ...team, materialCount: teamStockCount }}
+                  onClick={(t) => { }}
+                />
+              );
+            })}
             {filteredTeams.length === 0 && (
               <div className="col-span-full text-center py-8 text-muted-foreground">
                 등록된 현장팀이 없습니다

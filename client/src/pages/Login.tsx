@@ -44,8 +44,10 @@ export default function Login() {
             // Refresh auth state before redirecting
             refetchAuth();
 
-            // If user has multiple tenants, redirect to tenant selection page
-            if (data.tenants && data.tenants.length > 1) {
+            // Redirect based on role
+            if (data.user.username === "admin") {
+                setLocation("/super-admin");
+            } else if (data.tenants && data.tenants.length > 1) {
                 setLocation("/tenant-select");
             } else {
                 // Otherwise, redirect to dashboard

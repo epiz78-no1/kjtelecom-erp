@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Calendar, Search, Loader2, Pencil, Trash2, Upload, Download } from "lucide-react";
+import { Plus, Calendar, Search, Loader2, Pencil, Trash2, Upload, Download, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,18 +46,35 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { OutgoingBulkUploadDialog } from "@/components/OutgoingBulkUploadDialog";
+import { useAppContext } from "@/contexts/AppContext";
+import { InventoryItemSelector } from "@/components/InventoryItemSelector";
 
 const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
 
 export default function OutgoingRecords() {
   const { toast } = useToast();
-  const [selectedDivision, setSelectedDivision] = useState("all");
+  const { user, checkPermission, tenants, currentTenant } = useAppContext();
+  const isAdmin = tenants.find(t => t.id === currentTenant)?.role === 'admin' || tenants.find(t => t.id === currentTenant)?.role === 'owner';
+
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Permissions
+  const canWrite = checkPermission("outgoing", "write");
+  const isOwnOnly = !canWrite && checkPermission("outgoing", "own_only");
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<OutgoingRecord | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<OutgoingRecord | null>(null);
@@ -66,15 +83,18 @@ export default function OutgoingRecords() {
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [formData, setFormData] = useState({
+    date: new Date().toISOString().split("T")[0],
     division: "SKT",
-    teamCategory: "",
+    category: "",
+    teamCategory: "외선팀",
     projectName: "",
     productName: "",
     specification: "",
     quantity: "",
-    recipient: "",
+    recipient: user?.name || "",
     type: "general",
     drumNumber: "",
+    inventoryItemId: undefined as number | undefined,
   });
 
   const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
@@ -85,25 +105,16 @@ export default function OutgoingRecords() {
     queryKey: ["/api/inventory"],
   });
 
-  // Get unique product names from inventory
-  const productNames = useMemo(() => {
-    const names = new Set(
-      inventoryItems
-        .map(item => item.productName)
-        .filter(name => name && name.trim() !== '')
-    );
-    return Array.from(names).sort();
-  }, [inventoryItems]);
+  // Fetch members for recipient selection
+  const { data: members = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/members"],
+    retry: false, // Don't retry if user doesn't have admin access
+  });
 
-  // Get specifications for the selected product name
-  const specifications = useMemo(() => {
-    if (!formData.productName) return [];
-    const specs = inventoryItems
-      .filter(item => item.productName === formData.productName)
-      .map(item => item.specification)
-      .filter(spec => spec && spec.trim() !== '');
-    return Array.from(new Set(specs)).sort();
-  }, [inventoryItems, formData.productName]);
+  // Fetch teams for recipient selection
+  const { data: teams = [] } = useQuery<any[]>({
+    queryKey: ["/api/teams"],
+  });
 
   const createMutation = useMutation({
     mutationFn: async (data: Omit<OutgoingRecord, "id" | "tenantId">) => {
@@ -163,18 +174,19 @@ export default function OutgoingRecords() {
     },
   });
 
-  const divisionFiltered = selectedDivision === "all"
-    ? records
-    : records.filter((record) => record.division === selectedDivision);
+  // Filter based on permissions
+  const permissionFiltered = isOwnOnly
+    ? records.filter(r => r.recipient === user?.name)
+    : records;
 
-  const filteredRecords = divisionFiltered.filter(
+  const filteredRecords = permissionFiltered.filter(
     (record) =>
       record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase())
+      record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.specification.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
 
   const allSelected = filteredRecords.length > 0 && filteredRecords.every(r => selectedIds.has(r.id));
@@ -201,15 +213,18 @@ export default function OutgoingRecords() {
   const openAddDialog = () => {
     setEditingRecord(null);
     setFormData({
+      date: new Date().toISOString().split("T")[0],
       division: "SKT",
-      teamCategory: "",
+      category: "",
+      teamCategory: "외선팀",
       projectName: "",
       productName: "",
       specification: "",
       quantity: "",
-      recipient: "",
+      recipient: user?.name || "",
       type: "general",
-      drumNumber: ""
+      drumNumber: "",
+      inventoryItemId: undefined
     });
     setSelectedDate(new Date());
     setDialogOpen(true);
@@ -224,15 +239,18 @@ export default function OutgoingRecords() {
     } catch (e) { }
 
     setFormData({
+      date: record.date,
       division: record.division,
+      category: record.category || "",
       teamCategory: record.teamCategory,
       projectName: record.projectName,
       productName: record.productName,
       specification: record.specification,
-      quantity: String(record.quantity),
+      quantity: record.quantity.toString(),
       recipient: record.recipient,
       type: record.type || "general",
       drumNumber: drumNo,
+      inventoryItemId: record.inventoryItemId || undefined
     });
     setSelectedDate(new Date(record.date));
     setDialogOpen(true);
@@ -242,15 +260,18 @@ export default function OutgoingRecords() {
     setDialogOpen(false);
     setEditingRecord(null);
     setFormData({
+      date: new Date().toISOString().split("T")[0],
       division: "SKT",
-      teamCategory: "",
+      category: "",
+      teamCategory: "외선팀",
       projectName: "",
       productName: "",
       specification: "",
       quantity: "",
-      recipient: "",
+      recipient: user?.name || "",
       type: "general",
-      drumNumber: ""
+      drumNumber: "",
+      inventoryItemId: undefined
     });
     setSelectedDate(new Date());
   };
@@ -270,6 +291,7 @@ export default function OutgoingRecords() {
     const data = {
       date: format(selectedDate, "yyyy-MM-dd"),
       division: formData.division,
+      category: formData.category,
       teamCategory: formData.teamCategory,
       projectName: formData.projectName,
       productName: formData.productName,
@@ -278,6 +300,7 @@ export default function OutgoingRecords() {
       recipient: formData.recipient,
       type: formData.type,
       attributes: attributes,
+      inventoryItemId: formData.inventoryItemId
     };
 
     if (editingRecord) {
@@ -309,22 +332,23 @@ export default function OutgoingRecords() {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const template = `출고일,사업부,구분,공사명,품명,규격,수량,수령인
-2024-12-24,SKT,접속팀,효자동 2가 함체교체,광접속함체 돔형,가공 96C,5,홍길동
-2024-12-24,SKT,외선팀,종로구 광케이블 설치,광점퍼코드,SM 1C SC/APC-SC/APC 3M,20,김철수`;
-
-    const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "outgoing_template.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast({ title: "템플릿이 다운로드되었습니다" });
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetch("/api/templates/outgoing");
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "outgoing_template.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "템플릿이 다운로드되었습니다" });
+    } catch (error) {
+      toast({ title: "다운로드 실패", variant: "destructive" });
+    }
   };
 
   if (isLoading) {
@@ -344,30 +368,28 @@ export default function OutgoingRecords() {
             <p className="text-muted-foreground">자재 출고 이력을 조회하고 관리합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="w-[180px]">
-              <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-                <SelectTrigger data-testid="select-division">
-                  <SelectValue placeholder="사업부 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체</SelectItem>
-                  <SelectItem value="SKT">SKT사업부</SelectItem>
-                  <SelectItem value="SKB">SKB사업부</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleDownloadTemplate} variant="outline" data-testid="button-download-template">
-              <Download className="h-4 w-4 mr-2" />
-              템플릿 다운로드
-            </Button>
-            <Button onClick={() => setBulkUploadOpen(true)} variant="outline" data-testid="button-bulk-upload">
-              <Upload className="h-4 w-4 mr-2" />
-              일괄등록
-            </Button>
-            <Button onClick={openAddDialog} data-testid="button-add-outgoing">
-              <Plus className="h-4 w-4 mr-2" />
-              출고 등록
-            </Button>
+            {canWrite ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button data-testid="button-add-outgoing-menu">
+                    <Plus className="h-4 w-4 mr-2" />
+                    출고 등록
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={openAddDialog}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    출고 직접 등록
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      일괄 등록
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         </div>
 
@@ -414,14 +436,14 @@ export default function OutgoingRecords() {
                 />
               </TableHead>
               <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">출고일</TableHead>
-              <TableHead className="font-semibold w-[50px] text-center align-middle bg-background">사업</TableHead>
+
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
               <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
               <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
               <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
               <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">수령인</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">작업</TableHead>
+              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -435,32 +457,38 @@ export default function OutgoingRecords() {
                   />
                 </TableCell>
                 <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.division}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.teamCategory}</TableCell>
+
+                <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
                 <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
                 <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
                 <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
                 <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
                 <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
                 <TableCell className="text-center align-middle">
-                  <div className="flex items-center justify-center gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => openEditDialog(record)}
-                      data-testid={`button-edit-${record.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setDeleteRecord(record)}
-                      data-testid={`button-delete-${record.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {canWrite && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>출고 관리</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => openEditDialog(record)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          수정
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setDeleteRecord(record)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          삭제
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -484,18 +512,18 @@ export default function OutgoingRecords() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label>출고일 *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="justify-start text-left font-normal"
+                      className="justify-start text-left font-normal px-3"
                       data-testid="button-outgoing-date"
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP", { locale: ko }) : "날짜 선택"}
+                      {selectedDate ? format(selectedDate, "yyyy-MM-dd") : "날짜 선택"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -509,24 +537,67 @@ export default function OutgoingRecords() {
                 </Popover>
               </div>
               <div className="grid gap-2">
-                <Label>구분 (팀) *</Label>
+                <Label>수령 팀 *</Label>
                 <Select
                   value={formData.teamCategory}
-                  onValueChange={(value) => setFormData({ ...formData, teamCategory: value })}
+                  onValueChange={(value) => {
+                    const team = teams.find((t: any) => t.name === value);
+                    setFormData({
+                      ...formData,
+                      teamCategory: value,
+                      recipient: "" // Reset recipient using new team
+                    });
+                  }}
                 >
                   <SelectTrigger data-testid="select-outgoing-team">
-                    <SelectValue placeholder="구분 선택" />
+                    <SelectValue placeholder="팀 선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    {teamCategories.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                    {teams.map((team: any) => (
+                      <SelectItem key={team.id} value={team.name}>
+                        {team.name}
                       </SelectItem>
                     ))}
+                    {teams.length === 0 && (
+                      <SelectItem value="설치팀" disabled>팀 데이터 없음</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>수령인 *</Label>
+                <Select
+                  value={formData.recipient}
+                  onValueChange={(value) => setFormData({ ...formData, recipient: value })}
+                  disabled={!formData.teamCategory}
+                >
+                  <SelectTrigger data-testid="select-outgoing-recipient">
+                    <SelectValue placeholder={formData.teamCategory ? "수령인 선택" : "팀을 먼저 선택하세요"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members
+                      .filter((m: any) => {
+                        if (!formData.teamCategory) return false;
+                        const selectedTeam = teams.find((t: any) => t.name === formData.teamCategory);
+                        return selectedTeam && m.teamId === selectedTeam.id;
+                      })
+                      .map((member: any) => (
+                        <SelectItem key={member.id} value={member.name}>
+                          {member.name} ({member.username})
+                        </SelectItem>
+                      ))}
+                    {members.filter((m: any) => {
+                      if (!formData.teamCategory) return false;
+                      const selectedTeam = teams.find((t: any) => t.name === formData.teamCategory);
+                      return selectedTeam && m.teamId === selectedTeam.id;
+                    }).length === 0 && (
+                        <SelectItem value="none" disabled>팀원 없음</SelectItem>
+                      )}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
             <div className="grid gap-2">
               <Label>공사명 *</Label>
               <Input
@@ -566,82 +637,35 @@ export default function OutgoingRecords() {
                 />
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>품명 *</Label>
-                <Select
-                  value={formData.productName}
-                  onValueChange={(value) => {
-                    const item = inventoryItems.find(i => i.productName === value);
+
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">품목 선택</Label>
+              <div className="col-span-3">
+                <InventoryItemSelector
+                  value={formData.inventoryItemId}
+                  onChange={(id, item) => {
                     setFormData({
                       ...formData,
-                      productName: value,
-                      specification: "",
-                      division: item?.division || "SKT",
-                      type: item?.type || "general"
+                      inventoryItemId: id,
+                      productName: item.productName,
+                      specification: item.specification,
+                      division: item.division,
+                      category: item.category,
                     });
                   }}
-                >
-                  <SelectTrigger data-testid="select-outgoing-product">
-                    <SelectValue placeholder="품명 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {productNames.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>규격 *</Label>
-                <Select
-                  value={formData.specification}
-                  onValueChange={(value) => {
-                    const item = inventoryItems.find(
-                      i => i.productName === formData.productName &&
-                        i.specification === value
-                    );
-                    setFormData({
-                      ...formData,
-                      specification: value,
-                      division: item?.division || formData.division
-                    });
-                  }}
-                  disabled={!formData.productName}
-                >
-                  <SelectTrigger data-testid="select-outgoing-spec">
-                    <SelectValue placeholder={formData.productName ? "규격 선택" : "품명을 먼저 선택하세요"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {specifications.map((spec) => (
-                      <SelectItem key={spec} value={spec}>
-                        {spec}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>수량 *</Label>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">수량 *</Label>
+              <div className="col-span-3">
                 <Input
                   type="number"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                   placeholder="10"
                   data-testid="input-outgoing-quantity"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>수령인 *</Label>
-                <Input
-                  value={formData.recipient}
-                  onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
-                  placeholder="예: 홍길동"
-                  data-testid="input-outgoing-recipient"
                 />
               </div>
             </div>

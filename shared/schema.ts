@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
+  phoneNumber: text("phone_number"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -47,6 +48,13 @@ export const userTenants = pgTable("user_tenants", {
   positionId: varchar("position_id"), // link to positions table
   divisionId: varchar("division_id"), // link to divisions table
   teamId: varchar("team_id"), // link to teams table
+  // Menu-level permissions
+  permissions: jsonb("permissions").$type<{
+    incoming: 'none' | 'read' | 'write' | 'own_only';
+    outgoing: 'none' | 'read' | 'write' | 'own_only';
+    usage: 'none' | 'read' | 'write' | 'own_only';
+    inventory: 'none' | 'read' | 'write' | 'own_only';
+  }>(),
   status: text("status").notNull().default("active"), // active, inactive, pending
   joinDate: timestamp("join_date").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -140,6 +148,7 @@ export const inventoryItems = pgTable("inventory_items", {
   carriedOver: integer("carried_over").notNull().default(0),
   incoming: integer("incoming").notNull().default(0),
   outgoing: integer("outgoing").notNull().default(0),
+  usage: integer("usage").notNull().default(0), // consumed by field teams
   remaining: integer("remaining").notNull().default(0),
   unitPrice: integer("unit_price").notNull().default(0),
   totalAmount: integer("total_amount").notNull().default(0),
@@ -156,6 +165,7 @@ export const apiInsertInventoryItemSchema = z.object({
   carriedOver: z.number().optional(),
   incoming: z.number().optional(),
   outgoing: z.number().optional(),
+  usage: z.number().optional(),
   remaining: z.number().optional(),
   unitPrice: z.number().optional(),
   totalAmount: z.number().optional(),
@@ -166,8 +176,10 @@ export type InventoryItem = typeof inventoryItems.$inferSelect;
 export const outgoingRecords = pgTable("outgoing_records", {
   id: serial("id").primaryKey(),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id), // Link to inventory
   date: text("date").notNull(),
-  division: text("division").notNull(),
+  division: text("division").notNull().default("SKT"),
+  category: text("category").notNull().default(""),
   teamCategory: text("team_category").notNull(),
   projectName: text("project_name").notNull(),
   productName: text("product_name").notNull(),
@@ -176,12 +188,15 @@ export const outgoingRecords = pgTable("outgoing_records", {
   specification: text("specification").notNull(),
   quantity: integer("quantity").notNull().default(0),
   recipient: text("recipient").notNull(),
+  remark: text("remark"),
 });
 
 export const insertOutgoingRecordSchema = createInsertSchema(outgoingRecords).omit({ id: true });
 export const apiInsertOutgoingRecordSchema = z.object({
+  inventoryItemId: z.number().optional(), // New field
   date: z.string(),
-  division: z.string(),
+  division: z.string().optional(),
+  category: z.string(),
   teamCategory: z.string(),
   projectName: z.string(),
   productName: z.string(),
@@ -190,6 +205,7 @@ export const apiInsertOutgoingRecordSchema = z.object({
   specification: z.string(),
   quantity: z.number(),
   recipient: z.string(),
+  remark: z.string().optional(),
 });
 export type InsertOutgoingRecord = z.infer<typeof insertOutgoingRecordSchema>;
 export type OutgoingRecord = typeof outgoingRecords.$inferSelect;
@@ -197,8 +213,10 @@ export type OutgoingRecord = typeof outgoingRecords.$inferSelect;
 export const materialUsageRecords = pgTable("material_usage_records", {
   id: serial("id").primaryKey(),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id), // Link to inventory
   date: text("date").notNull(),
-  division: text("division").notNull(),
+  division: text("division").notNull().default("SKT"),
+  category: text("category").notNull().default(""),
   teamCategory: text("team_category").notNull(),
   projectName: text("project_name").notNull(),
   productName: text("product_name").notNull(),
@@ -207,12 +225,15 @@ export const materialUsageRecords = pgTable("material_usage_records", {
   specification: text("specification").notNull(),
   quantity: integer("quantity").notNull().default(0),
   recipient: text("recipient").notNull(),
+  remark: text("remark"),
 });
 
 export const insertMaterialUsageRecordSchema = createInsertSchema(materialUsageRecords).omit({ id: true });
 export const apiInsertMaterialUsageRecordSchema = z.object({
+  inventoryItemId: z.number().optional(), // New field
   date: z.string(),
-  division: z.string(),
+  division: z.string().optional(),
+  category: z.string(),
   teamCategory: z.string(),
   projectName: z.string(),
   productName: z.string(),
@@ -221,6 +242,7 @@ export const apiInsertMaterialUsageRecordSchema = z.object({
   specification: z.string(),
   quantity: z.number(),
   recipient: z.string(),
+  remark: z.string().optional(),
 });
 export type InsertMaterialUsageRecord = z.infer<typeof insertMaterialUsageRecordSchema>;
 export type MaterialUsageRecord = typeof materialUsageRecords.$inferSelect;
@@ -228,8 +250,10 @@ export type MaterialUsageRecord = typeof materialUsageRecords.$inferSelect;
 export const incomingRecords = pgTable("incoming_records", {
   id: serial("id").primaryKey(),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id), // Link to inventory
   date: text("date").notNull(),
-  division: text("division").notNull(),
+  division: text("division").notNull().default("SKT"),
+  category: text("category").notNull().default(""),
   supplier: text("supplier").notNull(),
   projectName: text("project_name").notNull(),
   productName: text("product_name").notNull(),
@@ -238,12 +262,15 @@ export const incomingRecords = pgTable("incoming_records", {
   specification: text("specification").notNull().default(""),
   quantity: integer("quantity").notNull().default(0),
   unitPrice: integer("unit_price").notNull().default(0),
+  remark: text("remark"),
 });
 
 export const insertIncomingRecordSchema = createInsertSchema(incomingRecords).omit({ id: true });
 export const apiInsertIncomingRecordSchema = z.object({
+  inventoryItemId: z.number().optional(), // New field
   date: z.string(),
-  division: z.string(),
+  division: z.string().optional(),
+  category: z.string(),
   supplier: z.string(),
   projectName: z.string(),
   productName: z.string(),
@@ -252,6 +279,7 @@ export const apiInsertIncomingRecordSchema = z.object({
   specification: z.string().optional(),
   quantity: z.number(),
   unitPrice: z.number().optional(),
+  remark: z.string().optional(),
 });
 export type InsertIncomingRecord = z.infer<typeof insertIncomingRecordSchema>;
 export type IncomingRecord = typeof incomingRecords.$inferSelect;
@@ -332,6 +360,39 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
   invitedByUser: one(users, {
     fields: [invitations.invitedBy],
     references: [users.id],
+  }),
+}));
+
+export const incomingRecordsRelations = relations(incomingRecords, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [incomingRecords.tenantId],
+    references: [tenants.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [incomingRecords.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+}));
+
+export const outgoingRecordsRelations = relations(outgoingRecords, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [outgoingRecords.tenantId],
+    references: [tenants.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [outgoingRecords.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+}));
+
+export const materialUsageRecordsRelations = relations(materialUsageRecords, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [materialUsageRecords.tenantId],
+    references: [tenants.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [materialUsageRecords.inventoryItemId],
+    references: [inventoryItems.id],
   }),
 }));
 

@@ -34,6 +34,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +54,21 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 export default function AdminOrg() {
     const {
@@ -74,7 +99,19 @@ export default function AdminOrg() {
         divisionId: "",
         teamCategory: "외선팀",
         memberCount: 0,
+        memberIds: [] as string[],
         isActive: true
+    });
+
+    // Delete Confirmation State
+    const [deleteConfirm, setDeleteConfirm] = useState<{
+        type: 'division' | 'team';
+        id: string;
+        name: string;
+    } | null>(null);
+
+    const { data: members } = useQuery<any[]>({
+        queryKey: ["/api/admin/members"],
     });
 
     // Handle Division
@@ -114,6 +151,7 @@ export default function AdminOrg() {
             divisionId: divisionId || (divisions[0]?.id || ""),
             teamCategory: "외선팀",
             memberCount: 0,
+            memberIds: [],
             isActive: true
         });
         setIsTeamDialogOpen(true);
@@ -122,11 +160,16 @@ export default function AdminOrg() {
     const handleEditTeam = (team: any) => {
         setTeamDialogMode("edit");
         setEditingTeam(team);
+
+        // Filter members belonging to this team
+        const currentTeamMembers = members?.filter(m => m.teamId === team.id).map(m => m.id) || [];
+
         setTeamData({
             name: team.name,
             divisionId: team.divisionId,
             teamCategory: team.teamCategory,
-            memberCount: team.memberCount,
+            memberCount: currentTeamMembers.length, // Update count based on actual members
+            memberIds: currentTeamMembers,
             isActive: team.isActive
         });
         setIsTeamDialogOpen(true);
@@ -144,6 +187,24 @@ export default function AdminOrg() {
             setIsTeamDialogOpen(false);
         } catch (error: any) {
             toast({ title: "오류 발생", description: error.message, variant: "destructive" });
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteConfirm) return;
+
+        try {
+            if (deleteConfirm.type === 'division') {
+                await deleteDivision(deleteConfirm.id);
+                toast({ title: "부서 삭제 완료", description: `"${deleteConfirm.name}" 부서가 삭제되었습니다.` });
+            } else {
+                await deleteTeam(deleteConfirm.id);
+                toast({ title: "팀 삭제 완료", description: `"${deleteConfirm.name}" 팀이 삭제되었습니다.` });
+            }
+        } catch (error: any) {
+            toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
+        } finally {
+            setDeleteConfirm(null);
         }
     };
 
@@ -198,11 +259,16 @@ export default function AdminOrg() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuItem onClick={() => handleEditDivision(division)}>부서명 수정</DropdownMenuItem>
-                                        <DropdownMenuItem className="text-destructive" onClick={() => {
-                                            if (confirm(`"${division.name}" 부서를 삭제하시겠습니까? 관련 팀 데이터도 삭제될 수 있습니다.`)) {
-                                                deleteDivision(division.id);
-                                            }
-                                        }}>부서 삭제</DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-destructive"
+                                            onClick={() => setDeleteConfirm({
+                                                type: 'division',
+                                                id: division.id,
+                                                name: division.name
+                                            })}
+                                        >
+                                            부서 삭제
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </CardHeader>
@@ -218,7 +284,6 @@ export default function AdminOrg() {
                                                 <div>
                                                     <div className="font-medium text-sm">{team.name}</div>
                                                     <div className="flex items-center gap-2 mt-1">
-                                                        <Badge variant="secondary" className="text-[10px] h-4 px-1">{team.teamCategory}</Badge>
                                                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                                             <Users className="h-3 w-3" /> {team.memberCount}명
                                                         </span>
@@ -231,11 +296,16 @@ export default function AdminOrg() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem onClick={() => handleEditTeam(team)}>팀 정보 수정</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-destructive" onClick={() => {
-                                                        if (confirm(`"${team.name}" 팀을 삭제하시겠습니까?`)) {
-                                                            deleteTeam(team.id);
-                                                        }
-                                                    }}>팀 삭제</DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        className="text-destructive"
+                                                        onClick={() => setDeleteConfirm({
+                                                            type: 'team',
+                                                            id: team.id,
+                                                            name: team.name
+                                                        })}
+                                                    >
+                                                        팀 삭제
+                                                    </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </div>
@@ -285,9 +355,9 @@ export default function AdminOrg() {
             <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{teamDialogMode === "add" ? "새 현장팀 추가" : "팀 정보 수정"}</DialogTitle>
+                        <DialogTitle>{teamDialogMode === "add" ? "새 팀 추가" : "팀 정보 수정"}</DialogTitle>
                         <DialogDescription>
-                            현장에서 작업하는 팀 정보를 입력하세요.
+                            팀 정보를 입력하세요.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -316,32 +386,7 @@ export default function AdminOrg() {
                                 onChange={(e) => setTeamData({ ...teamData, name: e.target.value })}
                             />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="teamCategory">팀 구분</Label>
-                            <Select
-                                value={teamData.teamCategory}
-                                onValueChange={(val) => setTeamData({ ...teamData, teamCategory: val })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="구분 선택" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="외선팀">외선팀</SelectItem>
-                                    <SelectItem value="내선팀">내선팀</SelectItem>
-                                    <SelectItem value="유지보수팀">유지보수팀</SelectItem>
-                                    <SelectItem value="기타">기타</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="memberCount">인원수</Label>
-                            <Input
-                                id="memberCount"
-                                type="number"
-                                value={teamData.memberCount}
-                                onChange={(e) => setTeamData({ ...teamData, memberCount: parseInt(e.target.value) || 0 })}
-                            />
-                        </div>
+
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsTeamDialogOpen(false)}>취소</Button>
@@ -349,6 +394,28 @@ export default function AdminOrg() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {deleteConfirm?.type === 'division' ? '부서 삭제' : '팀 삭제'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {deleteConfirm?.type === 'division'
+                                ? `"${deleteConfirm?.name}" 부서를 정말 삭제하시겠습니까? 포함된 결재 라인 및 팀 데이터가 모두 삭제됩니다.`
+                                : `"${deleteConfirm?.name}" 팀을 정말 삭제하시겠습니까? 팀원들의 소속 정보가 초기화될 수 있습니다.`
+                            }
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleConfirmDelete}>
+                            삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
     );
 }

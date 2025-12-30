@@ -30,7 +30,7 @@ const menuItems = [
   { title: "재고 현황", url: "/inventory", icon: Package },
   { title: "입고 내역", url: "/incoming", icon: ArrowDownToLine },
   { title: "출고 내역", url: "/outgoing", icon: ArrowUpFromLine },
-  { title: "현장팀별 출고", url: "/team-outgoing", icon: Users },
+  { title: "현장팀별 출고 현황", url: "/team-outgoing", icon: Users },
   { title: "현장팀 자재 사용등록", url: "/team-material-usage", icon: ClipboardList },
 ];
 
@@ -52,6 +52,7 @@ export function AppSidebar() {
   const currentTenantId = contextTenantId || window.localStorage.getItem('currentTenantId') || tenants?.[0]?.id;
   const currentTenant = tenants?.find(t => t.id === currentTenantId);
   const isAdmin = currentTenant?.role === 'admin' || currentTenant?.role === 'owner';
+  const isSuperAdmin = user?.username === 'admin';
 
   return (
     <Sidebar>

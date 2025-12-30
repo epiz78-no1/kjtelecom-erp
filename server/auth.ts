@@ -197,6 +197,9 @@ export function registerAuthRoutes(app: Express) {
                     userId: userTenants.userId,
                     tenantId: userTenants.tenantId,
                     role: userTenants.role,
+                    permissions: userTenants.permissions,
+                    divisionId: userTenants.divisionId,
+                    teamId: userTenants.teamId,
                     tenantName: tenants.name,
                     tenantSlug: tenants.slug,
                     tenantIsActive: tenants.isActive
@@ -216,6 +219,9 @@ export function registerAuthRoutes(app: Express) {
                     name: ut.tenantName,
                     slug: ut.tenantSlug,
                     role: ut.role,
+                    permissions: ut.permissions,
+                    divisionId: ut.divisionId,
+                    teamId: ut.teamId,
                     isActive: ut.tenantIsActive
                 })),
                 currentTenant: req.session.tenantId

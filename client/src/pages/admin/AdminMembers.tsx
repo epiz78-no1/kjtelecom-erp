@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
     Users,
@@ -10,7 +10,10 @@ import {
     Calendar,
     CheckCircle2,
     XCircle,
-    Clock
+    Clock,
+    UserPlus2,
+    Lock,
+    Phone
 } from "lucide-react";
 import {
     Table,
@@ -63,14 +66,20 @@ import { useAppContext } from "@/contexts/AppContext";
 
 interface Member {
     id: string;
+    username: string;
     name: string;
-    email: string;
+    email: string; // This might be redundant if username is the ID, but keep for compatibility
     role: string;
     status: string;
     joinDate: string;
     positionName: string | null;
+    positionId: string;
     divisionName: string | null;
+    divisionId: string;
     teamName: string | null;
+    teamId?: string;
+    phoneNumber?: string;
+    permissions?: any; // Using any for brevity, or define Permissions interface
 }
 
 interface Invitation {
@@ -85,9 +94,22 @@ interface Invitation {
 export default function AdminMembers() {
     const { toast } = useToast();
     const { divisions, positions, teams } = useAppContext();
-    const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteRole, setInviteRole] = useState("member");
-    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+    const [createData, setCreateData] = useState({
+        username: "",
+        password: "",
+        name: "",
+        phoneNumber: "",
+        positionId: "",
+        divisionId: "",
+        teamId: "",
+        permissions: {
+            incoming: 'none',
+            outgoing: 'none',
+            usage: 'none',
+            inventory: 'none',
+        }
+    });
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
     // Edit states
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -96,39 +118,54 @@ export default function AdminMembers() {
         name: "",
         positionId: "",
         divisionId: "",
-        teamId: ""
+        teamId: "",
+        phoneNumber: "", // Added phone number to edit data
+        status: ""
     });
 
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
     const [newRole, setNewRole] = useState("member");
 
     const { data: members, isLoading: membersLoading } = useQuery<Member[]>({
-        queryKey: ["/api/admin/members"],
+        queryKey: ["/api/admin/members?v=1"], // Cache busting with query param
     });
 
-    const { data: invitations, isLoading: invLoading } = useQuery<Invitation[]>({
-        queryKey: ["/api/admin/invitations"],
-    });
+    // Force refresh on mount to ensure fresh data
+    useEffect(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/members?v=1"] });
+    }, []);
 
-    const inviteMutation = useMutation({
-        mutationFn: async () => {
-            await apiRequest("POST", "/api/admin/invitations", {
-                email: inviteEmail,
-                role: inviteRole,
-            });
+    const createMemberMutation = useMutation({
+        mutationFn: async (data: typeof createData) => {
+            await apiRequest("POST", "/api/admin/members", data);
         },
         onSuccess: () => {
             toast({
-                title: "초대 발송 완료",
-                description: `${inviteEmail}님에게 초대 링크가 생성되었습니다.`,
+                title: "멤버 생성 완료",
+                description: `${createData.name}님을 멤버로 등록했습니다.`,
             });
-            setInviteEmail("");
-            setIsInviteDialogOpen(false);
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/invitations"] });
+            setCreateData({
+                username: "",
+                password: "",
+                name: "",
+                phoneNumber: "",
+                positionId: "",
+                divisionId: "",
+                teamId: "",
+                permissions: {
+                    incoming: 'none',
+                    outgoing: 'none',
+                    usage: 'none',
+                    inventory: 'none',
+                }
+            });
+            setIsCreateDialogOpen(false);
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/members?v=1"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
         },
         onError: (error: any) => {
             toast({
-                title: "초대 발송 실패",
+                title: "멤버 생성 실패",
                 description: error.message || "오류가 발생했습니다.",
                 variant: "destructive",
             });
@@ -141,17 +178,8 @@ export default function AdminMembers() {
         },
         onSuccess: () => {
             toast({ title: "멤버 삭제 완료" });
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/members"] });
-        },
-    });
-
-    const cancelInvitationMutation = useMutation({
-        mutationFn: async (id: string) => {
-            await apiRequest("DELETE", `/api/admin/invitations/${id}`);
-        },
-        onSuccess: () => {
-            toast({ title: "초대 취소 완료" });
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/invitations"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/members?v=1"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
         },
     });
 
@@ -163,7 +191,8 @@ export default function AdminMembers() {
             toast({ title: "멤버 정보 수정 완료" });
             setIsEditDialogOpen(false);
             setIsRoleDialogOpen(false);
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/members"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/members?v=1"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
         },
         onError: (error: any) => {
             toast({
@@ -181,9 +210,11 @@ export default function AdminMembers() {
         // For now, assume the backend returns them or we just use names for lookup
         setEditData({
             name: member.name,
-            positionId: "", // Position matching logic if needed
-            divisionId: "",
-            teamId: ""
+            positionId: member.positionId || "",
+            divisionId: member.divisionId || "",
+            teamId: member.teamId || "",
+            phoneNumber: member.phoneNumber || "",
+            status: member.status
         });
         setIsEditDialogOpen(true);
     };
@@ -192,6 +223,70 @@ export default function AdminMembers() {
         setEditingMember(member);
         setNewRole(member.role);
         setIsRoleDialogOpen(true);
+    };
+
+    // Permission Logic
+    const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
+    const [editingPermissions, setEditingPermissions] = useState<any>({
+        incoming: 'none',
+        outgoing: 'none',
+        usage: 'none',
+        inventory: 'none',
+    });
+
+    const handlePermissionEdit = (member: Member) => {
+        setEditingMember(member);
+        if (member.permissions) {
+            setEditingPermissions(member.permissions);
+        } else {
+            // Default
+            setEditingPermissions({
+                incoming: 'none',
+                outgoing: 'none',
+                usage: 'none',
+                inventory: 'none',
+            });
+        }
+        setIsPermissionDialogOpen(true);
+    };
+
+    const updatePermissionMutation = useMutation({
+        mutationFn: async ({ userId, permissions }: { userId: string; permissions: any }) => {
+            await apiRequest("PATCH", `/api/admin/members/${userId}/permissions`, { permissions });
+        },
+        onSuccess: () => {
+            toast({ title: "권한이 업데이트되었습니다" });
+            setIsPermissionDialogOpen(false);
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/members?v=1"] });
+        },
+        onError: (error: any) => {
+            toast({ title: "권한 업데이트 실패", description: error.message, variant: "destructive" });
+        }
+    });
+
+    const applyPermissionPreset = (preset: 'admin' | 'field' | 'readonly') => {
+        if (preset === 'admin') {
+            setEditingPermissions({
+                incoming: 'write',
+                outgoing: 'write',
+                usage: 'write',
+                inventory: 'write'
+            });
+        } else if (preset === 'field') {
+            setEditingPermissions({
+                incoming: 'none',
+                outgoing: 'own_only',
+                usage: 'own_only',
+                inventory: 'read'
+            });
+        } else if (preset === 'readonly') {
+            setEditingPermissions({
+                incoming: 'read',
+                outgoing: 'read',
+                usage: 'read',
+                inventory: 'read'
+            });
+        }
     };
 
     const getRoleBadge = (role: string) => {
@@ -238,48 +333,196 @@ export default function AdminMembers() {
                     <p className="text-muted-foreground">회사를 함께 운영할 멤버들을 관리하고 초대하세요.</p>
                 </div>
 
-                <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                     <DialogTrigger asChild>
                         <Button className="gap-2">
-                            <UserPlus className="h-4 w-4" /> 멤버 초대하기
+                            <UserPlus2 className="h-4 w-4" /> 멤버 생성하기
                         </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
-                            <DialogTitle>새 멤버 초대</DialogTitle>
+                            <DialogTitle>새 멤버 생성</DialogTitle>
                             <DialogDescription>
-                                이메일 주소를 입력하여 초대 링크를 생성합니다.
+                                관리자가 직접 멤버 정보를 입력하여 계정을 생성합니다.
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">이메일 주소</Label>
-                                <Input
-                                    id="email"
-                                    placeholder="name@company.com"
-                                    value={inviteEmail}
-                                    onChange={(e) => setInviteEmail(e.target.value)}
-                                />
+                        <div className="grid gap-6 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="username">아이디 (ID)</Label>
+                                    <Input
+                                        id="username"
+                                        placeholder="사용자 아이디"
+                                        value={createData.username}
+                                        onChange={(e) => setCreateData({ ...createData, username: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="password">비밀번호</Label>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        placeholder="비밀번호"
+                                        value={createData.password}
+                                        onChange={(e) => setCreateData({ ...createData, password: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="name">이름</Label>
+                                    <Input
+                                        id="name"
+                                        placeholder="사용자 이름"
+                                        value={createData.name}
+                                        onChange={(e) => setCreateData({ ...createData, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Input
+                                        id="phone"
+                                        placeholder="010-0000-0000"
+                                        value={createData.phoneNumber}
+                                        onChange={(e) => setCreateData({ ...createData, phoneNumber: e.target.value })}
+                                    />
+                                </div>
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="role">권한</Label>
-                                <Select value={inviteRole} onValueChange={setInviteRole}>
-                                    <SelectTrigger id="role">
-                                        <SelectValue placeholder="권한 선택" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="member">멤버 (조회 및 데이터 입력)</SelectItem>
-                                        <SelectItem value="admin">관리자 (모든 관리 권한)</SelectItem>
-                                    </SelectContent>
-                                </Select>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="grid gap-2">
+                                    <Label>직급</Label>
+                                    <Select
+                                        value={createData.positionId}
+                                        onValueChange={(val) => setCreateData({ ...createData, positionId: val })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="직급 선택" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {positions?.map((p: any) => (
+                                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>소속 부서</Label>
+                                    <Select
+                                        value={createData.divisionId}
+                                        onValueChange={(val) => setCreateData({ ...createData, divisionId: val, teamId: "" })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="부서 선택" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {divisions?.map((d: any) => (
+                                                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>소속 팀</Label>
+                                    <Select
+                                        value={createData.teamId}
+                                        onValueChange={(val) => setCreateData({ ...createData, teamId: val })}
+                                        disabled={!createData.divisionId}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="팀 선택" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {teams?.filter((t: any) => t.divisionId === createData.divisionId).map((t: any) => (
+                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-medium">초기 권한 설정</h4>
+                                    <span className="text-xs text-muted-foreground">생성 시 기본 권한을 부여합니다.</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label>입고 관리</Label>
+                                        <Select
+                                            value={createData.permissions.incoming}
+                                            onValueChange={(val: any) => setCreateData({
+                                                ...createData,
+                                                permissions: { ...createData.permissions, incoming: val }
+                                            })}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">접근 불가</SelectItem>
+                                                <SelectItem value="read">조회만</SelectItem>
+                                                <SelectItem value="write">수정/삭제</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>출고 관리</Label>
+                                        <Select
+                                            value={createData.permissions.outgoing}
+                                            onValueChange={(val: any) => setCreateData({
+                                                ...createData,
+                                                permissions: { ...createData.permissions, outgoing: val }
+                                            })}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">접근 불가</SelectItem>
+                                                <SelectItem value="read">조회만</SelectItem>
+                                                <SelectItem value="write">수정/삭제</SelectItem>
+                                                <SelectItem value="own_only">본인 수령분만</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>사용 내역</Label>
+                                        <Select
+                                            value={createData.permissions.usage}
+                                            onValueChange={(val: any) => setCreateData({
+                                                ...createData,
+                                                permissions: { ...createData.permissions, usage: val }
+                                            })}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">접근 불가</SelectItem>
+                                                <SelectItem value="read">조회만</SelectItem>
+                                                <SelectItem value="write">수정/삭제</SelectItem>
+                                                <SelectItem value="own_only">본인 사용분만</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>재고 현황</Label>
+                                        <Select
+                                            value={createData.permissions.inventory}
+                                            onValueChange={(val: any) => setCreateData({
+                                                ...createData,
+                                                permissions: { ...createData.permissions, inventory: val }
+                                            })}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">접근 불가</SelectItem>
+                                                <SelectItem value="read">조회만</SelectItem>
+                                                <SelectItem value="write">수정/삭제</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <DialogFooter>
                             <Button
-                                onClick={() => inviteMutation.mutate()}
-                                disabled={inviteMutation.isPending || !inviteEmail}
+                                onClick={() => createMemberMutation.mutate(createData)}
+                                disabled={createMemberMutation.isPending || !createData.username || !createData.password || !createData.name}
                             >
-                                초대 발송
+                                멤버 생성
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -299,7 +542,9 @@ export default function AdminMembers() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>멤버</TableHead>
+                                    <TableHead>ID</TableHead>
                                     <TableHead>직급/부서</TableHead>
+                                    <TableHead>연락처</TableHead>
                                     <TableHead>권한</TableHead>
                                     <TableHead>상태</TableHead>
                                     <TableHead>가입일</TableHead>
@@ -309,13 +554,13 @@ export default function AdminMembers() {
                             <TableBody>
                                 {membersLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                             불러오는 중...
                                         </TableCell>
                                     </TableRow>
                                 ) : members?.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                             등록된 멤버가 없습니다.
                                         </TableCell>
                                     </TableRow>
@@ -333,12 +578,20 @@ export default function AdminMembers() {
                                                     </div>
                                                 </div>
                                             </TableCell>
+                                            <TableCell className="font-medium">
+                                                {member.username}
+                                            </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col text-sm">
                                                     <span>{member.positionName || "-"}</span>
                                                     <span className="text-xs text-muted-foreground">
                                                         {member.divisionName ? `${member.divisionName} / ${member.teamName || '팀 미지정'}` : "-"}
                                                     </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col text-sm">
+                                                    <span>{member.phoneNumber || "-"}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>{getRoleBadge(member.role)}</TableCell>
@@ -356,7 +609,8 @@ export default function AdminMembers() {
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>멤버 관리</DropdownMenuLabel>
                                                         <DropdownMenuItem onClick={() => handleEditMember(member)}>정보 수정</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleRoleChange(member)}>권한 변경</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleRoleChange(member)}>역할 변경</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handlePermissionEdit(member)}>상세 권한 설정</DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
                                                             className="text-destructive"
@@ -379,58 +633,6 @@ export default function AdminMembers() {
                     </CardContent>
                 </Card>
 
-                {invitations && invitations.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-amber-600">
-                                <Clock className="h-5 w-5" />
-                                대기 중인 초대 ({invitations.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>이메일</TableHead>
-                                        <TableHead>권한</TableHead>
-                                        <TableHead>만료일</TableHead>
-                                        <TableHead>상태</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {invitations.map((inv) => (
-                                        <TableRow key={inv.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Mail className="h-4 w-4 text-muted-foreground" />
-                                                    <span>{inv.email}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{getRoleBadge(inv.role)}</TableCell>
-                                            <TableCell className="text-sm">
-                                                {format(new Date(inv.expiresAt), "yyyy-MM-dd HH:mm", { locale: ko })}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">초대됨</Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-destructive"
-                                                    onClick={() => cancelInvitationMutation.mutate(inv.id)}
-                                                >
-                                                    취소
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                )}
             </div>
 
             {/* Member Info Edit Dialog */}
@@ -450,6 +652,30 @@ export default function AdminMembers() {
                                 value={editData.name}
                                 onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                             />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="editPhone">연락처</Label>
+                            <Input
+                                id="editPhone"
+                                value={editData.phoneNumber}
+                                onChange={(e) => setEditData({ ...editData, phoneNumber: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="editStatus">상태</Label>
+                            <Select
+                                value={editData.status}
+                                onValueChange={(val) => setEditData({ ...editData, status: val })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="상태 선택" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">활성</SelectItem>
+                                    <SelectItem value="inactive">비활성</SelectItem>
+                                    <SelectItem value="pending">대기 중</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="grid gap-2">
                             <Label>직급</Label>
@@ -512,17 +738,17 @@ export default function AdminMembers() {
             <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>권한 변경</DialogTitle>
+                        <DialogTitle>역할 변경</DialogTitle>
                         <DialogDescription>
-                            멤버의 시스템 접근 권한을 변경합니다.
+                            멤버의 시스템 접근 역할(관리자/멤버)을 변경합니다.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label>새 권한</Label>
+                            <Label>새 역할</Label>
                             <Select value={newRole} onValueChange={setNewRole}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="권한 선택" />
+                                    <SelectValue placeholder="역할 선택" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="member">멤버 (조회 및 데이터 입력)</SelectItem>
@@ -534,6 +760,95 @@ export default function AdminMembers() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)}>취소</Button>
                         <Button onClick={() => editingMember && updateMemberMutation.mutate({ userId: editingMember.id, data: { role: newRole } })}>변경 적용</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Permission Settings Dialog */}
+            <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>상세 권한 설정</DialogTitle>
+                        <DialogDescription>
+                            "{editingMember?.name}" 멤버의 메뉴별 접근 권한을 설정합니다.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex gap-2 mb-4">
+                        <Button variant="outline" size="sm" onClick={() => applyPermissionPreset('admin')}>전체 허용</Button>
+                        <Button variant="outline" size="sm" onClick={() => applyPermissionPreset('field')}>현장 작업자</Button>
+                        <Button variant="outline" size="sm" onClick={() => applyPermissionPreset('readonly')}>조회 전용</Button>
+                    </div>
+
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label>입고 관리</Label>
+                                <Select
+                                    value={editingPermissions.incoming}
+                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, incoming: val })}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">접근 불가</SelectItem>
+                                        <SelectItem value="read">조회만</SelectItem>
+                                        <SelectItem value="write">수정/삭제</SelectItem>
+                                        <SelectItem value="own_only">본인만 (미지원)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>출고 관리</Label>
+                                <Select
+                                    value={editingPermissions.outgoing}
+                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, outgoing: val })}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">접근 불가</SelectItem>
+                                        <SelectItem value="read">조회만</SelectItem>
+                                        <SelectItem value="write">수정/삭제</SelectItem>
+                                        <SelectItem value="own_only">본인 수령분만</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>사용 내역</Label>
+                                <Select
+                                    value={editingPermissions.usage}
+                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, usage: val })}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">접근 불가</SelectItem>
+                                        <SelectItem value="read">조회만</SelectItem>
+                                        <SelectItem value="write">수정/삭제</SelectItem>
+                                        <SelectItem value="own_only">본인 사용분만</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>재고 현황</Label>
+                                <Select
+                                    value={editingPermissions.inventory}
+                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, inventory: val })}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">접근 불가</SelectItem>
+                                        <SelectItem value="read">조회만</SelectItem>
+                                        <SelectItem value="write">수정/삭제</SelectItem>
+                                        <SelectItem value="own_only">본인만 (미지원)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsPermissionDialogOpen(false)}>취소</Button>
+                        <Button onClick={() => editingMember && updatePermissionMutation.mutate({ userId: editingMember.id, permissions: editingPermissions })}>
+                            권한 저장
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

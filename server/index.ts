@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -50,6 +51,7 @@ app.use(session({
   store: new FileStore({
     path: './.data/sessions',
     ttl: 30 * 24 * 60 * 60, // 30 days
+    retries: 0, // Disable retries to prevent slow responses on missing sessions
   }),
   secret: process.env.SESSION_SECRET || 'pro-tracker-secret-key-change-in-production',
   resave: false,
@@ -113,84 +115,75 @@ app.use((req, res, next) => {
     // Check if migrations folder exists and has files
     const migrationsDir = "./migrations";
     if (fs.existsSync(migrationsDir)) {
-      const { execSync } = await import("child_process");
       try {
-        log("Checking for database migrations...");
-        // Use our manual migration script for PGLite consistency
-        execSync("npx tsx migrate_pglite.ts", { stdio: 'inherit' });
-        log("Migrated PGLite database");
-      } catch (e) {
-        log("Migration failed, attempting automatic migration...", "error");
+        log("Applying database migrations...");
         await migrate(db, { migrationsFolder: migrationsDir });
+        log("Migrations applied successfully");
+      } catch (e: any) {
+        log(`Migration failed: ${e.message}`, "error");
       }
     }
 
-    // Auto-seed if no users exist
+    // Auto-ensure essential users/tenants if no users exist
     const userCount = await db.select().from(users);
     if (userCount.length === 0) {
-      log("No users found. Running automatic seeding...");
-      const { execSync } = await import("child_process");
+      log("No users found. Ensuring essential accounts...");
       try {
-        execSync("npm run db:seed", { stdio: 'inherit' });
-        log("Automatic seeding complete");
-      } catch (e) {
-        log("Automatic seeding failed", "error");
+        const { ensureUsers } = await import("./db_init");
+        await ensureUsers();
+        log("Essential accounts ensured");
+      } catch (e: any) {
+        log(`Failed to ensure accounts: ${e.message}`, "error");
       }
     }
   }
 
-  // Temporary route for user request: setup 'admin' / '123456' with '광텔', '한주통신'
-  app.post("/api/setup-test-data", async (req, res) => {
-    try {
-      const { db } = await import("./db");
-      const { users, tenants, userTenants } = await import("@shared/schema");
-      const { eq, and } = await import("drizzle-orm");
-      const bcrypt = await import("bcrypt");
-
-      const hashedPassword = await bcrypt.hash("123456", 10);
-      let adminUser = await db.query.users.findFirst({ where: eq(users.username, "admin") });
-
-      if (!adminUser) {
-        [adminUser] = await db.insert(users).values({
-          username: "admin",
-          password: hashedPassword,
-          name: "최고관리자"
-        }).returning();
-      } else {
-        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, adminUser.id));
-      }
-
-      const companies = ["광텔", "한주통신"];
-      for (const name of companies) {
-        let tenant = await db.query.tenants.findFirst({ where: eq(tenants.name, name) });
-        if (!tenant) {
-          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + "-" + Date.now();
-          [tenant] = await db.insert(tenants).values({ name, slug, isActive: true }).returning();
-        }
-
-        const existing = await db.query.userTenants.findFirst({
-          where: and(eq(userTenants.userId, adminUser.id), eq(userTenants.tenantId, tenant.id))
-        });
-        if (!existing) {
-          await db.insert(userTenants).values({
-            userId: adminUser.id,
-            tenantId: tenant.id,
-            role: "owner",
-            status: "active"
-          });
-        }
-      }
-      res.json({ message: "Test data setup complete: admin / 123456 with 광텔, 한주통신" });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // Register authentication routes
 
   // Register authentication routes
   registerAuthRoutes(app);
 
   const { registerAdminRoutes } = await import("./admin");
   registerAdminRoutes(app);
+
+  // Template Download API (Global priority)
+  app.get("/api/templates/:type", (req, res, next) => {
+    if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!req.session?.tenantId) return res.status(403).json({ error: "Tenant not selected" });
+    next();
+  }, (req, res) => {
+    const { type } = req.params;
+    console.log(`[DOWNLOAD] Requesting template: ${type} for tenant ${req.session?.tenantId}`);
+
+    let template = "";
+    let filename = "";
+
+    if (type === "inventory") {
+      template = `구분,품명,규격,재고현황,현장팀보유재고,사무실보유재고,단가,금액
+SKT,광접속함체 무여장중간분기형,24C,109,100,9,147882,1330938
+SKT,광접속함체 직선형,가공 24C,1307,1302,5,40150,200750`;
+      filename = "inventory_template.csv";
+    } else if (type === "outgoing") {
+      template = `출고일,구분,수령팀,공사명,품명,규격,수량,수령인
+2024-12-24,접속팀,접속팀,효자동 2가 함체교체,광접속함체 돔형,가공 96C,5,홍길동
+2024-12-24,외선팀,외선팀,종로구 광케이블 설치,광점퍼코드,SM 1C SC/APC-SC/APC 3M,20,김철수`;
+      filename = "outgoing_template.csv";
+    } else if (type === "incoming") {
+      template = `입고일,구분,구매처,공사명,품명,규격,수량,비고
+2024-12-24,SKT,텔레시스,[광텔] 2025년 SKT 운용사업,광접속함체 돔형,가공 96C,10,
+2024-12-24,SKT,삼성전자,[광텔] 2025년 SKT 운용사업,광점퍼코드,SM 1C SC/APC-SC/APC 3M,50,긴급입고`;
+      filename = "incoming_template.csv";
+    } else {
+      return res.status(404).json({ error: "Template not found" });
+    }
+
+    const csvContent = "\uFEFF" + template;
+    const buffer = Buffer.from(csvContent, 'utf-8');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  });
 
   // Register application routes
   await registerRoutes(httpServer, app);

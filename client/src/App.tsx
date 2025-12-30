@@ -24,6 +24,7 @@ import Settings from "@/pages/Settings";
 import AdminMembers from "@/pages/admin/AdminMembers";
 import AdminOrg from "@/pages/admin/AdminOrg";
 import AdminPositions from "@/pages/admin/AdminPositions";
+import SuperAdminDashboard from "@/pages/admin/SuperAdminDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -62,6 +63,7 @@ function AppContent() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/tenant-select" component={TenantSelect} />
+      <Route path="/super-admin" component={SuperAdminDashboard} />
       <Route>
         {() => {
           // Protected routes - require authentication
@@ -84,7 +86,7 @@ function AppContent() {
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <User className="h-4 w-4" />
-                        <span>{user.username}</span>
+                        <span>{user.name}</span>
                       </div>
                       <Button
                         variant="ghost"

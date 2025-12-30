@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Upload, Download, X, AlertCircle } from "lucide-react";
+import { Upload, Download, AlertCircle, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 import {
     Dialog,
@@ -38,6 +38,7 @@ interface ParsedRow {
     remaining: number;
     unitPrice: number;
     totalAmount: number;
+    usage?: number;
 }
 
 export function BulkUploadDialog({
@@ -51,40 +52,35 @@ export function BulkUploadDialog({
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string>("");
 
-    const handleDownloadTemplate = () => {
-        const template = `구분,품명,규격,이월재고,입고량,출고량,잔량,단가,금액
-SKT,광접속함체 무여장중간분기형,24C,7,102,100,9,147882,1330938
-SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
-
-        const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "inventory_template.csv");
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        toast({ title: "템플릿이 다운로드되었습니다" });
+    const handleDownloadTemplate = async () => {
+        try {
+            const res = await fetch("/api/templates/inventory");
+            if (!res.ok) throw new Error("Download failed");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "inventory_template.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            toast({ title: "템플릿이 다운로드되었습니다" });
+        } catch (error) {
+            toast({ title: "다운로드 실패", variant: "destructive" });
+        }
     };
 
     const validateRow = (row: any, index: number): { valid: boolean; errors: string[] } => {
         const rowErrors: string[] = [];
 
-        // 필수 필드 검증
-        if (!row["구분"]) rowErrors.push(`${index + 2}행: 구분이 필요합니다`);
-        if (!row["품명"]) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
-        if (!row["규격"]) rowErrors.push(`${index + 2}행: 규격이 필요합니다`);
+        // Helper to get value case-insensitively or with fuzzy matching if needed
+        const getValue = (key: string) => row[key] || row[key.trim()];
 
-        // 숫자 필드 검증
-        const numericFields = ["이월재고", "입고량", "출고량", "잔량", "단가", "금액"];
-        numericFields.forEach((field) => {
-            const value = row[field];
-            if (value !== undefined && value !== "" && isNaN(Number(value))) {
-                rowErrors.push(`${index + 2}행: ${field}는 숫자여야 합니다`);
-            }
-        });
+        // 필수 필드 검증
+        if (!getValue("구분")) rowErrors.push(`${index + 2}행: 구분이 필요합니다`);
+        if (!getValue("품명")) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
+        if (!getValue("규격")) rowErrors.push(`${index + 2}행: 규격이 필요합니다`);
 
         return { valid: rowErrors.length === 0, errors: rowErrors };
     };
@@ -98,6 +94,7 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
             header: true,
             skipEmptyLines: true,
             encoding: "UTF-8",
+            transformHeader: (h) => h.trim(), // Trim whitespace from headers
             complete: (results) => {
                 const allErrors: string[] = [];
                 const validRows: ParsedRow[] = [];
@@ -108,20 +105,39 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
                     if (!validation.valid) {
                         allErrors.push(...validation.errors);
                     } else {
+                        // Safe number parsing - converts decimals to integers
+                        const parseNum = (val: any) => {
+                            if (!val) return 0;
+                            const str = String(val).replace(/,/g, "").trim();
+                            const num = Number(str);
+                            return isNaN(num) ? 0 : Math.round(num); // 소수점을 정수로 반올림
+                        };
+
+
+                        const outgoing = parseNum(row["현장팀보유재고"]);
+                        const remaining = parseNum(row["사무실보유재고"]);
+                        const unitPrice = parseNum(row["단가"]);
+                        const totalAmount = parseNum(row["금액"]);
+
+                        // 금액이 비어있거나 0이면 자동 계산: 단가 × (현장팀 + 사무실)
+                        const calculatedAmount = totalAmount > 0 ? totalAmount : unitPrice * (outgoing + remaining);
+
                         validRows.push({
                             division: row["구분"] || "SKT",
                             category: row["구분"] || "SKT",
                             productName: row["품명"],
                             specification: row["규격"],
-                            carriedOver: parseInt(row["이월재고"] || "0"),
-                            incoming: parseInt(row["입고량"] || "0"),
-                            outgoing: parseInt(row["출고량"] || "0"),
-                            remaining: parseInt(row["잔량"] || "0"),
-                            unitPrice: parseInt(row["단가"] || "0"),
-                            totalAmount: parseInt(row["금액"] || "0"),
+                            carriedOver: 0, // Not typically in template, but if needed: parseNum(row["이월재"])
+                            incoming: 0,
+                            outgoing: outgoing,
+                            remaining: remaining,
+                            unitPrice: unitPrice,
+                            totalAmount: calculatedAmount,
+                            usage: 0 // New field
                         });
                     }
                 });
+
 
                 if (allErrors.length > 0) {
                     setErrors(allErrors);
@@ -223,6 +239,10 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
         onOpenChange(false);
     };
 
+    const handleDeleteRow = (index: number) => {
+        setParsedData((prev) => prev.filter((_, i) => i !== index));
+    };
+
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -247,8 +267,8 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
 
                     <div
                         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
-                                ? "border-primary bg-primary/5"
-                                : "border-muted-foreground/25"
+                            ? "border-primary bg-primary/5"
+                            : "border-muted-foreground/25"
                             }`}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
@@ -308,16 +328,16 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
                                             <TableHead className="w-[80px]">구분</TableHead>
                                             <TableHead className="w-[140px]">품명</TableHead>
                                             <TableHead className="w-[120px]">규격</TableHead>
-                                            <TableHead className="w-[80px] text-right">이월재고</TableHead>
-                                            <TableHead className="w-[80px] text-right">입고량</TableHead>
-                                            <TableHead className="w-[80px] text-right">출고량</TableHead>
-                                            <TableHead className="w-[80px] text-right">잔량</TableHead>
+                                            <TableHead className="w-[80px] text-right">재고현황</TableHead>
+                                            <TableHead className="w-[80px] text-right">현장팀</TableHead>
+                                            <TableHead className="w-[80px] text-right">사무실</TableHead>
                                             <TableHead className="w-[100px] text-right">단가</TableHead>
                                             <TableHead className="w-[110px] text-right">금액</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {parsedData.slice(0, 10).map((item, index) => (
+                                        {parsedData.map((item, index) => (
                                             <TableRow key={index}>
                                                 <TableCell>{item.division}</TableCell>
                                                 <TableCell className="max-w-[140px] truncate">
@@ -327,10 +347,7 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
                                                     {item.specification}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    {item.carriedOver.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {item.incoming.toLocaleString()}
+                                                    {(item.remaining + item.outgoing).toLocaleString()}
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     {item.outgoing.toLocaleString()}
@@ -344,18 +361,19 @@ SKT,광접속함체 직선형,가공 24C,18,1289,1302,5,40150,200750`;
                                                 <TableCell className="text-right">
                                                     {item.totalAmount.toLocaleString()}
                                                 </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        {parsedData.length > 10 && (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={9}
-                                                    className="text-center text-muted-foreground"
-                                                >
-                                                    그 외 {parsedData.length - 10}개 항목...
+                                                <TableCell>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDeleteRow(index)}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
-                                        )}
+                                        ))}
+
                                     </TableBody>
                                 </Table>
                             </div>

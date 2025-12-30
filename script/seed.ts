@@ -4,13 +4,22 @@ import bcrypt from "bcrypt";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
+import { migrate } from "drizzle-orm/pglite/migrator";
+
 const SALT_ROUNDS = 10;
 
 async function seed() {
     console.log("🌱 Starting database seeding...");
 
-    const password = "admin";
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    // Run migrations
+    console.log("📦 Running migrations...");
+    await migrate(db, { migrationsFolder: "./migrations" });
+    console.log("✅ Migrations completed");
+
+    const password = "admin"; // Fallback
+    const testPassword = "123456";
+    const testHashedPassword = await bcrypt.hash(testPassword, SALT_ROUNDS);
+    const adminHashedPassword = await bcrypt.hash("admin", SALT_ROUNDS);
 
     // 1. Create Tenants
     const tenantData = [
@@ -37,11 +46,28 @@ async function seed() {
         createdTenants.push(tenant);
     }
 
-    // 2. Create Users & Assign to Tenants
+    const gwangtel = createdTenants.find(t => t.slug === "gwangtel");
+    const hanju = createdTenants.find(t => t.slug === "hanju");
+
+    // 2. Create Users
     const userData = [
-        { username: "admin", name: "최고관리자", role: "admin" },
-        { username: "user1", name: "광텔 사용자", role: "member", tenantSlug: "gwangtel" },
-        { username: "user2", name: "한주 사용자", role: "member", tenantSlug: "hanju" }
+        { username: "admin", name: "최고관리자", password: "admin", tenants: [gwangtel, hanju], role: "admin" },
+        { username: "admin1", name: "광텔관리자", password: "123456", tenants: [gwangtel], role: "admin" },
+        { username: "admin2", name: "한주관리자", password: "123456", tenants: [hanju], role: "admin" },
+        {
+            username: "inventory01", name: "재고담당자", password: "123456", tenants: [gwangtel], role: "member",
+            permissions: { incoming: "write", outgoing: "write", usage: "read", inventory: "write" }
+        },
+        {
+            username: "field01", name: "현장작업자", password: "123456", tenants: [gwangtel], role: "member",
+            permissions: { incoming: "none", outgoing: "own_only", usage: "own_only", inventory: "read" }
+        },
+        {
+            username: "readonly01", name: "조회담당자", password: "123456", tenants: [gwangtel], role: "member",
+            permissions: { incoming: "read", outgoing: "read", usage: "read", inventory: "read" }
+        },
+        { username: "user1", name: "광텔 사용자", password: "123456", tenants: [gwangtel], role: "member" },
+        { username: "user2", name: "한주 사용자", password: "123456", tenants: [hanju], role: "member" }
     ];
 
     for (const u of userData) {
@@ -49,34 +75,41 @@ async function seed() {
             where: eq(users.username, u.username)
         });
 
+        const userHash = u.password === "admin" ? adminHashedPassword : testHashedPassword;
+
         if (!user) {
             [user] = await db.insert(users).values({
                 username: u.username,
-                password: hashedPassword,
+                password: userHash,
                 name: u.name
             }).returning();
             console.log(`✅ Created user: ${u.username}`);
         } else {
-            console.log(`ℹ️ User ${u.username} already exists.`);
+            await db.update(users).set({ password: userHash, name: u.name }).where(eq(users.id, user.id));
+            console.log(`ℹ️ User ${u.username} already exists, updated password.`);
         }
 
-        const targetTenants = u.username === "admin"
-            ? createdTenants
-            : createdTenants.filter(t => t.slug === u.tenantSlug);
+        const targetTenants = (u as any).tenants || [];
 
         for (const tenant of targetTenants) {
             const existingRelation = await db.query.userTenants.findFirst({
-                where: and(eq(userTenants.userId, user.id), eq(userTenants.tenantId, tenant.id))
+                where: and(eq(userTenants.userId, user!.id), eq(userTenants.tenantId, tenant.id))
             });
 
             if (!existingRelation) {
                 await db.insert(userTenants).values({
-                    userId: user.id,
+                    userId: user!.id,
                     tenantId: tenant.id,
                     role: u.role as "admin" | "member" | "owner",
+                    permissions: (u as any).permissions,
                     status: "active"
                 });
                 console.log(`🔗 Linked ${u.username} to ${tenant.name} as ${u.role}`);
+            } else {
+                await db.update(userTenants).set({
+                    role: u.role as "admin" | "member" | "owner",
+                    permissions: (u as any).permissions
+                }).where(eq(userTenants.id, existingRelation.id));
             }
         }
     }

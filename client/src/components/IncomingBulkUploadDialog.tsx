@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Upload, Download, AlertCircle } from "lucide-react";
+import { Upload, Download, AlertCircle, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 import {
     Dialog,
@@ -30,12 +30,13 @@ interface IncomingBulkUploadDialogProps {
 interface ParsedIncomingRow {
     date: string;
     division: string;
+    category: string;
     supplier: string;
     projectName: string;
     productName: string;
     specification: string;
     quantity: number;
-    unitPrice: number;
+    remark?: string;
 }
 
 export function IncomingBulkUploadDialog({
@@ -49,22 +50,23 @@ export function IncomingBulkUploadDialog({
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string>("");
 
-    const handleDownloadTemplate = () => {
-        const template = `입고일,사업부,구매처,공사명,품명,규격,수량,단가
-2024-12-24,SKT,텔레시스,[광텔] 2025년 SKT 운용사업,광접속함체 돔형,가공 96C,10,39398
-2024-12-24,SKT,삼성전자,[광텔] 2025년 SKT 운용사업,광점퍼코드,SM 1C SC/APC-SC/APC 3M,50,2806`;
-
-        const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "incoming_template.csv");
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        toast({ title: "템플릿이 다운로드되었습니다" });
+    const handleDownloadTemplate = async () => {
+        try {
+            const res = await fetch("/api/templates/incoming");
+            if (!res.ok) throw new Error("Download failed");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "incoming_template.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            toast({ title: "템플릿이 다운로드되었습니다" });
+        } catch (error) {
+            toast({ title: "다운로드 실패", variant: "destructive" });
+        }
     };
 
     const validateRow = (row: any, index: number): { valid: boolean; errors: string[] } => {
@@ -72,13 +74,13 @@ export function IncomingBulkUploadDialog({
 
         // 필수 필드 검증
         if (!row["입고일"]) rowErrors.push(`${index + 2}행: 입고일이 필요합니다`);
-        if (!row["사업부"]) rowErrors.push(`${index + 2}행: 사업부가 필요합니다`);
+        if (!row["구분"]) rowErrors.push(`${index + 2}행: 구분이 필요합니다`);
         if (!row["구매처"]) rowErrors.push(`${index + 2}행: 구매처가 필요합니다`);
         if (!row["공사명"]) rowErrors.push(`${index + 2}행: 공사명이 필요합니다`);
         if (!row["품명"]) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
 
         // 숫자 필드 검증
-        const numericFields = ["수량", "단가"];
+        const numericFields = ["수량"];
         numericFields.forEach((field) => {
             const value = row[field];
             if (value !== undefined && value !== "" && isNaN(Number(value))) {
@@ -115,13 +117,14 @@ export function IncomingBulkUploadDialog({
                     } else {
                         validRows.push({
                             date: row["입고일"],
-                            division: row["사업부"] || "SKT",
+                            division: "SKT", // Default to SKT
+                            category: row["구분"],
                             supplier: row["구매처"],
                             projectName: row["공사명"],
                             productName: row["품명"],
                             specification: row["규격"] || "",
-                            quantity: parseInt(row["수량"] || "0"),
-                            unitPrice: parseInt(row["단가"] || "0"),
+                            quantity: parseInt((row["수량"] || "0").replace(/,/g, "")) || 0,
+                            remark: row["비고"] || "",
                         });
                     }
                 });
@@ -226,6 +229,10 @@ export function IncomingBulkUploadDialog({
         onOpenChange(false);
     };
 
+    const handleDeleteRow = (index: number) => {
+        setParsedData((prev) => prev.filter((_, i) => i !== index));
+    };
+
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -250,8 +257,8 @@ export function IncomingBulkUploadDialog({
 
                     <div
                         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
-                                ? "border-primary bg-primary/5"
-                                : "border-muted-foreground/25"
+                            ? "border-primary bg-primary/5"
+                            : "border-muted-foreground/25"
                             }`}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
@@ -309,20 +316,21 @@ export function IncomingBulkUploadDialog({
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead className="w-[100px]">입고일</TableHead>
-                                            <TableHead className="w-[60px]">사업부</TableHead>
+                                            <TableHead className="w-[80px]">구분</TableHead>
                                             <TableHead className="w-[80px]">구매처</TableHead>
                                             <TableHead className="w-[180px]">공사명</TableHead>
                                             <TableHead className="w-[120px]">품명</TableHead>
                                             <TableHead className="w-[120px]">규격</TableHead>
                                             <TableHead className="w-[70px] text-right">수량</TableHead>
-                                            <TableHead className="w-[90px] text-right">단가</TableHead>
+                                            <TableHead className="w-[100px]">비고</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {parsedData.slice(0, 10).map((item, index) => (
                                             <TableRow key={index}>
                                                 <TableCell>{item.date}</TableCell>
-                                                <TableCell>{item.division}</TableCell>
+                                                <TableCell>{item.category || item.division}</TableCell>
                                                 <TableCell className="max-w-[80px] truncate">
                                                     {item.supplier}
                                                 </TableCell>
@@ -338,15 +346,25 @@ export function IncomingBulkUploadDialog({
                                                 <TableCell className="text-right">
                                                     {item.quantity.toLocaleString()}
                                                 </TableCell>
-                                                <TableCell className="text-right">
-                                                    {item.unitPrice.toLocaleString()}
+                                                <TableCell className="max-w-[100px] truncate">
+                                                    {item.remark}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDeleteRow(index)}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                         {parsedData.length > 10 && (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={8}
+                                                    colSpan={7}
                                                     className="text-center text-muted-foreground"
                                                 >
                                                     그 외 {parsedData.length - 10}개 항목...

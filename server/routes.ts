@@ -5,7 +5,7 @@ import { db } from "./db";
 import { divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords } from "@shared/schema";
 import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema, insertIncomingRecordSchema } from "@shared/schema";
 import { apiInsertTeamSchema, apiInsertInventoryItemSchema, apiInsertOutgoingRecordSchema, apiInsertMaterialUsageRecordSchema, apiInsertIncomingRecordSchema } from "@shared/schema";
-import { requireAuth, requireTenant } from "./middleware/auth";
+import { requireAuth, requireTenant, requireAdmin } from "./middleware/auth";
 import { eq, and } from "drizzle-orm";
 
 export async function registerRoutes(
@@ -16,6 +16,68 @@ export async function registerRoutes(
   // await storage.initializeTeams();
   // await storage.initializeOutgoingRecords();
   console.log("Server routes initialized");
+
+  // DB migrations and initialization are handled by SQL files and db_init.ts
+  // Manual trigger for debugging if needed: POST /api/debug/init
+  app.post("/api/debug/init", async (req, res) => {
+    try {
+      const { ensureUsers, backfillInventory } = await import("./db_init");
+      await ensureUsers();
+      await backfillInventory();
+      res.json({ success: true, message: "DB Initialized" });
+    } catch (error: any) {
+      console.error("Init failed:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/debug/audit", async (req, res) => {
+    try {
+      const items = await storage.getInventoryItems(req.session!.tenantId!);
+      const incoming = await storage.getIncomingRecords(req.session!.tenantId!);
+      const outgoing = await storage.getOutgoingRecords(req.session!.tenantId!);
+      const usage = await storage.getMaterialUsageRecords(req.session!.tenantId!);
+
+      let mismatches = [];
+
+      for (const item of items) {
+        const itemIncoming = incoming
+          .filter(r => r.productName === item.productName && (r.specification || "") === (item.specification || "") && r.division === item.division)
+          .reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+        const itemSentToTeam = outgoing
+          .filter(r => r.productName === item.productName && (r.specification || "") === (item.specification || "") && r.division === item.division)
+          .reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+        const itemUsage = usage
+          .filter(r => r.productName === item.productName && (r.specification || "") === (item.specification || "") && r.division === item.division)
+          .reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+        const expectedRemaining = itemIncoming - itemSentToTeam;
+        const expectedOutgoingStored = itemSentToTeam;
+        const expectedUsageStored = itemUsage;
+
+        // Note: item.carriedOver is not tracked in records, so we add it to expectedRemaining
+        const totalExpectedRemaining = item.carriedOver + expectedRemaining;
+
+        const mismatchRemaining = item.remaining !== totalExpectedRemaining;
+        const mismatchSent = item.outgoing !== expectedOutgoingStored;
+        const mismatchUsage = item.usage !== expectedUsageStored;
+
+        if (mismatchRemaining || mismatchSent || mismatchUsage) {
+          mismatches.push({
+            item: `${item.division} - ${item.productName}`,
+            db: { remaining: item.remaining, outgoing: item.outgoing, usage: item.usage },
+            calc: { remaining: totalExpectedRemaining, outgoing: expectedOutgoingStored, usage: expectedUsageStored }
+          });
+        }
+      }
+
+      res.json({ success: true, mismatches, totalItems: items.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   async function syncInventoryItem(
     productName: string,
@@ -39,29 +101,39 @@ export async function registerRoutes(
 
     const incomingList = await storage.getIncomingRecords(tenantId);
     const totalIncoming = incomingList
-      .filter(r => r.productName === productName && (r.specification || "") === specification && r.division === division)
+      .filter(r => r.productName === productName && (r.specification || "") === (specification || "") && r.division === division)
       .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
     const outgoingList = await storage.getOutgoingRecords(tenantId);
-    const totalOutgoingFromRecords = outgoingList
-      .filter(r => r.productName === productName && r.specification === specification && r.division === division)
+    // Sent to team (Office -> Team)
+    const totalSentToTeam = outgoingList
+      .filter(r => r.productName === productName && (r.specification || "") === (specification || "") && r.division === division)
       .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
     const usageList = await storage.getMaterialUsageRecords(tenantId);
+    // Used by team (Team -> Used)
     const totalUsage = usageList
-      .filter(r => r.productName === productName && r.specification === specification && r.division === division)
+      .filter(r => r.productName === productName && (r.specification || "") === (specification || "") && r.division === division)
       .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
-    const totalOutgoing = totalOutgoingFromRecords + totalUsage;
-    const newRemaining = matchingItem.carriedOver + totalIncoming - totalOutgoing;
+    // Logic Update:
+    // Office Stock (remaining) = Incoming - Sent
+    // Team Stock = Sent - Used
+    // Total Assets = Office Stock + Team Stock = Incoming - Used
 
-    console.log(`[SYNC] New totals - Incoming: ${totalIncoming}, Outgoing: ${totalOutgoing}, Remaining: ${newRemaining}`);
+    const officeStock = matchingItem.carriedOver + totalIncoming - totalSentToTeam;
+    const teamStock = totalSentToTeam - totalUsage;
+    const totalStock = officeStock + teamStock;
+
+    console.log(`[SYNC] New totals - Incoming: ${totalIncoming}, Sent: ${totalSentToTeam}, Usage: ${totalUsage}`);
+    console.log(`[SYNC] Stocks - Office: ${officeStock}, Team: ${teamStock}, Total: ${totalStock}`);
 
     await storage.updateInventoryItem(matchingItem.id, {
       incoming: totalIncoming,
-      outgoing: totalOutgoing,
-      remaining: newRemaining,
-      totalAmount: newRemaining * matchingItem.unitPrice
+      outgoing: totalSentToTeam, // Tracks 'Sent to Team'
+      usage: totalUsage,         // Tracks 'Used'
+      remaining: officeStock,    // Tracks 'Office Stock'
+      totalAmount: totalStock * matchingItem.unitPrice // Total Asset Value
     }, tenantId);
   }
 
@@ -144,10 +216,12 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+    const { memberIds } = req.body;
+
     const team = await storage.createTeam({
       ...parseResult.data,
       tenantId
-    });
+    }, memberIds);
 
     const division = await storage.getDivision(team.divisionId, tenantId);
 
@@ -159,10 +233,10 @@ export async function registerRoutes(
 
   app.patch("/api/teams/:id", requireAuth, requireTenant, async (req, res) => {
     const { id } = req.params;
-    const updates = req.body;
+    const { memberIds, ...updates } = req.body;
     const tenantId = req.session!.tenantId!;
 
-    const team = await storage.updateTeam(id, updates, tenantId);
+    const team = await storage.updateTeam(id, updates, tenantId, memberIds);
 
     if (!team) {
       return res.status(404).json({ error: "Team not found" });
@@ -227,11 +301,19 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
-    const item = await storage.createInventoryItem({
-      ...parseResult.data,
-      tenantId
-    });
-    res.status(201).json(item);
+
+    try {
+      const item = await storage.createInventoryItem({
+        ...parseResult.data,
+        tenantId
+      });
+      res.status(201).json(item);
+    } catch (error: any) {
+      if (error.message === "Item already exists") {
+        return res.status(409).json({ error: "이미 존재하는 자재입니다." });
+      }
+      throw error;
+    }
   });
 
   app.patch("/api/inventory/:id", requireAuth, requireTenant, async (req, res) => {
@@ -271,9 +353,14 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
-    await storage.clearInventoryItems(tenantId);
-    const createdItems = await storage.bulkCreateInventoryItems(items.map(i => ({ ...i, tenantId })));
-    res.status(201).json(createdItems);
+    try {
+      // Use sync instead of clear+create to avoid Foreign Key violations
+      const createdItems = await storage.syncInventoryItems(items.map((i: any) => ({ ...i, tenantId })), tenantId);
+      res.status(201).json(createdItems);
+    } catch (error: any) {
+      console.error("Bulk inventory upload error:", error);
+      res.status(500).json({ error: "Failed to process bulk upload: " + error.message });
+    }
   });
 
   app.post("/api/inventory/bulk-delete", requireAuth, requireTenant, async (req, res) => {
@@ -316,6 +403,25 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+
+    // Check stock availability
+    const inventoryItemsList = await storage.getInventoryItems(tenantId);
+    const targetItem = inventoryItemsList.find(item =>
+      item.productName === parseResult.data.productName &&
+      item.specification === parseResult.data.specification &&
+      item.division === (parseResult.data.division || "SKT")
+    );
+
+    if (!targetItem) {
+      return res.status(400).json({ error: "해당 자재가 재고 목록에 존재하지 않습니다." });
+    }
+
+    if (targetItem.remaining < parseResult.data.quantity) {
+      return res.status(400).json({
+        error: `재고가 부족합니다 (잔여: ${targetItem.remaining.toLocaleString()}, 요청: ${parseResult.data.quantity.toLocaleString()})`
+      });
+    }
+
     const record = await storage.createOutgoingRecord({
       ...parseResult.data,
       tenantId
@@ -324,7 +430,7 @@ export async function registerRoutes(
     await syncInventoryItem(
       parseResult.data.productName,
       parseResult.data.specification,
-      parseResult.data.division,
+      parseResult.data.division || "SKT", // Fallback if missing, but client sends strict value
       tenantId
     );
 
@@ -425,6 +531,22 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
+
+    // Check team stock availability
+    const teamStock = await storage.getTeamItemStock(
+      tenantId,
+      parseResult.data.teamCategory,
+      parseResult.data.productName,
+      parseResult.data.specification,
+      parseResult.data.division || "SKT"
+    );
+
+    if (teamStock < parseResult.data.quantity) {
+      return res.status(400).json({
+        error: `팀 보유 재고가 부족합니다 (보유: ${teamStock.toLocaleString()}, 사용시도: ${parseResult.data.quantity.toLocaleString()})`
+      });
+    }
+
     const record = await storage.createMaterialUsageRecord({
       ...parseResult.data,
       tenantId
@@ -433,7 +555,7 @@ export async function registerRoutes(
     await syncInventoryItem(
       parseResult.data.productName,
       parseResult.data.specification,
-      parseResult.data.division,
+      parseResult.data.division || "SKT",
       tenantId
     );
 
@@ -553,8 +675,8 @@ export async function registerRoutes(
       const unitPrice = parseResult.data.unitPrice ?? 0;
       await storage.createInventoryItem({
         tenantId,
-        division: parseResult.data.division,
-        category: parseResult.data.division,
+        division: parseResult.data.division || "SKT",
+        category: parseResult.data.division || "SKT",
         productName: parseResult.data.productName,
         specification: parseResult.data.specification ?? "",
         carriedOver: 0,
@@ -569,7 +691,7 @@ export async function registerRoutes(
     await syncInventoryItem(
       parseResult.data.productName,
       parseResult.data.specification || "",
-      parseResult.data.division,
+      parseResult.data.division || "SKT",
       tenantId
     );
 
@@ -641,6 +763,40 @@ export async function registerRoutes(
     }));
 
     res.json({ deletedCount });
+  });
+
+  // Public Member List (for dropdowns) - Auth required but no Admin required
+  app.get("/api/members/basic", requireAuth, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session!.tenantId!;
+      console.log(`[API] Fetching basic members for tenant ${tenantId} by user ${req.session!.userId}`);
+
+      const members = await storage.getMembers(tenantId);
+      console.log(`[API] Found ${members.length} members`);
+
+      res.json(members);
+    } catch (error) {
+      console.error("Fetch basic members error:", error);
+      res.status(500).json({ error: "멤버 목록을 가져오는 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.patch("/api/admin/members/:userId/permissions", requireAuth, requireTenant, requireAdmin, async (req, res) => {
+    const tenantId = req.session!.tenantId!;
+    const { userId } = req.params;
+    const { permissions } = req.body;
+
+    if (!permissions) {
+      return res.status(400).json({ error: "Permissions are required" });
+    }
+
+    try {
+      const updatedMember = await storage.updateMember(userId, tenantId, { permissions });
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("Update permissions error:", error);
+      res.status(500).json({ error: "권한 업데이트 중 오류가 발생했습니다" });
+    }
   });
 
   return httpServer;

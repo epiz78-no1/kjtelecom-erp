@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAppContext } from "@/contexts/AppContext";
 import { useQuery } from "@tanstack/react-query";
 import type { OutgoingRecord, MaterialUsageRecord } from "@shared/schema";
 import {
@@ -23,8 +24,9 @@ import {
 } from "@/components/ui/table";
 
 export default function TeamOutgoing() {
+  const { divisions, teams: allTeams } = useAppContext();
   const [selectedDivision, setSelectedDivision] = useState("all");
-  const [selectedRecipient, setSelectedRecipient] = useState("all");
+  const [selectedTeam, setSelectedTeam] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: outgoingRecords = [], isLoading: outgoingLoading } = useQuery<OutgoingRecord[]>({
@@ -37,40 +39,46 @@ export default function TeamOutgoing() {
 
   const isLoading = outgoingLoading || usageLoading;
 
-  const divisionFiltered = selectedDivision === "all"
-    ? outgoingRecords
-    : outgoingRecords.filter((record) => record.division === selectedDivision);
+  // Aggregate stock
+  const stockMap = new Map<string, any>();
 
-  const recipients = Array.from(new Set(divisionFiltered.map((r) => r.recipient))).filter(Boolean);
-
-  const filteredRecords = divisionFiltered.filter((record) => {
-    const matchesRecipient = selectedRecipient === "all" || record.recipient === selectedRecipient;
-    const matchesSearch =
-      record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.recipient.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesRecipient && matchesSearch;
+  outgoingRecords.forEach(record => {
+    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    if (!stockMap.has(key)) {
+      stockMap.set(key, {
+        id: key, // Pseudo ID for key
+        division: record.division,
+        teamCategory: record.teamCategory,
+        productName: record.productName,
+        specification: record.specification,
+        quantity: 0
+      });
+    }
+    stockMap.get(key).quantity += record.quantity;
   });
 
-  const recipientStats = recipients.map((recipient) => {
-    const outgoingTotal = divisionFiltered
-      .filter((r) => r.recipient === recipient)
-      .reduce((sum, r) => sum + r.quantity, 0);
+  usageRecords.forEach(record => {
+    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    if (stockMap.has(key)) {
+      stockMap.get(key).quantity -= record.quantity;
+    }
+  });
 
-    const usageTotal = usageRecords
-      .filter((r) => r.recipient === recipient && (selectedDivision === "all" || r.division === selectedDivision))
-      .reduce((sum, r) => sum + r.quantity, 0);
+  // Convert to array and filter out zero/negative stock
+  const allStockItems = Array.from(stockMap.values()).filter(item => item.quantity > 0);
 
-    const remaining = outgoingTotal - usageTotal;
+  const divisionFiltered = selectedDivision === "all"
+    ? allStockItems
+    : allStockItems.filter((item) => item.division === selectedDivision);
 
-    return {
-      name: recipient,
-      outgoingTotal,
-      usageTotal,
-      remaining,
-      recordCount: divisionFiltered.filter((r) => r.recipient === recipient).length,
-    };
+  const teams = Array.from(new Set(divisionFiltered.map((r) => r.teamCategory))).filter(Boolean).sort();
+
+  const filteredStock = divisionFiltered.filter((item) => {
+    const matchesTeam = selectedTeam === "all" || item.teamCategory === selectedTeam;
+    const matchesSearch =
+      item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.teamCategory.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTeam && matchesSearch;
   });
 
   if (isLoading) {
@@ -86,8 +94,8 @@ export default function TeamOutgoing() {
       <div className="flex-shrink-0 space-y-4 pb-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">현장팀별 출고 내역</h1>
-            <p className="text-muted-foreground">수령인별 자재 출고/사용 현황을 조회합니다</p>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">현장팀 보유 재고 현황</h1>
+            <p className="text-muted-foreground">각 현장팀이 현재 보유하고 있는 자재 수량을 조회합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="w-[180px]">
@@ -97,72 +105,55 @@ export default function TeamOutgoing() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체</SelectItem>
-                  <SelectItem value="SKT">SKT사업부</SelectItem>
-                  <SelectItem value="SKB">SKB사업부</SelectItem>
+                  <SelectItem value="SKT">SKT</SelectItem>
+                  <SelectItem value="SKB">SKB</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {recipientStats.map((recipient) => (
-            <Card
-              key={recipient.name}
-              className={`cursor-pointer transition-colors ${selectedRecipient === recipient.name ? "ring-2 ring-primary" : ""}`}
-              onClick={() => setSelectedRecipient(recipient.name === selectedRecipient ? "all" : recipient.name)}
-              data-testid={`card-recipient-${recipient.name}`}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center justify-between gap-2">
-                  {recipient.name}
-                  <Badge variant="outline" className="text-xs">
-                    {recipient.recordCount}건
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">출고:</span>
-                    <span className="font-medium">{recipient.outgoingTotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">사용:</span>
-                    <span className="font-medium">{recipient.usageTotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-1">
-                    <span className="text-muted-foreground">잔여:</span>
-                    <span className={`font-bold ${recipient.remaining < 0 ? "text-destructive" : "text-primary"}`}>
-                      {recipient.remaining.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {allTeams
+            .filter((t: any) => {
+              if (selectedDivision === "all") return true;
+              const division = divisions?.find(d => d.id === t.divisionId);
+              return division?.name === selectedDivision;
+            })
+            .map((team: any) => {
+              // Calculate current material count for this team
+              const teamStockCount = allStockItems.filter(item => item.teamCategory === team.name).length;
+
+              return (
+                <FieldTeamCard
+                  key={team.id}
+                  team={{ ...team, materialCount: teamStockCount }}
+                  onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "all" : t.name)}
+                />
+              );
+            })}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="품명, 프로젝트명, 수령인 검색..."
+              placeholder="품명, 팀명 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
               data-testid="input-search"
             />
           </div>
-          <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
-            <SelectTrigger className="w-48" data-testid="select-recipient-filter">
-              <SelectValue placeholder="수령인 선택" />
+          <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+            <SelectTrigger className="w-48" data-testid="select-team-filter">
+              <SelectValue placeholder="팀 선택" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
-              {recipients.map((recipient) => (
-                <SelectItem key={recipient} value={recipient}>
-                  {recipient}
+              {teams.map((team) => (
+                <SelectItem key={team} value={team}>
+                  {team}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -174,34 +165,30 @@ export default function TeamOutgoing() {
         <Table>
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow className="h-11">
-              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">날짜</TableHead>
-              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">수령인</TableHead>
               <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
-              <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">프로젝트명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
+              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
+              <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">품명</TableHead>
+              <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
+              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">보유 수량</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRecords.length === 0 ? (
+            {filteredStock.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  출고 내역이 없습니다
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  보유 중인 자재가 없습니다
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRecords.map((record) => (
-                <TableRow key={record.id} className="h-11" data-testid={`row-record-${record.id}`}>
-                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">{record.date}</TableCell>
-                  <TableCell className="text-center align-middle">
-                    <Badge variant="outline">{record.recipient}</Badge>
+              filteredStock.map((item) => (
+                <TableRow key={item.id} className="h-11">
+                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{item.specification}</TableCell>
+                  <TableCell className="text-center align-middle font-bold text-primary">
+                    {item.quantity.toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.teamCategory}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
                 </TableRow>
               ))
             )}

@@ -5,12 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, ChevronRight, Loader2 } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function TenantSelect() {
     const [, setLocation] = useLocation();
     const { toast } = useToast();
     const { tenants, refetchAuth } = useAppContext();
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [newTenantName, setNewTenantName] = useState("");
+    const { user } = useAppContext();
     const [isLoading, setIsLoading] = useState(false);
     const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
 
@@ -44,6 +58,33 @@ export default function TenantSelect() {
         }
     };
 
+    const handleCreateTenant = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newTenantName.trim()) return;
+
+        setIsLoading(true);
+        try {
+            await apiRequest("POST", "/api/admin/tenants", { name: newTenantName });
+
+            toast({
+                title: "회사 생성 완료",
+                description: `${newTenantName} 회사가 생성되었습니다.`
+            });
+
+            setNewTenantName("");
+            setIsCreateOpen(false);
+            refetchAuth();
+        } catch (error: any) {
+            toast({
+                title: "회사 생성 실패",
+                description: error.message || "회사를 생성하는 중 오류가 발생했습니다.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     if (!tenants || tenants.length === 0) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -62,11 +103,46 @@ export default function TenantSelect() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
             <Card className="w-full max-w-2xl">
-                <CardHeader className="space-y-1">
+                <CardHeader className="space-y-1 relative">
                     <CardTitle className="text-2xl font-bold text-center">회사 선택</CardTitle>
                     <CardDescription className="text-center">
                         접속할 회사를 선택해주세요
                     </CardDescription>
+                    {user?.username === 'admin' && (
+                        <div className="absolute right-0 top-0">
+                            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" variant="outline">
+                                        + 회사 생성
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>새 회사 생성</DialogTitle>
+                                        <DialogDescription>
+                                            새로운 회사를 생성하고 관리자로 등록됩니다.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleCreateTenant} className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name">회사명</Label>
+                                            <Input
+                                                id="name"
+                                                value={newTenantName}
+                                                onChange={(e) => setNewTenantName(e.target.value)}
+                                                placeholder="(주)새로운회사"
+                                                required
+                                            />
+                                        </div>
+                                        <DialogFooter>
+                                            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>취소</Button>
+                                            <Button type="submit" disabled={isLoading}>생성</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                     {tenants.map((tenant) => (

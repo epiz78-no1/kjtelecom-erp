@@ -1,5 +1,5 @@
 {
-  "id": "78920ac1-69b0-4d23-ad4b-420e08351ba3",
+  "id": "f9c8ac24-ad1c-4358-9775-146b55e5a6a5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -66,6 +66,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "inventory_item_id": {
+          "name": "inventory_item_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "date": {
           "name": "date",
           "type": "text",
@@ -76,7 +82,15 @@
           "name": "division",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'SKT'"
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "supplier": {
           "name": "supplier",
@@ -95,6 +109,19 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'general'"
+        },
+        "attributes": {
+          "name": "attributes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "specification": {
           "name": "specification",
@@ -116,6 +143,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "remark": {
+          "name": "remark",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -131,6 +164,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "incoming_records_inventory_item_id_inventory_items_id_fk": {
+          "name": "incoming_records_inventory_item_id_inventory_items_id_fk",
+          "tableFrom": "incoming_records",
+          "tableTo": "inventory_items",
+          "columnsFrom": [
+            "inventory_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -175,6 +221,19 @@
           "primaryKey": false,
           "notNull": true
         },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'general'"
+        },
+        "attributes": {
+          "name": "attributes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "specification": {
           "name": "specification",
           "type": "text",
@@ -197,6 +256,13 @@
         },
         "outgoing": {
           "name": "outgoing",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "usage": {
+          "name": "usage",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -368,6 +434,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "inventory_item_id": {
+          "name": "inventory_item_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "date": {
           "name": "date",
           "type": "text",
@@ -378,7 +450,15 @@
           "name": "division",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'SKT'"
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "team_category": {
           "name": "team_category",
@@ -398,6 +478,19 @@
           "primaryKey": false,
           "notNull": true
         },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'general'"
+        },
+        "attributes": {
+          "name": "attributes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "specification": {
           "name": "specification",
           "type": "text",
@@ -416,6 +509,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "remark": {
+          "name": "remark",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -431,6 +530,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "material_usage_records_inventory_item_id_inventory_items_id_fk": {
+          "name": "material_usage_records_inventory_item_id_inventory_items_id_fk",
+          "tableFrom": "material_usage_records",
+          "tableTo": "inventory_items",
+          "columnsFrom": [
+            "inventory_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -456,6 +568,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "inventory_item_id": {
+          "name": "inventory_item_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "date": {
           "name": "date",
           "type": "text",
@@ -466,7 +584,15 @@
           "name": "division",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'SKT'"
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "team_category": {
           "name": "team_category",
@@ -486,6 +612,19 @@
           "primaryKey": false,
           "notNull": true
         },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'general'"
+        },
+        "attributes": {
+          "name": "attributes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "specification": {
           "name": "specification",
           "type": "text",
@@ -504,6 +643,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "remark": {
+          "name": "remark",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -519,6 +664,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "outgoing_records_inventory_item_id_inventory_items_id_fk": {
+          "name": "outgoing_records_inventory_item_id_inventory_items_id_fk",
+          "tableFrom": "outgoing_records",
+          "tableTo": "inventory_items",
+          "columnsFrom": [
+            "inventory_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -795,6 +953,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "permissions": {
+          "name": "permissions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -891,6 +1055,12 @@
         "last_login_at": {
           "name": "last_login_at",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_number": {
+          "name": "phone_number",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
