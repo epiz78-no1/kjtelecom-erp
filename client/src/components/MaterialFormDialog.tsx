@@ -104,6 +104,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
         carriedOver: 0,
         incoming: 0,
         outgoing: 0,
+        usage: 0,
         remaining: 0,
         unitPrice: 0,
         totalAmount: 0,

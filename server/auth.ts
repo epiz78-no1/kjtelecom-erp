@@ -125,13 +125,16 @@ export function registerAuthRoutes(app: Express) {
                 .leftJoin(tenants, eq(userTenants.tenantId, tenants.id))
                 .where(eq(userTenants.userId, user.id));
 
-            if (userTenantsData.length === 0) {
+            // SuperAdmin (username === 'admin') can login without tenant
+            const isSuperAdmin = user.username === 'admin';
+
+            if (userTenantsData.length === 0 && !isSuperAdmin) {
                 return res.status(403).json({ error: "소속된 조직이 없습니다" });
             }
 
-            // Set session with first tenant (user can switch later)
+            // Set session
             req.session.userId = user.id;
-            req.session.tenantId = userTenantsData[0].tenantId;
+            req.session.tenantId = userTenantsData.length > 0 ? userTenantsData[0].tenantId : undefined;
 
             // Update last login
             await db.update(users)
@@ -151,7 +154,7 @@ export function registerAuthRoutes(app: Express) {
                     role: ut.role,
                     isActive: ut.tenantIsActive
                 })),
-                currentTenant: userTenantsData[0].tenantId
+                currentTenant: userTenantsData.length > 0 ? userTenantsData[0].tenantId : null
             });
         } catch (error) {
             console.error("Login error:", error);

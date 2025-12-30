@@ -1,5 +1,5 @@
+import { Download, Search, Loader2, Package } from "lucide-react";
 import { useState } from "react";
-import { Search, Loader2, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
 import { useQuery } from "@tanstack/react-query";
 import type { OutgoingRecord, MaterialUsageRecord } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { exportToExcel } from "@/lib/excel";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -24,7 +27,9 @@ import {
 } from "@/components/ui/table";
 
 export default function TeamOutgoing() {
-  const { divisions, teams: allTeams } = useAppContext();
+  const { toast } = useToast();
+  const { user, divisions, teams: allTeams, checkPermission } = useAppContext();
+  const canWrite = checkPermission("outgoing", "write");
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [selectedTeam, setSelectedTeam] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,7 +48,7 @@ export default function TeamOutgoing() {
   const stockMap = new Map<string, any>();
 
   outgoingRecords.forEach(record => {
-    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    const key = `${record.division}| ${record.teamCategory}| ${record.productName}| ${record.specification} `;
     if (!stockMap.has(key)) {
       stockMap.set(key, {
         id: key, // Pseudo ID for key
@@ -58,7 +63,7 @@ export default function TeamOutgoing() {
   });
 
   usageRecords.forEach(record => {
-    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    const key = `${record.division}| ${record.teamCategory}| ${record.productName}| ${record.specification} `;
     if (stockMap.has(key)) {
       stockMap.get(key).quantity -= record.quantity;
     }
@@ -81,6 +86,38 @@ export default function TeamOutgoing() {
     return matchesTeam && matchesSearch;
   });
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/outgoing/template");
+      if (!response.ok) throw new Error("Download failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "팀출고내역_템플릿.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "템플릿이 다운로드되었습니다" });
+    } catch (error) {
+      toast({ title: "다운로드 실패", variant: "destructive" });
+    }
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredStock.map(item => ({
+      "구분": item.division,
+      "현장팀": item.teamCategory,
+      "품명": item.productName,
+      "규격": item.specification,
+      "보유 수량": item.quantity
+    }));
+
+    exportToExcel(dataToExport, "현장팀_보유재고_현황");
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -98,6 +135,22 @@ export default function TeamOutgoing() {
             <p className="text-muted-foreground">각 현장팀이 현재 보유하고 있는 자재 수량을 조회합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={handleDownloadTemplate} data-testid="button-download-template">
+                  <Download className="h-4 w-4 mr-2" />
+                  템플릿 다운로드
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-green-600 text-green-600 hover:bg-green-50"
+                  onClick={handleExportExcel}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  엑셀 다운로드
+                </Button>
+              </>
+            )}
             <div className="w-[180px]">
               <Select value={selectedDivision} onValueChange={setSelectedDivision}>
                 <SelectTrigger data-testid="select-division">
@@ -161,39 +214,41 @@ export default function TeamOutgoing() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-md border overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-background z-10">
-            <TableRow className="h-11">
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
-              <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">품명</TableHead>
-              <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
-              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">보유 수량</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredStock.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  보유 중인 자재가 없습니다
-                </TableCell>
+      <div className="flex-1 rounded-md border overflow-hidden">
+        <div className="h-full overflow-auto relative">
+          <table className="w-full caption-bottom text-sm">
+            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+              <TableRow className="h-9">
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
+                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">품명</TableHead>
+                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
+                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">보유 수량</TableHead>
               </TableRow>
-            ) : (
-              filteredStock.map((item) => (
-                <TableRow key={item.id} className="h-11">
-                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{item.specification}</TableCell>
-                  <TableCell className="text-center align-middle font-bold text-primary">
-                    {item.quantity.toLocaleString()}
+            </TableHeader>
+            <TableBody>
+              {filteredStock.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    보유 중인 자재가 없습니다
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredStock.map((item) => (
+                  <TableRow key={item.id} className="h-9">
+                    <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
+                    <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
+                    <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
+                    <TableCell className="text-center align-middle whitespace-nowrap">{item.specification}</TableCell>
+                    <TableCell className="text-center align-middle font-bold text-primary">
+                      {item.quantity.toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </table>
+        </div>
       </div>
     </div>
   );

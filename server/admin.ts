@@ -286,7 +286,7 @@ export function registerAdminRoutes(app: any) {
         }
     });
 
-    app.post(`${adminRouter}/tenants`, requireAuth, requireTenant, requireAdmin, async (req, res) => {
+    app.post(`${adminRouter}/tenants`, requireAuth, requireAdmin, async (req, res) => {
         try {
             // Verify user is the Super Admin (username === 'admin')
             const user = await db.query.users.findFirst({

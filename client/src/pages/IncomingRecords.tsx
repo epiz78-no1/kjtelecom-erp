@@ -1,10 +1,12 @@
+import { exportToExcel } from "@/lib/excel";
 import { useState, useMemo } from "react";
-import { Plus, Calendar, Search, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal } from "lucide-react";
+import { Plus, Calendar, Search, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+
 import { useToast } from "@/hooks/use-toast";
 import type { IncomingRecord, InventoryItem } from "@shared/schema";
 import {
@@ -56,10 +58,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { IncomingBulkUploadDialog } from "@/components/IncomingBulkUploadDialog";
 import { useAppContext } from "@/contexts/AppContext";
+import { useColumnResize } from "@/hooks/useColumnResize";
 
 const suppliers = ["텔레시스", "삼성전자", "LG유플러스", "SK텔레콤", "한국통신", "대한광통신"];
 
@@ -73,6 +85,19 @@ export default function IncomingRecords() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState<IncomingRecord | null>(null);
+
+  const { widths, startResizing } = useColumnResize({
+    checkbox: 40,
+    date: 100,
+    category: 60,
+    supplier: 100,
+    projectName: 220,
+    productName: 160,
+    specification: 200,
+    quantity: 80,
+    remark: 150,
+    actions: 50
+  });
 
   // Permissions
   const canWrite = checkPermission("incoming", "write");
@@ -90,10 +115,9 @@ export default function IncomingRecords() {
     productName: "",
     specification: "",
     quantity: "",
-    type: "general",
-    drumNumber: "",
     remark: "",
     inventoryItemId: undefined as number | undefined,
+    attachment: null as { name: string, data: string } | null,
   });
 
   const { data: records = [], isLoading } = useQuery<IncomingRecord[]>({
@@ -117,7 +141,6 @@ export default function IncomingRecords() {
         if (!selectedCat) return true;
         const itemCat = (item.category || "").trim();
         const itemDiv = (item.division || "").trim();
-        // Prioritize category match, fallback to division only if category is empty
         return itemCat === selectedCat || (itemCat === "" && itemDiv === selectedCat);
       })
       .map(item => item.productName)
@@ -125,6 +148,8 @@ export default function IncomingRecords() {
     const names = new Set(filtered);
     return Array.from(names).sort();
   }, [inventoryItems, formData.category]);
+
+  const [openProductCombobox, setOpenProductCombobox] = useState(false);
 
   // Specifications list for selected product
   const specifications = useMemo(() => {
@@ -222,10 +247,9 @@ export default function IncomingRecords() {
       productName: "",
       specification: "",
       quantity: "",
-      type: "general",
-      drumNumber: "",
       remark: "",
       inventoryItemId: undefined,
+      attachment: null,
     });
     setSelectedDate(new Date());
     setIsDialogOpen(true);
@@ -239,6 +263,14 @@ export default function IncomingRecords() {
       drumNo = attrs.drumNumber || "";
     } catch (e) { }
 
+    let attachment = null;
+    try {
+      const attrs = JSON.parse(record.attributes || "{}");
+      if (attrs.attachment) {
+        attachment = attrs.attachment;
+      }
+    } catch (e) { }
+
     setFormData({
       date: record.date,
       division: record.division,
@@ -248,10 +280,9 @@ export default function IncomingRecords() {
       productName: record.productName,
       specification: record.specification,
       quantity: record.quantity.toString(),
-      type: record.type || "general",
-      drumNumber: drumNo,
       remark: record.remark || "",
       inventoryItemId: record.inventoryItemId || undefined,
+      attachment: attachment,
     });
     setSelectedDate(new Date(record.date));
     setIsDialogOpen(true);
@@ -284,8 +315,8 @@ export default function IncomingRecords() {
     }
 
     let attributesObj: any = {};
-    if (formData.type === "cable") {
-      attributesObj.drumNumber = formData.drumNumber;
+    if (formData.attachment) {
+      attributesObj.attachment = formData.attachment;
     }
     const attributes = JSON.stringify(attributesObj);
 
@@ -298,7 +329,6 @@ export default function IncomingRecords() {
       productName: formData.productName,
       specification: formData.specification,
       quantity: parseInt(formData.quantity) || 0,
-      type: formData.type,
       attributes: attributes,
       remark: formData.remark,
       inventoryItemId: formData.inventoryItemId,
@@ -327,23 +357,21 @@ export default function IncomingRecords() {
     }
   };
 
-  const handleDownloadTemplate = async () => {
-    try {
-      const res = await fetch("/api/templates/incoming");
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "incoming_template.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast({ title: "템플릿이 다운로드되었습니다" });
-    } catch (error) {
-      toast({ title: "다운로드 실패", variant: "destructive" });
-    }
+
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredRecords.map(record => ({
+      "입고일": record.date,
+      "구분": record.category,
+      "구매처": record.supplier,
+      "공사명": record.projectName,
+      "품명": record.productName,
+      "규격": record.specification,
+      "수량": record.quantity,
+      "비고": record.remark || "-"
+    }));
+
+    exportToExcel(dataToExport, "입고내역");
   };
 
   if (isLoading) {
@@ -363,28 +391,40 @@ export default function IncomingRecords() {
             <p className="text-muted-foreground">자재 입고 이력을 조회하고 관리합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {canWrite ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button data-testid="button-add-incoming-menu">
-                    <Plus className="h-4 w-4 mr-2" />
-                    입고 등록
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={openAddDialog}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    입고 직접 등록
-                  </DropdownMenuItem>
-                  {isAdmin && (
-                    <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      일괄 등록
+            {canWrite && (
+              <>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 border-green-600 text-green-600 hover:bg-green-50"
+                  onClick={handleExportExcel}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Excel
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button data-testid="button-add-incoming">
+                      <Plus className="h-4 w-4 mr-2" />
+                      입고 등록
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={openAddDialog}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      개별 등록
                     </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
+                    {isAdmin && (
+                      <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        일괄 등록
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
           </div>
         </div>
 
@@ -419,85 +459,158 @@ export default function IncomingRecords() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-md border overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-background z-10">
-            <TableRow className="h-11">
-              <TableHead className="w-[40px] text-center align-middle bg-background">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleSelectAll}
-                  data-testid="checkbox-select-all"
-                />
-              </TableHead>
-              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">입고일</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구매처</TableHead>
-              <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
-              <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">비고</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredRecords.map((record) => (
-              <TableRow key={record.id} className="h-11" data-testid={`row-incoming-${record.id}`}>
-                <TableCell className="text-center align-middle">
+      <div className="flex-1 rounded-md border overflow-hidden">
+        <div className="h-full overflow-auto relative pb-20">
+          <table className="w-full caption-bottom text-sm table-fixed">
+            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+              <TableRow className="h-8">
+                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
                   <Checkbox
-                    checked={selectedIds.has(record.id)}
-                    onCheckedChange={() => toggleSelect(record.id)}
-                    data-testid={`checkbox-${record.id}`}
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                    data-testid="checkbox-select-all"
                   />
-                </TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">
-                  {record.category}
-                </TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.supplier}</TableCell>
-                <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
-                <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
-                <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
-                <TableCell className="text-left align-middle max-w-[150px] truncate">{record.remark || "-"}</TableCell>
-                <TableCell className="text-center align-middle">
-                  {canWrite && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>입고 관리</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openEditDialog(record)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          수정
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => setDeleteRecord(record)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          삭제
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </TableCell>
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
+                  입고일
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("date", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
+                  구분
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("category", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.supplier }}>
+                  구매처
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("supplier", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
+                  공사명
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("projectName", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
+                  품명
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("productName", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.specification }}>
+                  규격
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("specification", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.quantity }}>
+                  수량
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("quantity", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
+                  비고
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("remark", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background w-[80px]">
+                  첨부
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
               </TableRow>
-            ))}
-            {filteredRecords.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                  검색 결과가 없습니다
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredRecords.map((record) => (
+                <TableRow key={record.id} className="h-8 [&_td]:py-1" data-testid={`row-incoming-${record.id}`}>
+                  <TableCell className="text-center align-middle">
+                    <Checkbox
+                      checked={selectedIds.has(record.id)}
+                      onCheckedChange={() => toggleSelect(record.id)}
+                      data-testid={`checkbox-${record.id}`}
+                    />
+                  </TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">
+                    {record.category}
+                  </TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.supplier}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
+                  <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
+                  <TableCell className="text-left align-middle max-w-[150px] truncate">{record.remark || "-"}</TableCell>
+                  <TableCell className="text-center align-middle">
+                    {(() => {
+                      try {
+                        const attrs = JSON.parse(record.attributes || "{}");
+                        if (attrs.attachment) {
+                          return (
+                            <a
+                              href={attrs.attachment.data}
+                              download={attrs.attachment.name}
+                              className="text-blue-600 hover:underline text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              다운로드
+                            </a>
+                          );
+                        }
+                      } catch (e) { }
+                      return "-";
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-center align-middle">
+                    {canWrite && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-6 w-6 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>입고 관리</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => openEditDialog(record)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            수정
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeleteRecord(record)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            삭제
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredRecords.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    검색 결과가 없습니다
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </table>
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -582,41 +695,72 @@ export default function IncomingRecords() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>품명 *</Label>
-                <Select
-                  value={formData.productName}
-                  onValueChange={(value) => {
-                    const selectedCat = (formData.category || "").trim();
-                    const items = inventoryItems.filter(i => {
-                      if (i.productName !== value) return false;
-                      const itemCat = (i.category || "").trim();
-                      const itemDiv = (i.division || "").trim();
-                      return itemCat === selectedCat || (itemCat === "" && itemDiv === selectedCat);
-                    });
+                <Popover open={openProductCombobox} onOpenChange={setOpenProductCombobox} modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openProductCombobox}
+                      className="w-full justify-between"
+                      data-testid="select-incoming-product"
+                    >
+                      {formData.productName
+                        ? formData.productName
+                        : "품명 선택"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="품명 검색..." />
+                      <CommandList>
+                        <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                        <CommandGroup>
+                          {productNames.map((name) => (
+                            <CommandItem
+                              key={name}
+                              value={name}
+                              onSelect={(currentValue) => {
+                                const value = currentValue; // cmdk lowecases value, but we might want original case if needed. However, here we iterate names.
+                                // Actually cmdk value is lowercase. We should find the matching original name.
+                                const originalName = productNames.find(n => n.toLowerCase() === value.toLowerCase()) || value;
 
-                    const firstItem = items[0];
-                    const singleSpec = items.length === 1 ? firstItem.specification : "";
+                                const selectedCat = (formData.category || "").trim();
+                                const items = inventoryItems.filter(i => {
+                                  if (i.productName !== originalName) return false;
+                                  const itemCat = (i.category || "").trim();
+                                  const itemDiv = (i.division || "").trim();
+                                  return itemCat === selectedCat || (itemCat === "" && itemDiv === selectedCat);
+                                });
 
-                    setFormData({
-                      ...formData,
-                      productName: value,
-                      category: firstItem?.category || formData.category,
-                      division: firstItem?.division || formData.division,
-                      specification: singleSpec,
-                      inventoryItemId: items.length === 1 ? firstItem?.id : undefined
-                    });
-                  }}
-                >
-                  <SelectTrigger className="w-full" data-testid="select-incoming-product">
-                    <SelectValue placeholder="품명 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {productNames.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                                const firstItem = items[0];
+                                const singleSpec = items.length === 1 ? firstItem.specification : "";
+
+                                setFormData({
+                                  ...formData,
+                                  productName: originalName,
+                                  category: firstItem?.category || formData.category,
+                                  division: firstItem?.division || formData.division,
+                                  specification: singleSpec,
+                                  inventoryItemId: items.length === 1 ? firstItem?.id : undefined
+                                });
+                                setOpenProductCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.productName === name ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="grid gap-2">
                 <Label>규격</Label>
@@ -664,34 +808,45 @@ export default function IncomingRecords() {
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label>자재 구분</Label>
-              <RadioGroup
-                value={formData.type}
-                onValueChange={(value) => setFormData({ ...formData, type: value })}
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="general" id="general" />
-                  <Label htmlFor="general">일반</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cable" id="cable" />
-                  <Label htmlFor="cable">케이블(드럼)</Label>
-                </div>
-              </RadioGroup>
-            </div>
 
-            {formData.type === "cable" && (
-              <div className="grid gap-2">
-                <Label>드럼 번호</Label>
-                <Input
-                  value={formData.drumNumber}
-                  onChange={(e) => setFormData({ ...formData, drumNumber: e.target.value })}
-                  placeholder="Drum No."
-                />
-              </div>
-            )}
+
+            <div className="grid gap-2">
+              <Label>첨부파일</Label>
+              <Input
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      if (event.target?.result) {
+                        setFormData({
+                          ...formData,
+                          attachment: {
+                            name: file.name,
+                            data: event.target.result as string
+                          }
+                        });
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+              {formData.attachment && (
+                <div className="text-sm text-muted-foreground">
+                  선택됨: {formData.attachment.name}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2 h-auto p-0 text-destructive"
+                    onClick={() => setFormData({ ...formData, attachment: null })}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              )}
+            </div>
 
             <div className="grid gap-2">
               <Label>비고</Label>
@@ -757,6 +912,6 @@ export default function IncomingRecords() {
         onOpenChange={setBulkUploadOpen}
         onUpload={handleBulkUpload}
       />
-    </div >
+    </div>
   );
 }

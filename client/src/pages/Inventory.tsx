@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+
 import { MoreHorizontal, Pencil, Loader2, Trash2, Plus, Search, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { MaterialFormDialog, type MaterialSubmitData } from "@/components/Materi
 import { BulkUploadDialog } from "@/components/BulkUploadDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
 import type { InventoryItem } from "@shared/schema";
 import {
@@ -44,6 +46,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAppContext } from "@/contexts/AppContext";
+import { useState } from "react";
+import { useColumnResize } from "@/hooks/useColumnResize";
 
 export default function Inventory() {
   const { toast } = useToast();
@@ -60,6 +64,19 @@ export default function Inventory() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+
+  const { widths, startResizing } = useColumnResize({
+    checkbox: 40,
+    category: 60,
+    productName: 200,
+    specification: 300,
+    totalStock: 90,
+    teamStock: 90,
+    officeStock: 90,
+    unitPrice: 100,
+    amount: 120,
+    actions: 50
+  });
 
   const { data: inventoryItems = [], isLoading, refetch } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
@@ -238,23 +255,27 @@ export default function Inventory() {
     bulkUploadMutation.mutate(items);
   };
 
-  const handleDownloadTemplate = async () => {
-    try {
-      const res = await fetch("/api/templates/inventory");
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "inventory_template.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast({ title: "템플릿이 다운로드되었습니다" });
-    } catch (error) {
-      toast({ title: "다운로드 실패", variant: "destructive" });
-    }
+
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredInventory.map(item => {
+      const teamStock = item.outgoing - (item.usage || 0);
+      const officeStock = item.remaining;
+      const totalStock = officeStock + teamStock;
+
+      return {
+        "구분": item.category,
+        "품명": item.productName,
+        "규격": item.specification,
+        "재고현황": totalStock,
+        "현장팀 보유재고": teamStock,
+        "사무실 보유재고": officeStock,
+        "단가": item.unitPrice,
+        "금액": totalStock * item.unitPrice
+      };
+    });
+
+    exportToExcel(dataToExport, "재고현황");
   };
 
   if (isLoading) {
@@ -274,6 +295,20 @@ export default function Inventory() {
             <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {canWrite && (
+              <>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 border-green-600 text-green-600 hover:bg-green-50"
+                  onClick={handleExportExcel}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Excel
+                </Button>
+              </>
+            )}
             {canWrite ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -343,109 +378,158 @@ export default function Inventory() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-md border overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-background z-10">
-            <TableRow className="h-11">
-              <TableHead className="w-[40px] text-center align-middle bg-background">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleSelectAll}
-                  data-testid="checkbox-select-all"
-                />
-              </TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
-              <TableHead className="font-semibold w-[140px] text-center align-middle bg-background">품명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-              {/* <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입고량</TableHead> REMOVED */}
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">재고현황</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀<br />보유재고</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">사무실<br />보유재고</TableHead>
-              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">단가</TableHead>
-              <TableHead className="font-semibold w-[110px] text-center align-middle bg-background">금액</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredInventory.map((item) => {
-              // Calculate values based on new logic
-              // remaining = Office Stock (DB value)
-              // outgoing = Sent to Team (DB value)
-              // usage = Used by Team (DB value)
+      <div className="flex-1 rounded-md border overflow-hidden">
+        <div className="h-full overflow-auto relative pb-20">
+          <table className="w-full caption-bottom text-sm table-fixed">
+            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+              <TableRow className="h-8">
+                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                    data-testid="checkbox-select-all"
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
+                  구분
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("category", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
+                  품명
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("productName", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.specification }}>
+                  규격
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("specification", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.totalStock }}>
+                  재고현황
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("totalStock", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.teamStock }}>
+                  현장팀<br />보유재고
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("teamStock", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.officeStock }}>
+                  사무실<br />보유재고
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("officeStock", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.unitPrice }}>
+                  단가
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("unitPrice", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.amount }}>
+                  금액
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("amount", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredInventory.map((item) => {
+                // Calculate values based on new logic
+                // remaining = Office Stock (DB value)
+                // outgoing = Sent to Team (DB value)
+                // usage = Used by Team (DB value)
 
-              const teamStock = item.outgoing - (item.usage || 0);
-              const officeStock = item.remaining;
-              const totalStock = officeStock + teamStock; // 재고현황
+                const teamStock = item.outgoing - (item.usage || 0);
+                const officeStock = item.remaining;
+                const totalStock = officeStock + teamStock; // 재고현황
 
-              return (
-                <TableRow key={item.id} className="h-11" data-testid={`row-inventory-${item.id}`}>
-                  <TableCell className="text-center align-middle">
-                    <Checkbox
-                      checked={selectedIds.has(item.id)}
-                      onCheckedChange={() => toggleSelect(item.id)}
-                      data-testid={`checkbox-${item.id}`}
-                    />
-                  </TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[120px] truncate">{item.specification}</TableCell>
-                  {/* <TableCell className="text-center align-middle whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell> REMOVED */}
+                return (
+                  <TableRow key={item.id} className="h-8 [&_td]:py-1" data-testid={`row-inventory-${item.id}`}>
+                    <TableCell className="text-center align-middle">
+                      <Checkbox
+                        checked={selectedIds.has(item.id)}
+                        onCheckedChange={() => toggleSelect(item.id)}
+                        data-testid={`checkbox-${item.id}`}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
+                    <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
+                    <TableCell className="text-center align-middle max-w-[120px] truncate">{item.specification}</TableCell>
+                    {/* <TableCell className="text-center align-middle whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell> REMOVED */}
 
-                  {/* 재고현황 (Total) - Black text */}
-                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">
-                    {totalStock.toLocaleString()}
-                  </TableCell>
+                    {/* 재고현황 (Total) - Black text */}
+                    <TableCell className="text-center align-middle whitespace-nowrap font-medium">
+                      {totalStock.toLocaleString()}
+                    </TableCell>
 
-                  {/* 현장팀출고량 (Team Stock) */}
-                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">
-                    {teamStock.toLocaleString()}
-                  </TableCell>
+                    {/* 현장팀출고량 (Team Stock) */}
+                    <TableCell className="text-center align-middle whitespace-nowrap font-medium">
+                      {teamStock.toLocaleString()}
+                    </TableCell>
 
-                  {/* 사무실재고량 (Office Stock) */}
-                  <TableCell className="text-center align-middle whitespace-nowrap font-medium">
-                    {officeStock.toLocaleString()}
-                  </TableCell>
+                    {/* 사무실재고량 (Office Stock) */}
+                    <TableCell className="text-center align-middle whitespace-nowrap font-medium">
+                      {officeStock.toLocaleString()}
+                    </TableCell>
 
-                  <TableCell className="text-center align-middle whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{(totalStock * item.unitPrice).toLocaleString()}</TableCell>
-                  <TableCell className="text-center align-middle">
-                    {canWrite && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>자재 관리</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openMaterialDialog(item)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            수정
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => setDeleteItem(item)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            삭제
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                    <TableCell className="text-center align-middle whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
+                    <TableCell className="text-center align-middle whitespace-nowrap">{(totalStock * item.unitPrice).toLocaleString()}</TableCell>
+                    <TableCell className="text-center align-middle">
+                      {canWrite && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-6 w-6 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>자재 관리</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => openMaterialDialog(item)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              수정
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteItem(item)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              삭제
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {filteredInventory.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    재고 데이터가 없습니다
                   </TableCell>
                 </TableRow>
-              );
-            })}
-            {filteredInventory.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                  재고 데이터가 없습니다
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </table>
+        </div>
       </div>
 
       <MaterialFormDialog

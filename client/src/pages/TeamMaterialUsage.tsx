@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
-import { Search, Loader2, Trash2, Plus, Calendar, Pencil, MoreHorizontal } from "lucide-react";
+import { Search, Loader2, Trash2, Plus, Calendar, Pencil, MoreHorizontal, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
 import type { MaterialUsageRecord, InventoryItem, OutgoingRecord } from "@shared/schema";
 import {
@@ -287,6 +288,42 @@ export default function TeamMaterialUsage() {
     },
   });
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch("/templates/material_usage_template.xlsx");
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "자재사용내역_템플릿.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "템플릿이 다운로드되었습니다" });
+    } catch (error) {
+      toast({ title: "다운로드 실패", variant: "destructive" });
+    }
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredRecords.map(record => ({
+      "사용일": record.date,
+      "구분": record.category,
+      "팀": record.teamCategory,
+      "공사명": record.projectName,
+      "품명": record.productName,
+      "규격": record.specification,
+      "수량": record.quantity,
+      "사용자": record.recipient
+    }));
+
+    exportToExcel(dataToExport, "팀자재사용내역");
+  };
+
   const categoryFiltered = selectedCategory === "all"
     ? records
     : records.filter((record) => record.category === selectedCategory);
@@ -507,11 +544,39 @@ export default function TeamMaterialUsage() {
                 </SelectContent>
               </Select>
             </div>
-            {canRegister && (
-              <Button onClick={openAddDialog} data-testid="button-add-usage">
-                <Plus className="h-4 w-4 mr-2" />
-                사용 등록
-              </Button>
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={handleDownloadTemplate} data-testid="button-download-template">
+                  <Download className="h-4 w-4 mr-2" />
+                  템플릿 다운로드
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-green-600 text-green-600 hover:bg-green-50"
+                  onClick={handleExportExcel}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  엑셀 다운로드
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      등록
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={openAddDialog} data-testid="button-add-usage">
+                      <Pencil className="mr-2 h-4 w-4" />
+                      수동 등록
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { /* open bulk upload dialog */ }}>
+                      <Upload className="mr-2 h-4 w-4" />
+                      일괄 등록 (Excel)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
           </div>
         </div>
@@ -547,84 +612,86 @@ export default function TeamMaterialUsage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-md border overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-background z-10">
-            <TableRow className="h-11">
-              <TableHead className="w-[40px] text-center align-middle bg-background">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleSelectAll}
-                  data-testid="checkbox-select-all"
-                />
-              </TableHead>
-              <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">팀</TableHead>
-              <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
-              <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
-              <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용자</TableHead>
-              <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredRecords.map((record) => (
-              <TableRow key={record.id} className="h-11" data-testid={`row-usage-${record.id}`}>
-                <TableCell className="text-center align-middle">
+      <div className="flex-1 rounded-md border overflow-hidden">
+        <div className="h-full overflow-auto relative">
+          <table className="w-full caption-bottom text-sm">
+            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+              <TableRow className="h-9">
+                <TableHead className="w-[40px] text-center align-middle bg-background">
                   <Checkbox
-                    checked={selectedIds.has(record.id)}
-                    onCheckedChange={() => toggleSelect(record.id)}
-                    data-testid={`checkbox-${record.id}`}
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                    data-testid="checkbox-select-all"
                   />
-                </TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
+                </TableHead>
+                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">팀</TableHead>
+                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
+                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용자</TableHead>
+                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRecords.map((record) => (
+                <TableRow key={record.id} className="h-9" data-testid={`row-usage-${record.id}`}>
+                  <TableCell className="text-center align-middle">
+                    <Checkbox
+                      checked={selectedIds.has(record.id)}
+                      onCheckedChange={() => toggleSelect(record.id)}
+                      data-testid={`checkbox-${record.id}`}
+                    />
+                  </TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
 
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.teamCategory}</TableCell>
-                <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
-                <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
-                <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
-                <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
-                <TableCell className="text-center align-middle">
-                  {canWrite && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>사용 관리</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openEditDialog(record)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          수정
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => setDeleteRecord(record)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          삭제
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredRecords.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                  사용 내역이 없습니다
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.teamCategory}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
+                  <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
+                  <TableCell className="text-center align-middle">
+                    {canWrite && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>사용 관리</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => openEditDialog(record)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            수정
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeleteRecord(record)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            삭제
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredRecords.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    사용 내역이 없습니다
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </table>
+        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
