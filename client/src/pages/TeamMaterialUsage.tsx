@@ -67,10 +67,13 @@ const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"
 export default function TeamMaterialUsage() {
   const { toast } = useToast();
   const { user, tenants, currentTenant, checkPermission, divisions, teams } = useAppContext();
+  const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+
 
   // Permissions
   const canWrite = checkPermission("usage", "write");
@@ -100,7 +103,9 @@ export default function TeamMaterialUsage() {
     recipient: "",
     type: "general",
     drumNumber: "",
-    inventoryItemId: undefined as number | undefined
+    inventoryItemId: undefined as number | undefined,
+    remark: "",
+    attachment: null as { name: string, data: string, size?: number, type?: string } | null
   });
 
   const { data: members = [], refetch: refetchMembers } = useQuery<any[]>({
@@ -156,15 +161,9 @@ export default function TeamMaterialUsage() {
   const teamInventory = useMemo(() => {
     if (!formData.teamCategory) return [];
 
-    // RESOLVE CATEGORY: Map the selected "Team Name" (from Input) to "Team Category" (for Stock Check)
-    let targetCategory = formData.teamCategory;
-    const selectedTeam = teams.find(t => t.name === formData.teamCategory);
-    if (selectedTeam) {
-      targetCategory = selectedTeam.teamCategory;
-    }
+    // Filter Outgoing (sent to this specific Team)
+    const teamOutgoing = outgoingRecords.filter(r => r.teamCategory === formData.teamCategory);
 
-    // Filter Outgoing (sent to Category)
-    const teamOutgoing = outgoingRecords.filter(r => r.teamCategory === targetCategory);
     if (teamOutgoing.length === 0) return [];
 
     // Group by Item Key (InventoryID or Name+Spec)
@@ -199,16 +198,8 @@ export default function TeamMaterialUsage() {
       inventoryMap.get(key)!.received += r.quantity;
     });
 
-    // Sum Used (from local records) -- AGGREGATE by Category
-    // We must count usage from ALL teams that belong to `targetCategory`.
-    const teamUsage = records.filter(r => {
-      // 1. Direct match (record has "Category" stored)
-      if (r.teamCategory === targetCategory) return true;
-
-      // 2. Name match (record has "Team Name" stored, but that team belongs to targetCategory)
-      const rTeam = teams.find(t => t.name === r.teamCategory);
-      return rTeam && rTeam.teamCategory === targetCategory;
-    });
+    // Sum Used (from local records) -- Filter usage by THIS Team
+    const teamUsage = records.filter(r => r.teamCategory === formData.teamCategory);
 
     teamUsage.forEach(r => {
       // Find matching item in inventoryMap
@@ -288,26 +279,7 @@ export default function TeamMaterialUsage() {
     },
   });
 
-  const handleDownloadTemplate = async () => {
-    try {
-      const response = await fetch("/templates/material_usage_template.xlsx");
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "자재사용내역_템플릿.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast({ title: "템플릿이 다운로드되었습니다" });
-    } catch (error) {
-      toast({ title: "다운로드 실패", variant: "destructive" });
-    }
-  };
+
 
   const handleExportExcel = () => {
     const dataToExport = filteredRecords.map(record => ({
@@ -407,7 +379,9 @@ export default function TeamMaterialUsage() {
       recipient: defaultRecipient,
       type: "general",
       drumNumber: "",
-      inventoryItemId: undefined
+      inventoryItemId: undefined,
+      remark: "",
+      attachment: null
     });
     setSelectedDate(new Date());
     setDialogOpen(true);
@@ -415,11 +389,11 @@ export default function TeamMaterialUsage() {
 
   const openEditDialog = (record: MaterialUsageRecord) => {
     setEditingRecord(record);
-    let drumNo = "";
-    try {
-      const attrs = JSON.parse(record.attributes || "{}");
-      drumNo = attrs.drumNumber || "";
-    } catch (e) { }
+    // let drumNo = "";
+    // try {
+    //   const attrs = JSON.parse(record.attributes || "{}");
+    //   drumNo = attrs.drumNumber || "";
+    // } catch (e) { }
 
     setFormData({
       division: record.division,
@@ -431,9 +405,22 @@ export default function TeamMaterialUsage() {
       quantity: record.quantity.toString(),
       recipient: record.recipient,
       type: record.type || "general",
-      drumNumber: drumNo,
-      inventoryItemId: record.inventoryItemId || undefined
+      drumNumber: "",
+      inventoryItemId: record.inventoryItemId || undefined,
+      remark: record.remark || "",
+      attachment: null
     });
+
+    try {
+      if (record.attributes) {
+        const attrs = JSON.parse(record.attributes);
+        if (attrs.attachment) {
+          setFormData(prev => ({ ...prev, attachment: attrs.attachment }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse attributes needed for attachment", e);
+    }
     setSelectedDate(new Date(record.date));
     setDialogOpen(true);
   };
@@ -452,7 +439,9 @@ export default function TeamMaterialUsage() {
       recipient: user?.name || "",
       type: "general",
       drumNumber: "",
-      inventoryItemId: undefined
+      inventoryItemId: undefined,
+      remark: "",
+      attachment: null
     });
     setSelectedDate(new Date());
   };
@@ -463,9 +452,14 @@ export default function TeamMaterialUsage() {
       return;
     }
 
-    let attributesObj: any = {};
-    if (formData.type === "cable") {
-      attributesObj.drumNumber = formData.drumNumber;
+    // let attributesObj: any = {};
+    // if (formData.type === "cable") {
+    //   attributesObj.drumNumber = formData.drumNumber;
+    // }
+    // const attributes = JSON.stringify(attributesObj);
+    const attributesObj: any = {};
+    if (formData.attachment) {
+      attributesObj.attachment = formData.attachment;
     }
     const attributes = JSON.stringify(attributesObj);
 
@@ -490,6 +484,7 @@ export default function TeamMaterialUsage() {
       recipient: formData.recipient,
       type: formData.type,
       attributes: attributes,
+      remark: formData.remark,
     };
 
     if (editingRecord) {
@@ -523,7 +518,7 @@ export default function TeamMaterialUsage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">
-              자재 사용내역
+              자재 사용등록내역
             </h1>
             <p className="text-muted-foreground">현장팀 자재 사용 이력을 조회합니다</p>
           </div>
@@ -546,33 +541,30 @@ export default function TeamMaterialUsage() {
             </div>
             {canWrite && (
               <>
-                <Button variant="outline" onClick={handleDownloadTemplate} data-testid="button-download-template">
-                  <Download className="h-4 w-4 mr-2" />
-                  템플릿 다운로드
-                </Button>
                 <Button
                   variant="outline"
-                  className="border-green-600 text-green-600 hover:bg-green-50"
+                  size="sm"
+                  className="h-8 border-green-600 text-green-600 hover:bg-green-50"
                   onClick={handleExportExcel}
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  엑셀 다운로드
+                  <Download className="h-3 w-3 mr-1" />
+                  Excel
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2">
+                    <Button className="flex items-center gap-2">
                       <Plus className="h-4 w-4" />
                       등록
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={openAddDialog} data-testid="button-add-usage">
-                      <Pencil className="mr-2 h-4 w-4" />
-                      수동 등록
+                      <Plus className="h-4 w-4 mr-2" />
+                      직접 등록
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => { /* open bulk upload dialog */ }}>
                       <Upload className="mr-2 h-4 w-4" />
-                      일괄 등록 (Excel)
+                      일괄 등록
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -593,7 +585,7 @@ export default function TeamMaterialUsage() {
                 data-testid="input-search"
               />
             </div>
-            {selectedIds.size > 0 && canWrite && (
+            {selectedIds.size > 0 && isTenantOwner && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -618,11 +610,13 @@ export default function TeamMaterialUsage() {
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-9">
                 <TableHead className="w-[40px] text-center align-middle bg-background">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleSelectAll}
-                    data-testid="checkbox-select-all"
-                  />
+                  {isTenantOwner ? (
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                  ) : null}
                 </TableHead>
                 <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
                 <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
@@ -631,7 +625,10 @@ export default function TeamMaterialUsage() {
                 <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
                 <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
                 <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
+
                 <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용자</TableHead>
+                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">비고</TableHead>
+                <TableHead className="font-semibold w-[50px] text-center align-middle bg-background">첨부</TableHead>
                 <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
               </TableRow>
             </TableHeader>
@@ -639,11 +636,13 @@ export default function TeamMaterialUsage() {
               {filteredRecords.map((record) => (
                 <TableRow key={record.id} className="h-9" data-testid={`row-usage-${record.id}`}>
                   <TableCell className="text-center align-middle">
-                    <Checkbox
-                      checked={selectedIds.has(record.id)}
-                      onCheckedChange={() => toggleSelect(record.id)}
-                      data-testid={`checkbox-${record.id}`}
-                    />
+                    {isTenantOwner ? (
+                      <Checkbox
+                        checked={selectedIds.has(record.id)}
+                        onCheckedChange={() => toggleSelect(record.id)}
+                        data-testid={`checkbox-${record.id}`}
+                      />
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
 
@@ -654,6 +653,35 @@ export default function TeamMaterialUsage() {
                   <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
                   <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap truncate max-w-[150px]" title={record.remark || ""}>{record.remark}</TableCell>
+                  <TableCell className="text-center align-middle">
+                    {(() => {
+                      try {
+                        if (!record.attributes) return null;
+                        const attrs = JSON.parse(record.attributes);
+                        if (attrs.attachment) {
+                          return (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => {
+                                const link = document.createElement("a");
+                                link.href = attrs.attachment.data;
+                                link.download = attrs.attachment.name;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                            >
+                              <Download className="h-4 w-4 text-blue-500" />
+                            </Button>
+                          );
+                        }
+                      } catch (e) { }
+                      return null;
+                    })()}
+                  </TableCell>
                   <TableCell className="text-center align-middle">
                     {canWrite && (
                       <DropdownMenu>
@@ -829,38 +857,6 @@ export default function TeamMaterialUsage() {
               />
             </div>
 
-            <div className="flex flex-col gap-3">
-              <Label>자재 유형</Label>
-              <RadioGroup
-                defaultValue="general"
-                value={formData.type}
-                onValueChange={(val) => setFormData({ ...formData, type: val })}
-                className="flex flex-row gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="general" id="r1" />
-                  <Label htmlFor="r1">일반 자재</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cable" id="r2" />
-                  <Label htmlFor="r2">케이블 (Drum/M)</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {formData.type === "cable" && (
-              <div className="grid gap-2 bg-muted/30 p-2 rounded-md">
-                <Label className="text-blue-600">드럼 번호 (Drum No.)</Label>
-                <Input
-                  value={formData.drumNumber}
-                  onChange={(e) => setFormData({ ...formData, drumNumber: e.target.value })}
-                  placeholder="D-12345"
-                />
-              </div>
-            )}
-
-
-
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">수량 *</Label>
               <div className="col-span-3">
@@ -868,9 +864,76 @@ export default function TeamMaterialUsage() {
                   type="number"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  placeholder="10"
+                  placeholder="수량 입력"
                   data-testid="input-usage-quantity"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">비고</Label>
+              <div className="col-span-3">
+                <Input
+                  value={formData.remark}
+                  onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                  placeholder="비고 입력"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">첨부파일</Label>
+              <div className="col-span-3">
+                <div className="relative">
+                  <Input
+                    id="usage-file-upload"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setFormData({
+                            ...formData,
+                            attachment: {
+                              name: file.name,
+                              data: event.target?.result as string,
+                              size: file.size,
+                              type: file.type
+                            }
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="usage-file-upload"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                  >
+                    <Upload className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium text-primary">
+                      {formData.attachment ? formData.attachment.name : "파일 선택 또는 드래그"}
+                    </span>
+                  </label>
+                </div>
+                {formData.attachment && (
+                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md mt-2">
+                    <span className="text-sm text-muted-foreground truncate">
+                      📎 {formData.attachment.name}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setFormData({ ...formData, attachment: null })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

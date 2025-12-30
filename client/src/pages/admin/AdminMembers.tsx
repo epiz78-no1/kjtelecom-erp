@@ -126,6 +126,9 @@ export default function AdminMembers() {
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
     const [newRole, setNewRole] = useState("member");
 
+    // UI State for permission details
+    const [showCustomPerms, setShowCustomPerms] = useState(false);
+
     const { data: members, isLoading: membersLoading } = useQuery<Member[]>({
         queryKey: ["/api/admin/members?v=1"], // Cache busting with query param
     });
@@ -264,28 +267,47 @@ export default function AdminMembers() {
         }
     });
 
-    const applyPermissionPreset = (preset: 'admin' | 'field' | 'readonly') => {
-        if (preset === 'admin') {
-            setEditingPermissions({
+    const applyPermissionPreset = (preset: 'admin' | 'field' | 'readonly' | 'office') => {
+        let perms = {
+            incoming: 'none',
+            outgoing: 'none',
+            usage: 'none',
+            inventory: 'none',
+        };
+
+        if (preset === 'admin' || preset === 'office') {
+            perms = {
                 incoming: 'write',
                 outgoing: 'write',
                 usage: 'write',
                 inventory: 'write'
-            });
+            };
         } else if (preset === 'field') {
-            setEditingPermissions({
+            perms = {
                 incoming: 'none',
-                outgoing: 'own_only',
-                usage: 'own_only',
-                inventory: 'read'
-            });
+                outgoing: 'none',
+                usage: 'write', // 현장팀은 사용등록 권한 필요
+                inventory: 'none'
+            };
         } else if (preset === 'readonly') {
-            setEditingPermissions({
+            perms = {
                 incoming: 'read',
                 outgoing: 'read',
                 usage: 'read',
                 inventory: 'read'
+            };
+        }
+
+        // Apply to Create State or Edit State depending on which dialog is open
+        if (isCreateDialogOpen) {
+            setCreateData({
+                ...createData,
+                permissions: perms
             });
+        }
+
+        if (isPermissionDialogOpen) {
+            setEditingPermissions(perms);
         }
     };
 
@@ -323,6 +345,23 @@ export default function AdminMembers() {
             default:
                 return <Badge variant="outline">{status}</Badge>;
         }
+    }
+
+
+    const getPermissionMode = (perms: any) => {
+        if (!perms) return 'custom';
+        if (perms.incoming === 'write' && perms.outgoing === 'write' && perms.usage === 'write' && perms.inventory === 'write') return 'office';
+        if (perms.incoming === 'none' && perms.outgoing === 'none' && perms.usage === 'write' && perms.inventory === 'none') return 'field';
+        if (perms.incoming === 'read' && perms.outgoing === 'read' && perms.usage === 'read' && perms.inventory === 'read') return 'readonly';
+        return 'custom';
+    };
+
+    const getPermissionLabel = (perms: any) => {
+        const mode = getPermissionMode(perms);
+        if (mode === 'office') return <Badge className="bg-blue-100 text-blue-800 border-blue-200">사무실 (전체)</Badge>;
+        if (mode === 'field') return <Badge className="bg-green-100 text-green-800 border-green-200">현장팀</Badge>;
+        if (mode === 'readonly') return <Badge variant="secondary">조회 전용</Badge>;
+        return <Badge variant="outline">사용자 지정</Badge>;
     };
 
     return (
@@ -377,6 +416,7 @@ export default function AdminMembers() {
                                     />
                                 </div>
                                 <div className="grid gap-2">
+                                    <Label htmlFor="phone">전화번호</Label>
                                     <Input
                                         id="phone"
                                         placeholder="010-0000-0000"
@@ -441,80 +481,115 @@ export default function AdminMembers() {
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-sm font-medium">초기 권한 설정</h4>
-                                    <span className="text-xs text-muted-foreground">생성 시 기본 권한을 부여합니다.</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label>입고 관리</Label>
-                                        <Select
-                                            value={createData.permissions.incoming}
-                                            onValueChange={(val: any) => setCreateData({
-                                                ...createData,
-                                                permissions: { ...createData.permissions, incoming: val }
-                                            })}
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={getPermissionMode(createData.permissions) === 'office' ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => applyPermissionPreset('office')}
                                         >
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">접근 불가</SelectItem>
-                                                <SelectItem value="read">조회만</SelectItem>
-                                                <SelectItem value="write">수정/삭제</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>출고 관리</Label>
-                                        <Select
-                                            value={createData.permissions.outgoing}
-                                            onValueChange={(val: any) => setCreateData({
-                                                ...createData,
-                                                permissions: { ...createData.permissions, outgoing: val }
-                                            })}
+                                            사무실
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={getPermissionMode(createData.permissions) === 'field' ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => applyPermissionPreset('field')}
                                         >
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">접근 불가</SelectItem>
-                                                <SelectItem value="read">조회만</SelectItem>
-                                                <SelectItem value="write">수정/삭제</SelectItem>
-                                                <SelectItem value="own_only">본인 수령분만</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>사용 내역</Label>
-                                        <Select
-                                            value={createData.permissions.usage}
-                                            onValueChange={(val: any) => setCreateData({
-                                                ...createData,
-                                                permissions: { ...createData.permissions, usage: val }
-                                            })}
+                                            현장팀
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={getPermissionMode(createData.permissions) === 'readonly' ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => applyPermissionPreset('readonly')}
                                         >
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">접근 불가</SelectItem>
-                                                <SelectItem value="read">조회만</SelectItem>
-                                                <SelectItem value="write">수정/삭제</SelectItem>
-                                                <SelectItem value="own_only">본인 사용분만</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>재고 현황</Label>
-                                        <Select
-                                            value={createData.permissions.inventory}
-                                            onValueChange={(val: any) => setCreateData({
-                                                ...createData,
-                                                permissions: { ...createData.permissions, inventory: val }
-                                            })}
+                                            조회전용
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={showCustomPerms || getPermissionMode(createData.permissions) === 'custom' ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setShowCustomPerms(!showCustomPerms)}
                                         >
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">접근 불가</SelectItem>
-                                                <SelectItem value="read">조회만</SelectItem>
-                                                <SelectItem value="write">수정/삭제</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                            직접 설정
+                                        </Button>
                                     </div>
                                 </div>
+                                {(showCustomPerms || getPermissionMode(createData.permissions) === 'custom') && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label>입고 관리</Label>
+                                            <Select
+                                                value={createData.permissions.incoming}
+                                                onValueChange={(val: any) => setCreateData({
+                                                    ...createData,
+                                                    permissions: { ...createData.permissions, incoming: val }
+                                                })}
+                                            >
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">접근 불가</SelectItem>
+                                                    <SelectItem value="read">조회만</SelectItem>
+                                                    <SelectItem value="write">수정/삭제</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>출고 관리</Label>
+                                            <Select
+                                                value={createData.permissions.outgoing}
+                                                onValueChange={(val: any) => setCreateData({
+                                                    ...createData,
+                                                    permissions: { ...createData.permissions, outgoing: val }
+                                                })}
+                                            >
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">접근 불가</SelectItem>
+                                                    <SelectItem value="read">조회만</SelectItem>
+                                                    <SelectItem value="write">수정/삭제</SelectItem>
+                                                    <SelectItem value="own_only">본인 수령분만</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>사용 내역</Label>
+                                            <Select
+                                                value={createData.permissions.usage}
+                                                onValueChange={(val: any) => setCreateData({
+                                                    ...createData,
+                                                    permissions: { ...createData.permissions, usage: val }
+                                                })}
+                                            >
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">접근 불가</SelectItem>
+                                                    <SelectItem value="read">조회만</SelectItem>
+                                                    <SelectItem value="write">수정/삭제</SelectItem>
+                                                    <SelectItem value="own_only">본인 사용분만</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>재고 현황</Label>
+                                            <Select
+                                                value={createData.permissions.inventory}
+                                                onValueChange={(val: any) => setCreateData({
+                                                    ...createData,
+                                                    permissions: { ...createData.permissions, inventory: val }
+                                                })}
+                                            >
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">접근 불가</SelectItem>
+                                                    <SelectItem value="read">조회만</SelectItem>
+                                                    <SelectItem value="write">수정/삭제</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <DialogFooter>
@@ -546,6 +621,7 @@ export default function AdminMembers() {
                                     <TableHead>직급/부서</TableHead>
                                     <TableHead>연락처</TableHead>
                                     <TableHead>권한</TableHead>
+                                    <TableHead>세부 권한</TableHead>
                                     <TableHead>상태</TableHead>
                                     <TableHead>가입일</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
@@ -554,13 +630,13 @@ export default function AdminMembers() {
                             <TableBody>
                                 {membersLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                             불러오는 중...
                                         </TableCell>
                                     </TableRow>
                                 ) : members?.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                             등록된 멤버가 없습니다.
                                         </TableCell>
                                     </TableRow>
@@ -595,6 +671,7 @@ export default function AdminMembers() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>{getRoleBadge(member.role)}</TableCell>
+                                            <TableCell>{getPermissionLabel(member.permissions)}</TableCell>
                                             <TableCell>{getStatusBadge(member.status)}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
                                                 {format(new Date(member.joinDate), "yyyy-MM-dd", { locale: ko })}
@@ -775,75 +852,78 @@ export default function AdminMembers() {
                     </DialogHeader>
 
                     <div className="flex gap-2 mb-4">
-                        <Button variant="outline" size="sm" onClick={() => applyPermissionPreset('admin')}>전체 허용</Button>
-                        <Button variant="outline" size="sm" onClick={() => applyPermissionPreset('field')}>현장 작업자</Button>
-                        <Button variant="outline" size="sm" onClick={() => applyPermissionPreset('readonly')}>조회 전용</Button>
+                        <Button variant={getPermissionMode(editingPermissions) === 'office' ? "default" : "outline"} size="sm" onClick={() => applyPermissionPreset('office')}>사무실</Button>
+                        <Button variant={getPermissionMode(editingPermissions) === 'field' ? "default" : "outline"} size="sm" onClick={() => applyPermissionPreset('field')}>현장팀</Button>
+                        <Button variant={getPermissionMode(editingPermissions) === 'readonly' ? "default" : "outline"} size="sm" onClick={() => applyPermissionPreset('readonly')}>조회 전용</Button>
+                        <Button variant={showCustomPerms || getPermissionMode(editingPermissions) === 'custom' ? "default" : "outline"} size="sm" onClick={() => setShowCustomPerms(!showCustomPerms)}>직접 설정</Button>
                     </div>
 
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label>입고 관리</Label>
-                                <Select
-                                    value={editingPermissions.incoming}
-                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, incoming: val })}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">접근 불가</SelectItem>
-                                        <SelectItem value="read">조회만</SelectItem>
-                                        <SelectItem value="write">수정/삭제</SelectItem>
-                                        <SelectItem value="own_only">본인만 (미지원)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>출고 관리</Label>
-                                <Select
-                                    value={editingPermissions.outgoing}
-                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, outgoing: val })}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">접근 불가</SelectItem>
-                                        <SelectItem value="read">조회만</SelectItem>
-                                        <SelectItem value="write">수정/삭제</SelectItem>
-                                        <SelectItem value="own_only">본인 수령분만</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>사용 내역</Label>
-                                <Select
-                                    value={editingPermissions.usage}
-                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, usage: val })}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">접근 불가</SelectItem>
-                                        <SelectItem value="read">조회만</SelectItem>
-                                        <SelectItem value="write">수정/삭제</SelectItem>
-                                        <SelectItem value="own_only">본인 사용분만</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>재고 현황</Label>
-                                <Select
-                                    value={editingPermissions.inventory}
-                                    onValueChange={(val) => setEditingPermissions({ ...editingPermissions, inventory: val })}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">접근 불가</SelectItem>
-                                        <SelectItem value="read">조회만</SelectItem>
-                                        <SelectItem value="write">수정/삭제</SelectItem>
-                                        <SelectItem value="own_only">본인만 (미지원)</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                    {(showCustomPerms || getPermissionMode(editingPermissions) === 'custom') && (
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label>입고 관리</Label>
+                                    <Select
+                                        value={editingPermissions.incoming}
+                                        onValueChange={(val) => setEditingPermissions({ ...editingPermissions, incoming: val })}
+                                    >
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">접근 불가</SelectItem>
+                                            <SelectItem value="read">조회만</SelectItem>
+                                            <SelectItem value="write">수정/삭제</SelectItem>
+                                            <SelectItem value="own_only">본인만 (미지원)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>출고 관리</Label>
+                                    <Select
+                                        value={editingPermissions.outgoing}
+                                        onValueChange={(val) => setEditingPermissions({ ...editingPermissions, outgoing: val })}
+                                    >
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">접근 불가</SelectItem>
+                                            <SelectItem value="read">조회만</SelectItem>
+                                            <SelectItem value="write">수정/삭제</SelectItem>
+                                            <SelectItem value="own_only">본인 수령분만</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>사용 내역</Label>
+                                    <Select
+                                        value={editingPermissions.usage}
+                                        onValueChange={(val) => setEditingPermissions({ ...editingPermissions, usage: val })}
+                                    >
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">접근 불가</SelectItem>
+                                            <SelectItem value="read">조회만</SelectItem>
+                                            <SelectItem value="write">수정/삭제</SelectItem>
+                                            <SelectItem value="own_only">본인 사용분만</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>재고 현황</Label>
+                                    <Select
+                                        value={editingPermissions.inventory}
+                                        onValueChange={(val) => setEditingPermissions({ ...editingPermissions, inventory: val })}
+                                    >
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">접근 불가</SelectItem>
+                                            <SelectItem value="read">조회만</SelectItem>
+                                            <SelectItem value="write">수정/삭제</SelectItem>
+                                            <SelectItem value="own_only">본인만 (미지원)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsPermissionDialogOpen(false)}>취소</Button>
                         <Button onClick={() => editingMember && updatePermissionMutation.mutate({ userId: editingMember.id, permissions: editingPermissions })}>

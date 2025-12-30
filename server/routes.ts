@@ -799,5 +799,60 @@ export async function registerRoutes(
     }
   });
 
+  // Positions API - require authentication and tenant isolation
+  app.get("/api/admin/positions", requireAuth, requireTenant, async (req, res) => {
+    const tenantId = req.session!.tenantId!;
+    console.log("[POSITIONS GET] tenantId:", tenantId);
+    const positions = await storage.getPositions(tenantId);
+    console.log("[POSITIONS GET] found positions:", positions.length, positions);
+    res.json(positions);
+  });
+
+  app.post("/api/admin/positions", requireAuth, requireTenant, async (req, res) => {
+    const { name, rankOrder } = req.body;
+
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "Name is required" });
+    }
+
+    const tenantId = req.session!.tenantId!;
+    console.log("[POSITIONS POST] Creating position with tenantId:", tenantId, "name:", name, "rankOrder:", rankOrder);
+    const position = await storage.createPosition({
+      name,
+      rankOrder: rankOrder || 0,
+      tenantId
+    });
+    console.log("[POSITIONS POST] Created position:", position);
+
+    res.status(201).json(position);
+  });
+
+  app.patch("/api/admin/positions/:id", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const tenantId = req.session!.tenantId!;
+    const position = await storage.updatePosition(id, updates, tenantId);
+
+    if (!position) {
+      return res.status(404).json({ error: "Position not found" });
+    }
+
+    res.json(position);
+  });
+
+  app.delete("/api/admin/positions/:id", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const tenantId = req.session!.tenantId!;
+
+    const success = await storage.deletePosition(id, tenantId);
+
+    if (!success) {
+      return res.status(404).json({ error: "Position not found" });
+    }
+
+    res.status(204).send();
+  });
+
   return httpServer;
 }

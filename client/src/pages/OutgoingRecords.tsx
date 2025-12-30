@@ -70,6 +70,7 @@ export default function OutgoingRecords() {
   const { toast } = useToast();
   const { user, checkPermission, tenants, currentTenant } = useAppContext();
   const isAdmin = tenants.find(t => t.id === currentTenant)?.role === 'admin' || tenants.find(t => t.id === currentTenant)?.role === 'owner';
+  const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -88,13 +89,20 @@ export default function OutgoingRecords() {
   const { widths, startResizing } = useColumnResize({
     checkbox: 40,
     date: 100,
-    category: 60,
-    projectName: 220,
-    productName: 160,
-    specification: 200,
+    division: 80,
+    category: 80,
+    teamCategory: 100,
+    projectName: 200,
+    productName: 120,
+    specification: 120,
+    itemCategory: 100,
+    itemDivision: 80,
     quantity: 80,
     recipient: 100,
-    actions: 50
+    remark: 150,
+    attachment: 60,
+    attributes: 150,
+    actions: 60,
   });
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -106,9 +114,9 @@ export default function OutgoingRecords() {
     specification: "",
     quantity: "",
     recipient: user?.name || "",
-    type: "general",
-    drumNumber: "",
     inventoryItemId: undefined as number | undefined,
+    remark: "",
+    attachment: null as { name: string; data: string } | null,
   });
 
   const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
@@ -236,9 +244,9 @@ export default function OutgoingRecords() {
       specification: "",
       quantity: "",
       recipient: user?.name || "",
-      type: "general",
-      drumNumber: "",
-      inventoryItemId: undefined
+      inventoryItemId: undefined,
+      remark: "",
+      attachment: null
     });
     setSelectedDate(new Date());
     setDialogOpen(true);
@@ -246,11 +254,16 @@ export default function OutgoingRecords() {
 
   const openEditDialog = (record: OutgoingRecord) => {
     setEditingRecord(record);
-    let drumNo = "";
+
+    let attachment = null;
     try {
-      const attrs = JSON.parse(record.attributes || "{}");
-      drumNo = attrs.drumNumber || "";
-    } catch (e) { }
+      const attrs = record.attributes ? JSON.parse(record.attributes) : {};
+      if (attrs.attachment) {
+        attachment = attrs.attachment;
+      }
+    } catch (e) {
+      console.error("Failed to parse attributes for attachment:", e);
+    }
 
     setFormData({
       date: record.date,
@@ -262,9 +275,9 @@ export default function OutgoingRecords() {
       specification: record.specification,
       quantity: record.quantity.toString(),
       recipient: record.recipient,
-      type: record.type || "general",
-      drumNumber: drumNo,
-      inventoryItemId: record.inventoryItemId || undefined
+      inventoryItemId: record.inventoryItemId || undefined,
+      remark: record.remark || "",
+      attachment: attachment
     });
     setSelectedDate(new Date(record.date));
     setDialogOpen(true);
@@ -283,9 +296,9 @@ export default function OutgoingRecords() {
       specification: "",
       quantity: "",
       recipient: user?.name || "",
-      type: "general",
-      drumNumber: "",
-      inventoryItemId: undefined
+      inventoryItemId: undefined,
+      remark: "",
+      attachment: null
     });
     setSelectedDate(new Date());
   };
@@ -297,6 +310,9 @@ export default function OutgoingRecords() {
     }
 
     let attributesObj: any = {};
+    if (formData.attachment) {
+      attributesObj.attachment = formData.attachment;
+    }
     const attributes = JSON.stringify(attributesObj);
 
     const data = {
@@ -309,8 +325,9 @@ export default function OutgoingRecords() {
       specification: formData.specification,
       quantity: parseInt(formData.quantity) || 0,
       recipient: formData.recipient,
-      type: formData.type,
+      type: "general",
       attributes: attributes,
+      remark: formData.remark,
       inventoryItemId: formData.inventoryItemId
     };
 
@@ -398,7 +415,7 @@ export default function OutgoingRecords() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={openAddDialog}>
                       <Plus className="h-4 w-4 mr-2" />
-                      출고 직접 등록
+                      직접 등록
                     </DropdownMenuItem>
                     {isAdmin && (
                       <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
@@ -425,7 +442,7 @@ export default function OutgoingRecords() {
                 data-testid="input-search-outgoing"
               />
             </div>
-            {selectedIds.size > 0 && (
+            {selectedIds.size > 0 && isTenantOwner && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -450,11 +467,13 @@ export default function OutgoingRecords() {
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
                 <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleSelectAll}
-                    data-testid="checkbox-select-all"
-                  />
+                  {isTenantOwner ? (
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                  ) : null}
                 </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
                   출고일
@@ -506,6 +525,20 @@ export default function OutgoingRecords() {
                     onMouseDown={(e) => startResizing("recipient", e)}
                   />
                 </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
+                  비고
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("remark", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.attachment }}>
+                  첨부
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("attachment", e)}
+                  />
+                </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
               </TableRow>
             </TableHeader>
@@ -513,11 +546,13 @@ export default function OutgoingRecords() {
               {filteredRecords.map((record) => (
                 <TableRow key={record.id} className="h-8 [&_td]:py-1" data-testid={`row-outgoing-${record.id}`}>
                   <TableCell className="text-center align-middle">
-                    <Checkbox
-                      checked={selectedIds.has(record.id)}
-                      onCheckedChange={() => toggleSelect(record.id)}
-                      data-testid={`checkbox-${record.id}`}
-                    />
+                    {isTenantOwner ? (
+                      <Checkbox
+                        checked={selectedIds.has(record.id)}
+                        onCheckedChange={() => toggleSelect(record.id)}
+                        data-testid={`checkbox-${record.id}`}
+                      />
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
 
@@ -527,6 +562,29 @@ export default function OutgoingRecords() {
                   <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
                   <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[150px] truncate" title={record.remark || ""}>{record.remark}</TableCell>
+                  <TableCell className="text-center align-middle">
+                    {(() => {
+                      try {
+                        const attrs = record.attributes ? JSON.parse(record.attributes) : {};
+                        if (attrs.attachment) {
+                          return (
+                            <a
+                              href={attrs.attachment.data}
+                              download={attrs.attachment.name}
+                              className="inline-flex items-center justify-center text-primary hover:text-primary/80"
+                              title={attrs.attachment.name}
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                          );
+                        }
+                      } catch (e) {
+                        return null;
+                      }
+                      return null;
+                    })()}
+                  </TableCell>
                   <TableCell className="text-center align-middle">
                     {canWrite && (
                       <DropdownMenu>
@@ -672,35 +730,7 @@ export default function OutgoingRecords() {
               />
             </div>
 
-            <div className="flex flex-col gap-3">
-              <Label>자재 유형</Label>
-              <RadioGroup
-                defaultValue="general"
-                value={formData.type}
-                onValueChange={(val) => setFormData({ ...formData, type: val })}
-                className="flex flex-row gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="general" id="r1" />
-                  <Label htmlFor="r1">일반 자재</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cable" id="r2" />
-                  <Label htmlFor="r2">케이블 (Drum/M)</Label>
-                </div>
-              </RadioGroup>
-            </div>
 
-            {formData.type === "cable" && (
-              <div className="grid gap-2 bg-muted/30 p-2 rounded-md">
-                <Label className="text-blue-600">드럼 번호 (Drum No.)</Label>
-                <Input
-                  value={formData.drumNumber}
-                  onChange={(e) => setFormData({ ...formData, drumNumber: e.target.value })}
-                  placeholder="D-12345"
-                />
-              </div>
-            )}
 
             <div className="grid grid-cols-4 items-start gap-4">
               <Label className="text-right pt-2">품목 선택</Label>
@@ -728,9 +758,75 @@ export default function OutgoingRecords() {
                   type="number"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  placeholder="10"
+                  placeholder="수량 입력"
                   data-testid="input-outgoing-quantity"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">비고</Label>
+              <div className="col-span-3">
+                <Input
+                  value={formData.remark}
+                  onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                  placeholder="참고 사항 입력"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">첨부파일</Label>
+              <div className="col-span-3 space-y-2">
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="outgoing-file-upload"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result) {
+                            setFormData({
+                              ...formData,
+                              attachment: {
+                                name: file.name,
+                                data: event.target.result as string
+                              }
+                            });
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="outgoing-file-upload"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                  >
+                    <Upload className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium text-primary">
+                      {formData.attachment ? formData.attachment.name : "파일 선택 또는 드래그"}
+                    </span>
+                  </label>
+                </div>
+                {formData.attachment && (
+                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                    <span className="text-sm text-muted-foreground truncate">
+                      📎 {formData.attachment.name}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setFormData({ ...formData, attachment: null })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

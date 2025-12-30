@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { db } from "./db";
+import { storage } from "./storage";
 import { users, userTenants, tenants } from "../shared/schema";
 import { eq, and, or } from "drizzle-orm";
 import bcrypt from "bcryptjs"; // Use bcryptjs as installed
@@ -57,29 +58,9 @@ export function registerAdminRoutes(app: any) {
     // Get all members of a tenant
     app.get(`${adminRouter}/members`, requireAuth, requireTenant, async (req, res) => {
         try {
-            const tenantId = req.session!.currentTenant;
-
-            const members = await db.query.userTenants.findMany({
-                where: eq(userTenants.tenantId, tenantId!),
-                with: {
-                    user: true
-                }
-            });
-
-            // Map to cleaner objects
-            const result = members.map(m => ({
-                id: m.userId,
-                username: m.user.username,
-                name: m.user.name,
-                role: m.role,
-                positionId: m.positionId,
-                teamId: m.teamId,
-                permissions: m.permissions,
-                status: m.status,
-                joinedAt: m.joinedAt
-            }));
-
-            res.json(result);
+            const tenantId = req.session!.tenantId;
+            const members = await storage.getMembers(tenantId!);
+            res.json(members);
         } catch (error) {
             console.error("Fetch members error:", error);
             res.status(500).json({ error: "구성원 목록을 불러오는 중 오류가 발생했습니다" });
@@ -90,7 +71,7 @@ export function registerAdminRoutes(app: any) {
     app.post(`${adminRouter}/members`, requireAuth, requireTenant, async (req, res) => {
         try {
             // Check permission: only admin or owner can add members
-            const tenantId = req.session!.currentTenant;
+            const tenantId = req.session!.tenantId;
             const currentUser = await db.query.userTenants.findFirst({
                 where: (ut, { and, eq }) => and(eq(ut.userId, req.session!.userId!), eq(ut.tenantId, tenantId!))
             });
@@ -99,7 +80,7 @@ export function registerAdminRoutes(app: any) {
                 return res.status(403).json({ error: "관리자 권한이 필요합니다" });
             }
 
-            const { username, password, name, role, phoneNumber, divisionId, teamId, positionId } = req.body;
+            const { username, password, name, role, phoneNumber, divisionId, teamId, positionId, permissions } = req.body;
 
             if (!username || !password || !name) {
                 return res.status(400).json({ error: "필수 정보가 누락되었습니다" });
@@ -138,8 +119,8 @@ export function registerAdminRoutes(app: any) {
             const [newMember] = await db.insert(userTenants).values({
                 userId,
                 tenantId: tenantId!,
-                role: role || 'user',
-                permissions: null,
+                role: role || 'member',
+                permissions: permissions || null,
                 divisionId: divisionId || null,
                 teamId: teamId || null,
                 positionId: positionId || null,
@@ -157,7 +138,7 @@ export function registerAdminRoutes(app: any) {
     // Update Member Permissions/Role
     app.patch(`${adminRouter}/members/:userId`, requireAuth, requireTenant, async (req, res) => {
         try {
-            const tenantId = req.session!.currentTenant;
+            const tenantId = req.session!.tenantId;
             const targetUserId = req.params.userId;
 
             // Verifier: Must be admin/owner
@@ -196,7 +177,7 @@ export function registerAdminRoutes(app: any) {
     // Remove Member
     app.delete(`${adminRouter}/members/:userId`, requireAuth, requireTenant, async (req, res) => {
         try {
-            const tenantId = req.session!.currentTenant;
+            const tenantId = req.session!.tenantId;
             const targetUserId = req.params.userId;
 
             // Verifier: Must be admin/owner
@@ -228,13 +209,8 @@ export function registerAdminRoutes(app: any) {
         }
     });
 
-    // ---- Positions/Teams/Divisions Management (Placeholder for now) ----
-    // You can implement specific CRUD routes for these following the same pattern
-
-    app.get(`${adminRouter}/positions`, requireAuth, requireTenant, async (req, res) => {
-        // Return dummy or empty for now until schema is fully used
-        res.json([]);
-    });
+    // ---- Positions/Teams/Divisions Management ----
+    // Positions API is now handled in routes.ts
 
     // Tenants Management (Super Admin Only)
     app.get(`${adminRouter}/tenants`, requireAuth, requireAdmin, async (req, res) => {

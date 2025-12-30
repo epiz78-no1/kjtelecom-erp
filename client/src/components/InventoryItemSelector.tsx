@@ -55,7 +55,7 @@ export function InventoryItemSelector({
     const selectedItem = items.find((item) => item.id === value);
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={setOpen} modal={true}>
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
@@ -77,10 +77,17 @@ export function InventoryItemSelector({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0" align="start">
+            <PopoverContent
+                className="w-[400px] p-0"
+                align="start"
+                side="bottom"
+                sideOffset={4}
+                avoidCollisions={false}
+                collisionPadding={0}
+            >
                 <Command>
                     <CommandInput placeholder="품목명 또는 규격 검색..." />
-                    <CommandList>
+                    <CommandList style={{ maxHeight: '250px', overflowY: 'auto' }}>
                         <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
                         <CommandGroup heading="재고 목록">
                             {!isLoading && items.map((item) => (

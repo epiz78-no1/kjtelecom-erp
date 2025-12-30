@@ -79,6 +79,7 @@ export default function IncomingRecords() {
   const { toast } = useToast();
   const { user, positions, divisions, checkPermission, tenants, currentTenant } = useAppContext();
   const isAdmin = tenants.find(t => t.id === currentTenant)?.role === 'admin' || tenants.find(t => t.id === currentTenant)?.role === 'owner';
+  const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -300,10 +301,9 @@ export default function IncomingRecords() {
       productName: "",
       specification: "",
       quantity: "",
-      type: "general",
-      drumNumber: "",
       remark: "",
       inventoryItemId: undefined,
+      attachment: null,
     });
     setSelectedDate(new Date());
   };
@@ -413,7 +413,7 @@ export default function IncomingRecords() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={openAddDialog}>
                       <Plus className="h-4 w-4 mr-2" />
-                      개별 등록
+                      직접 등록
                     </DropdownMenuItem>
                     {isAdmin && (
                       <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
@@ -440,7 +440,7 @@ export default function IncomingRecords() {
                 data-testid="input-search-incoming"
               />
             </div>
-            {selectedIds.size > 0 && (
+            {selectedIds.size > 0 && isTenantOwner && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -465,11 +465,13 @@ export default function IncomingRecords() {
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
                 <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleSelectAll}
-                    data-testid="checkbox-select-all"
-                  />
+                  {isTenantOwner ? (
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                  ) : null}
                 </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
                   입고일
@@ -537,11 +539,13 @@ export default function IncomingRecords() {
               {filteredRecords.map((record) => (
                 <TableRow key={record.id} className="h-8 [&_td]:py-1" data-testid={`row-incoming-${record.id}`}>
                   <TableCell className="text-center align-middle">
-                    <Checkbox
-                      checked={selectedIds.has(record.id)}
-                      onCheckedChange={() => toggleSelect(record.id)}
-                      data-testid={`checkbox-${record.id}`}
-                    />
+                    {isTenantOwner ? (
+                      <Checkbox
+                        checked={selectedIds.has(record.id)}
+                        onCheckedChange={() => toggleSelect(record.id)}
+                        data-testid={`checkbox-${record.id}`}
+                      />
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">
@@ -710,10 +714,17 @@ export default function IncomingRecords() {
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
+                  <PopoverContent
+                    className="w-[300px] p-0"
+                    align="start"
+                    side="bottom"
+                    sideOffset={4}
+                    avoidCollisions={false}
+                    collisionPadding={0}
+                  >
                     <Command>
                       <CommandInput placeholder="품명 검색..." />
-                      <CommandList>
+                      <CommandList style={{ maxHeight: '250px', overflowY: 'auto' }}>
                         <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
                         <CommandGroup>
                           {productNames.map((name) => (
@@ -803,7 +814,7 @@ export default function IncomingRecords() {
                 type="number"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                placeholder="0"
+                placeholder="수량 입력"
                 data-testid="input-incoming-quantity"
               />
             </div>
@@ -812,37 +823,53 @@ export default function IncomingRecords() {
 
             <div className="grid gap-2">
               <Label>첨부파일</Label>
-              <Input
-                type="file"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      if (event.target?.result) {
-                        setFormData({
-                          ...formData,
-                          attachment: {
-                            name: file.name,
-                            data: event.target.result as string
-                          }
-                        });
-                      }
-                    };
-                    reader.readAsDataURL(file);
-                  }
-                }}
-              />
+              <div className="relative">
+                <input
+                  type="file"
+                  id="file-upload"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        if (event.target?.result) {
+                          setFormData({
+                            ...formData,
+                            attachment: {
+                              name: file.name,
+                              data: event.target.result as string
+                            }
+                          });
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                >
+                  <Upload className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium text-primary">
+                    {formData.attachment ? formData.attachment.name : "파일 선택 또는 드래그"}
+                  </span>
+                </label>
+              </div>
               {formData.attachment && (
-                <div className="text-sm text-muted-foreground">
-                  선택됨: {formData.attachment.name}
+                <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                  <span className="text-sm text-muted-foreground truncate">
+                    📎 {formData.attachment.name}
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="ml-2 h-auto p-0 text-destructive"
+                    className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => setFormData({ ...formData, attachment: null })}
                   >
-                    삭제
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               )}

@@ -46,13 +46,29 @@ const settingsItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, tenants, currentTenant: contextTenantId } = useAppContext();
+  const { user, tenants, currentTenant: contextTenantId, checkPermission } = useAppContext();
 
   // Check if current user is admin/owner of current tenant
   const currentTenantId = contextTenantId || window.localStorage.getItem('currentTenantId') || tenants?.[0]?.id;
   const currentTenant = tenants?.find(t => t.id === currentTenantId);
   const isAdmin = currentTenant?.role === 'admin' || currentTenant?.role === 'owner';
   const isSuperAdmin = user?.username === 'admin';
+
+  const filteredMenuItems = menuItems.filter(item => {
+    // Dashboard is always visible
+    if (item.url === '/') return true;
+
+    // Inventory, Incoming, Outgoing menus require 'read' permission
+    if (item.url === '/inventory') return checkPermission('inventory', 'read');
+    if (item.url === '/incoming') return checkPermission('incoming', 'read');
+    if (item.url === '/outgoing') return checkPermission('outgoing', 'read');
+    if (item.url === '/team-outgoing') return checkPermission('outgoing', 'read');
+
+    // Team Material Usage is always visible for now (or check usage permission)
+    if (item.url === '/team-material-usage') return true; // checkPermission('usage', 'read');
+
+    return true;
+  });
 
   return (
     <Sidebar>
@@ -69,7 +85,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>메뉴</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {filteredMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}>

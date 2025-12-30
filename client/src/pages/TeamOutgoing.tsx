@@ -86,25 +86,7 @@ export default function TeamOutgoing() {
     return matchesTeam && matchesSearch;
   });
 
-  const handleDownloadTemplate = async () => {
-    try {
-      const response = await apiRequest("GET", "/api/outgoing/template");
-      if (!response.ok) throw new Error("Download failed");
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "팀출고내역_템플릿.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast({ title: "템플릿이 다운로드되었습니다" });
-    } catch (error) {
-      toast({ title: "다운로드 실패", variant: "destructive" });
-    }
-  };
 
   const handleExportExcel = () => {
     const dataToExport = filteredStock.map(item => ({
@@ -137,17 +119,14 @@ export default function TeamOutgoing() {
           <div className="flex flex-wrap items-center gap-2">
             {canWrite && (
               <>
-                <Button variant="outline" onClick={handleDownloadTemplate} data-testid="button-download-template">
-                  <Download className="h-4 w-4 mr-2" />
-                  템플릿 다운로드
-                </Button>
                 <Button
                   variant="outline"
-                  className="border-green-600 text-green-600 hover:bg-green-50"
+                  size="sm"
+                  className="h-8 border-green-600 text-green-600 hover:bg-green-50"
                   onClick={handleExportExcel}
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  엑셀 다운로드
+                  <Download className="h-3 w-3 mr-1" />
+                  Excel
                 </Button>
               </>
             )}

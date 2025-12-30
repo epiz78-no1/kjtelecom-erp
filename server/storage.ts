@@ -142,7 +142,10 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(positions, eq(userTenants.positionId, positions.id))
       .leftJoin(divisions, eq(userTenants.divisionId, divisions.id))
       .leftJoin(teams, eq(userTenants.teamId, teams.id))
-      .where(eq(userTenants.tenantId, tenantId));
+      .where(and(
+        eq(userTenants.tenantId, tenantId),
+        sql`${users.username} != 'admin'`
+      ));
   }
 
   async updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant> & { name?: string; phoneNumber?: string }): Promise<UserTenant | undefined> {

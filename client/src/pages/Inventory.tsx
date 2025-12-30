@@ -53,6 +53,7 @@ export default function Inventory() {
   const { toast } = useToast();
   const { user, checkPermission, tenants, currentTenant } = useAppContext();
   const isAdmin = tenants.find(t => t.id === currentTenant)?.role === 'admin' || tenants.find(t => t.id === currentTenant)?.role === 'owner';
+  const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
   const canWrite = checkPermission("inventory", "write");
 
   const [selectedDivision, setSelectedDivision] = useState("all");
@@ -314,13 +315,13 @@ export default function Inventory() {
                 <DropdownMenuTrigger asChild>
                   <Button data-testid="button-add-item-menu">
                     <Plus className="h-4 w-4 mr-2" />
-                    자재 추가
+                    자재 등록
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => openMaterialDialog()}>
                     <Plus className="h-4 w-4 mr-2" />
-                    자재 직접 추가
+                    직접 등록
                   </DropdownMenuItem>
                   {isAdmin && (
                     <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
@@ -360,7 +361,7 @@ export default function Inventory() {
                 </SelectContent>
               </Select>
             </div>
-            {selectedIds.size > 0 && (
+            {selectedIds.size > 0 && isTenantOwner && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -384,11 +385,13 @@ export default function Inventory() {
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
                 <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleSelectAll}
-                    data-testid="checkbox-select-all"
-                  />
+                  {isTenantOwner ? (
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                  ) : null}
                 </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
                   구분
@@ -463,11 +466,13 @@ export default function Inventory() {
                 return (
                   <TableRow key={item.id} className="h-8 [&_td]:py-1" data-testid={`row-inventory-${item.id}`}>
                     <TableCell className="text-center align-middle">
-                      <Checkbox
-                        checked={selectedIds.has(item.id)}
-                        onCheckedChange={() => toggleSelect(item.id)}
-                        data-testid={`checkbox-${item.id}`}
-                      />
+                      {isTenantOwner ? (
+                        <Checkbox
+                          checked={selectedIds.has(item.id)}
+                          onCheckedChange={() => toggleSelect(item.id)}
+                          data-testid={`checkbox-${item.id}`}
+                        />
+                      ) : null}
                     </TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>

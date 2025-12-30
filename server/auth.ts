@@ -123,7 +123,10 @@ export function registerAuthRoutes(app: Express) {
                 })
                 .from(userTenants)
                 .leftJoin(tenants, eq(userTenants.tenantId, tenants.id))
-                .where(eq(userTenants.userId, user.id));
+                .where(and(
+                    eq(userTenants.userId, user.id),
+                    eq(userTenants.status, 'active') // Only active members can login
+                ));
 
             // SuperAdmin (username === 'admin') can login without tenant
             const isSuperAdmin = user.username === 'admin';
