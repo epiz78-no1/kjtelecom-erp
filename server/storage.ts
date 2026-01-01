@@ -44,6 +44,7 @@ export interface IStorage {
   bulkDeleteInventoryItems(ids: number[], tenantId: string): Promise<number>;
   clearInventoryItems(tenantId: string): Promise<void>;
   bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]>;
+  syncInventoryItems(items: InsertInventoryItem[], tenantId: string): Promise<InventoryItem[]>;
 
   getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]>;
   getOutgoingRecord(id: number, tenantId: string): Promise<OutgoingRecord | undefined>;
