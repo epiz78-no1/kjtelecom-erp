@@ -56,7 +56,7 @@ export const adminRouter = "/api/admin";
 export function registerAdminRoutes(app: any) {
     // ---- Member Management ----
     // Get all members of a tenant
-    app.get(`${adminRouter}/members`, requireAuth, requireTenant, async (req, res) => {
+    app.get(`${adminRouter}/members`, requireAuth, requireTenant, async (req: Request, res: Response) => {
         try {
             const tenantId = req.session!.tenantId;
             const members = await storage.getMembers(tenantId!);
@@ -68,7 +68,7 @@ export function registerAdminRoutes(app: any) {
     });
 
     // Invite/Add Member
-    app.post(`${adminRouter}/members`, requireAuth, requireTenant, async (req, res) => {
+    app.post(`${adminRouter}/members`, requireAuth, requireTenant, async (req: Request, res: Response) => {
         try {
             // Check permission: only admin or owner can add members
             const tenantId = req.session!.tenantId;
@@ -136,7 +136,7 @@ export function registerAdminRoutes(app: any) {
     });
 
     // Update Member Permissions/Role
-    app.patch(`${adminRouter}/members/:userId`, requireAuth, requireTenant, async (req, res) => {
+    app.patch(`${adminRouter}/members/:userId`, requireAuth, requireTenant, async (req: Request, res: Response) => {
         try {
             const tenantId = req.session!.tenantId;
             const targetUserId = req.params.userId;
@@ -177,7 +177,7 @@ export function registerAdminRoutes(app: any) {
     });
 
     // Remove Member
-    app.delete(`${adminRouter}/members/:userId`, requireAuth, requireTenant, async (req, res) => {
+    app.delete(`${adminRouter}/members/:userId`, requireAuth, requireTenant, async (req: Request, res: Response) => {
         try {
             const tenantId = req.session!.tenantId;
             const targetUserId = req.params.userId;
@@ -215,7 +215,7 @@ export function registerAdminRoutes(app: any) {
     // Positions API is now handled in routes.ts
 
     // Tenants Management (Super Admin Only)
-    app.get(`${adminRouter}/tenants`, requireAuth, requireAdmin, async (req, res) => {
+    app.get(`${adminRouter}/tenants`, requireAuth, requireAdmin, async (req: Request, res: Response) => {
         try {
             const user = await db.query.users.findFirst({
                 where: eq(users.id, req.session!.userId!)
@@ -264,7 +264,7 @@ export function registerAdminRoutes(app: any) {
         }
     });
 
-    app.post(`${adminRouter}/tenants`, requireAuth, requireAdmin, async (req, res) => {
+    app.post(`${adminRouter}/tenants`, requireAuth, requireAdmin, async (req: Request, res: Response) => {
         try {
             // Verify user is the Super Admin (username === 'admin')
             const user = await db.query.users.findFirst({
@@ -307,7 +307,7 @@ export function registerAdminRoutes(app: any) {
         }
     });
 
-    app.patch(`${adminRouter}/tenants/:tenantId`, requireAuth, requireAdmin, async (req, res) => {
+    app.patch(`${adminRouter}/tenants/:tenantId`, requireAuth, requireAdmin, async (req: Request, res: Response) => {
         try {
             // Verify Super Admin
             const user = await db.query.users.findFirst({
@@ -352,7 +352,7 @@ export function registerAdminRoutes(app: any) {
     });
 
     // Delete Tenant API
-    app.delete(`${adminRouter}/tenants/:tenantId`, requireAuth, requireAdmin, async (req, res) => {
+    app.delete(`${adminRouter}/tenants/:tenantId`, requireAuth, requireAdmin, async (req: Request, res: Response) => {
         try {
             // Verify Super Admin
             const user = await db.query.users.findFirst({
@@ -383,7 +383,7 @@ export function registerAdminRoutes(app: any) {
     });
 
     // Create Admin for a specific Tenant (Super Admin Only)
-    app.post(`${adminRouter}/tenants/:tenantId/members`, requireAuth, requireAdmin, async (req, res) => {
+    app.post(`${adminRouter}/tenants/:tenantId/members`, requireAuth, requireAdmin, async (req: Request, res: Response) => {
         try {
             // Verify Super Admin
             const user = await db.query.users.findFirst({
@@ -467,7 +467,7 @@ export function registerAdminRoutes(app: any) {
     });
 
     // Delete Tenant Admin (Super Admin Only)
-    app.delete(`${adminRouter}/tenants/:tenantId/members/:userId`, requireAuth, requireAdmin, async (req, res) => {
+    app.delete(`${adminRouter}/tenants/:tenantId/members/:userId`, requireAuth, requireAdmin, async (req: Request, res: Response) => {
         try {
             // Verify Super Admin
             const user = await db.query.users.findFirst({

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-// import connectPgSimple from "connect-pg-simple"; // Moved down or handled inline
+import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { registerAuthRoutes } from "./auth";
 import { tenantContext } from "./middleware/tenant";
@@ -45,8 +45,6 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 // Session configuration
-// Session configuration
-import connectPgSimple from "connect-pg-simple";
 const PgStore = connectPgSimple(session);
 
 app.use(session({
