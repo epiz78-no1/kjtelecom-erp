@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, UserPlus, LogOut, Loader2, ShieldCheck, Edit, Trash2, User, X } from "lucide-react";
+import { Building2, UserPlus, LogOut, Loader2, ShieldCheck, Edit, Trash2, User, X, Key, Lock } from "lucide-react";
 import { useAppContext } from "@/contexts/AppContext";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -44,6 +44,13 @@ export default function SuperAdminDashboard() {
         password: "",
         name: "",
         phoneNumber: ""
+    });
+
+    // Password Change State
+    const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({
+        currentPassword: "",
+        newPassword: ""
     });
 
     // Fetch all tenants
@@ -128,6 +135,21 @@ export default function SuperAdminDashboard() {
         }
     });
 
+    // Change User Password Mutation
+    const changePasswordMutation = useMutation({
+        mutationFn: async (data: typeof passwordForm) => {
+            await apiRequest("POST", "/api/auth/change-password", data);
+        },
+        onSuccess: () => {
+            toast({ title: "성공", description: "비밀번호가 변경되었습니다." });
+            setIsChangePasswordOpen(false);
+            setPasswordForm({ currentPassword: "", newPassword: "" });
+        },
+        onError: (error: any) => {
+            toast({ title: "실패", description: error.message, variant: "destructive" });
+        }
+    });
+
     const handleCreateTenant = (e: React.FormEvent) => {
         e.preventDefault();
         if (newTenantName.trim()) {
@@ -161,6 +183,15 @@ export default function SuperAdminDashboard() {
         deleteAdminMutation.mutate({ tenantId, userId });
     };
 
+    const handleChangePassword = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (passwordForm.newPassword.length < 6) {
+            toast({ title: "오류", description: "새 비밀번호는 최소 6자 이상이어야 합니다.", variant: "destructive" });
+            return;
+        }
+        changePasswordMutation.mutate(passwordForm);
+    };
+
     const openAdminDialog = (tenant: Tenant) => {
         setSelectedTenant(tenant);
         setIsCreateAdminOpen(true);
@@ -181,10 +212,68 @@ export default function SuperAdminDashboard() {
                         <ShieldCheck className="h-6 w-6 text-primary" />
                         슈퍼 어드민 콘솔
                     </div>
-                    <Button variant="ghost" onClick={() => logout()} className="gap-2">
-                        <LogOut className="h-4 w-4" />
-                        로그아웃
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="gap-2">
+                                    <Key className="h-4 w-4" />
+                                    비밀번호 변경
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>비밀번호 변경</DialogTitle>
+                                    <DialogDescription>
+                                        계정의 보안을 위해 주기적으로 비밀번호를 변경해주세요.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form onSubmit={handleChangePassword} className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="current-pw">현재 비밀번호</Label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                id="current-pw"
+                                                type="password"
+                                                value={passwordForm.currentPassword}
+                                                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                                                placeholder="현재 사용 중인 비밀번호"
+                                                className="pl-9"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="new-pw">새 비밀번호</Label>
+                                        <div className="relative">
+                                            <Key className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                id="new-pw"
+                                                type="password"
+                                                value={passwordForm.newPassword}
+                                                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                                placeholder="새로운 비밀번호 (6자 이상)"
+                                                className="pl-9"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button type="button" variant="outline" onClick={() => setIsChangePasswordOpen(false)}>취소</Button>
+                                        <Button type="submit" disabled={changePasswordMutation.isPending}>
+                                            {changePasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            변경하기
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+
+                        <Button variant="ghost" onClick={() => logout()} className="gap-2">
+                            <LogOut className="h-4 w-4" />
+                            로그아웃
+                        </Button>
+                    </div>
                 </div>
             </header>
 

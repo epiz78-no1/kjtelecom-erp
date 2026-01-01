@@ -5,7 +5,7 @@
   "license": "MIT",
   "main": "dist-server/index.cjs",
   "scripts": {
-    "dev": "tsx server/index.ts",
+    "dev": "tsx watch server/index.ts",
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist-server/index.cjs",
     "check": "tsc",

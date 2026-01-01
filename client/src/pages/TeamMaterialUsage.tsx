@@ -654,7 +654,7 @@ export default function TeamMaterialUsage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 space-y-4 pb-4">
+      <div className="hidden md:block flex-shrink-0 space-y-4 pb-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">
@@ -751,8 +751,9 @@ export default function TeamMaterialUsage() {
         </div>
       </div>
 
-      <div className="flex-1 rounded-md border overflow-hidden">
-        <div className="h-full overflow-auto relative">
+      <div className="flex-1 rounded-md border bg-background overflow-hidden relative">
+        {/* PC View: Table */}
+        <div className="hidden md:block h-full overflow-auto">
           <table className="w-full caption-bottom text-sm">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
@@ -830,42 +831,56 @@ export default function TeamMaterialUsage() {
                     })()}
                   </TableCell>
                   <TableCell className="text-center align-middle !py-1">
-                    {canWrite && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>사용 관리</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openEditDialog(record)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            수정
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => setDeleteRecord(record)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            삭제
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                    <div className="flex justify-center items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => openEditDialog(record)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive"
+                        onClick={() => {
+                          setDeleteRecord(record);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
               {filteredRecords.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                    사용 내역이 없습니다
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                    등록된 사용 내역이 없습니다
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </table>
+        </div>
+
+        {/* Mobile View: Simple Register Button Only */}
+        <div className="md:hidden h-full flex flex-col items-center justify-center bg-muted/10 p-4 space-y-6">
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-semibold">자재 사용 등록</h3>
+            <p className="text-muted-foreground text-sm">
+              아래 버튼을 눌러 자재 사용 내역을 등록하세요.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            className="w-full max-w-xs h-14 text-lg shadow-lg animate-in fade-in zoom-in duration-300"
+            onClick={openAddDialog}
+          >
+            <Plus className="mr-2 h-6 w-6" />
+            사용 등록하기
+          </Button>
         </div>
       </div>
 
@@ -878,7 +893,7 @@ export default function TeamMaterialUsage() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label>사용일 *</Label>
                 <Popover>
@@ -903,7 +918,7 @@ export default function TeamMaterialUsage() {
                 </Popover>
               </div>
 
-              <div className="grid gap-2">
+              <div className={`grid gap-2 ${formData.teamCategory ? 'hidden md:grid' : ''}`}>
                 <Label>사용팀 *</Label>
                 <Select
                   value={formData.teamCategory}
@@ -1123,7 +1138,12 @@ export default function TeamMaterialUsage() {
                   >
                     <Upload className="h-5 w-5 text-primary" />
                     <span className="text-sm font-medium text-primary">
-                      {formData.attachment ? formData.attachment.name : "파일 선택 또는 드래그"}
+                      {formData.attachment ? formData.attachment.name : (
+                        <>
+                          <span className="md:hidden">📷 사진 촬영 또는 앨범 선택</span>
+                          <span className="hidden md:inline">파일 선택 또는 드래그</span>
+                        </>
+                      )}
                     </span>
                   </label>
                 </div>

@@ -58,15 +58,15 @@ export function AppSidebar() {
   const currentTenant = tenants?.find(t => t.id === currentTenantId);
   const isAdmin = currentTenant?.role === 'admin' || currentTenant?.role === 'owner';
 
-  const filteredMenuItems = menuItems.filter(item => {
-    // 현장팀 권한 체크: usage만 write이고 나머지가 모두 none인 경우
-    const currentTenantData = tenants?.find(t => t.id === currentTenantId);
-    const isFieldTeam = currentTenantData?.permissions &&
-      currentTenantData.permissions.usage === 'write' &&
-      currentTenantData.permissions.incoming === 'none' &&
-      currentTenantData.permissions.outgoing === 'none' &&
-      currentTenantData.permissions.inventory === 'none';
+  // 현장팀 여부 확인 logic hoisting
+  const currentTenantData = tenants?.find(t => t.id === currentTenantId);
+  const isFieldTeam = currentTenantData?.permissions &&
+    currentTenantData.permissions.usage === 'write' &&
+    currentTenantData.permissions.incoming === 'none' &&
+    currentTenantData.permissions.outgoing === 'none' &&
+    currentTenantData.permissions.inventory === 'none';
 
+  const filteredMenuItems = menuItems.filter(item => {
     // 현장팀 권한인 경우 "현장팀 자재 사용등록"만 표시
     if (isFieldTeam) {
       return item.url === '/team-material-usage';
@@ -110,52 +110,56 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {/* 일반 자재 관리 */}
-            <Collapsible defaultOpen className="group/collapsible">
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip="일반 자재 관리">
-                    <span>일반 자재 관리</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {generalItems.map((item) => (
-                      <SidebarMenuSubItem key={item.title}>
-                        <SidebarMenuSubButton asChild isActive={location === item.url}>
-                          <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}>
-                            <item.icon className="h-4 w-4" />
-                            <span>{item.title}</span>
-                          </Link>
+            {/* 일반 자재 관리 - 항목이 있을 때만 표시 */}
+            {generalItems.length > 0 && (
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="일반 자재 관리">
+                      <span>일반 자재 관리</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {generalItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild isActive={location === item.url}>
+                            <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            )}
+
+            {/* 광케이블 자재 관리 - 현장팀에게는 숨김 */}
+            {!isFieldTeam && (
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="광케이블 자재 관리">
+                      <span>광케이블 자재 관리</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton className="pointer-events-none opacity-50">
+                          <span>준비 중...</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-
-            {/* 광케이블 자재 관리 */}
-            <Collapsible className="group/collapsible">
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip="광케이블 자재 관리">
-                    <span>광케이블 자재 관리</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton className="pointer-events-none opacity-50">
-                        <span>준비 중...</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            )}
 
             {/* 현장팀별 출고 현황 */}
             {filteredMenuItems.some(item => item.url === '/team-outgoing') && (
@@ -189,7 +193,7 @@ export function AppSidebar() {
 
             {/* 현장팀 자재 사용등록 */}
             {filteredMenuItems.some(item => item.url === '/team-material-usage') && (
-              <Collapsible className="group/collapsible">
+              <Collapsible defaultOpen={isFieldTeam} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip="현장팀 자재 사용등록">

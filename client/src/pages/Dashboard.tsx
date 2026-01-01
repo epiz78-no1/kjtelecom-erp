@@ -89,6 +89,9 @@ export default function Dashboard() {
       return division?.name === selectedDivision;
     });
 
+  // Sort by lastActivity desc
+  filteredTeams.sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
+
   // Debug logging for team activity
   useEffect(() => {
     if (teams.length > 0) {

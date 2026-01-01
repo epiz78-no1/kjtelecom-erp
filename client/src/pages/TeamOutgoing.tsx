@@ -152,6 +152,7 @@ export default function TeamOutgoing() {
               const division = divisions?.find(d => d.id === t.divisionId);
               return division?.name === selectedDivision;
             })
+            .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
             .map((team: any) => {
               // Calculate current material count for this team
               const teamStockCount = allStockItems.filter(item => item.teamCategory === team.name).length;

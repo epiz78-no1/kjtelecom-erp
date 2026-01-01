@@ -174,7 +174,10 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(positions, eq(userTenants.positionId, positions.id))
         .leftJoin(divisions, eq(userTenants.divisionId, divisions.id))
         .leftJoin(teams, eq(userTenants.teamId, teams.id))
-        .where(sql`${users.username} != 'admin'`) // Hide superadmin from list
+        .where(and(
+          eq(userTenants.tenantId, tenantId),
+          sql`${users.username} != 'admin'`
+        )) // Hide superadmin from list, filter by tenant explicitly
     );
   }
 
@@ -351,7 +354,8 @@ export class DatabaseStorage implements IStorage {
       })
         .from(teams)
         .leftJoin(userTenants, eq(teams.id, userTenants.teamId))
-        .groupBy(teams.id);
+        .groupBy(teams.id)
+        .orderBy(sql`${teams.lastActivity} DESC NULLS LAST`);
 
       return result.map((t: any) => ({ ...t, memberCount: Number(t.memberCount) }));
     });
@@ -366,7 +370,8 @@ export class DatabaseStorage implements IStorage {
         .from(teams)
         .leftJoin(userTenants, eq(teams.id, userTenants.teamId))
         .where(eq(teams.divisionId, divisionId))
-        .groupBy(teams.id);
+        .groupBy(teams.id)
+        .orderBy(sql`${teams.lastActivity} DESC NULLS LAST`);
 
       return result.map((t: any) => ({ ...t, memberCount: Number(t.memberCount) }));
     });
