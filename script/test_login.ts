@@ -1,7 +1,7 @@
 import { db } from "../server/db";
 import { users } from "../shared/schema";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 async function testLogin(username: string, pass: string) {
     const user = await db.query.users.findFirst({
