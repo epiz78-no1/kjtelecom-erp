@@ -726,50 +726,55 @@ export async function registerRoutes(
   });
 
   app.post("/api/incoming", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = apiInsertIncomingRecordSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({ error: parseResult.error.message });
-    }
+    try {
+      const parseResult = apiInsertIncomingRecordSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.message });
+      }
 
-    const tenantId = req.session!.tenantId!;
-    const record = await storage.createIncomingRecord({
-      ...parseResult.data,
-      tenantId
-    });
-
-    // Ensure inventory item exists
-    const inventoryItemsList = await storage.getInventoryItems(tenantId);
-    const matchingItem = inventoryItemsList.find(
-      item => item.productName === parseResult.data.productName &&
-        item.specification === (parseResult.data.specification || "") &&
-        item.division === parseResult.data.division
-    );
-
-    if (!matchingItem) {
-      const unitPrice = parseResult.data.unitPrice ?? 0;
-      await storage.createInventoryItem({
-        tenantId,
-        division: parseResult.data.division || "SKT",
-        category: parseResult.data.division || "SKT",
-        productName: parseResult.data.productName,
-        specification: parseResult.data.specification ?? "",
-        carriedOver: 0,
-        incoming: 0,
-        outgoing: 0,
-        remaining: 0,
-        unitPrice: unitPrice,
-        totalAmount: 0,
+      const tenantId = req.session!.tenantId!;
+      const record = await storage.createIncomingRecord({
+        ...parseResult.data,
+        tenantId
       });
+
+      // Ensure inventory item exists
+      const inventoryItemsList = await storage.getInventoryItems(tenantId);
+      const matchingItem = inventoryItemsList.find(
+        item => item.productName === parseResult.data.productName &&
+          item.specification === (parseResult.data.specification || "") &&
+          item.division === parseResult.data.division
+      );
+
+      if (!matchingItem) {
+        const unitPrice = parseResult.data.unitPrice ?? 0;
+        await storage.createInventoryItem({
+          tenantId,
+          division: parseResult.data.division || "SKT",
+          category: parseResult.data.division || "SKT",
+          productName: parseResult.data.productName,
+          specification: parseResult.data.specification ?? "",
+          carriedOver: 0,
+          incoming: 0,
+          outgoing: 0,
+          remaining: 0,
+          unitPrice: unitPrice,
+          totalAmount: 0,
+        });
+      }
+
+      await syncInventoryItem(
+        parseResult.data.productName,
+        parseResult.data.specification || "",
+        parseResult.data.division || "SKT",
+        tenantId
+      );
+
+      res.status(201).json(record);
+    } catch (error: any) {
+      console.error("[INCOMING] POST Error:", error);
+      res.status(500).json({ error: "입고 등록 중 오류가 발생했습니다: " + error.message });
     }
-
-    await syncInventoryItem(
-      parseResult.data.productName,
-      parseResult.data.specification || "",
-      parseResult.data.division || "SKT",
-      tenantId
-    );
-
-    res.status(201).json(record);
   });
 
   app.patch("/api/incoming/:id", requireAuth, requireTenant, async (req, res) => {
