@@ -45,6 +45,9 @@ app.use(express.json({
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
+app.set("trust proxy", 1); // Trust first proxy (Vercel) for secure cookies
+
+
 // Session configuration
 const PgStore = connectPgSimple(session);
 
