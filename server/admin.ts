@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { db } from "./db";
-import { storage } from "./storage";
-import { users, userTenants, tenants } from "../shared/schema";
+import { db } from "./db.js";
+import { storage } from "./storage.js";
+import { users, userTenants, tenants } from "../shared/schema.js";
 import { eq, and, or } from "drizzle-orm";
 import bcrypt from "bcryptjs"; // Use bcryptjs as installed
 

@@ -1,11 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { db } from "./db";
-import { divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords } from "@shared/schema";
-import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema, insertIncomingRecordSchema } from "@shared/schema";
-import { apiInsertTeamSchema, apiInsertInventoryItemSchema, apiInsertOutgoingRecordSchema, apiInsertMaterialUsageRecordSchema, apiInsertIncomingRecordSchema } from "@shared/schema";
-import { requireAuth, requireTenant, requireAdmin } from "./middleware/auth";
+import { storage } from "./storage.js";
+import { db } from "./db.js";
+import { divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords } from "../shared/schema.js";
+import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema, insertIncomingRecordSchema } from "../shared/schema.js";
+import { apiInsertTeamSchema, apiInsertInventoryItemSchema, apiInsertOutgoingRecordSchema, apiInsertMaterialUsageRecordSchema, apiInsertIncomingRecordSchema } from "../shared/schema.js";
+import { requireAuth, requireTenant, requireAdmin } from "./middleware/auth.js";
 import { eq, and } from "drizzle-orm";
 
 export async function registerRoutes(
@@ -21,7 +21,7 @@ export async function registerRoutes(
   // Manual trigger for debugging if needed: POST /api/debug/init
   app.post("/api/debug/init", async (req, res) => {
     try {
-      const { ensureUsers, backfillInventory } = await import("./db_init");
+      const { ensureUsers, backfillInventory } = await import("./db_init.js");
       await ensureUsers();
       await backfillInventory();
       res.json({ success: true, message: "DB Initialized" });

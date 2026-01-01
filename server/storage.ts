@@ -11,8 +11,8 @@ import {
   type UserTenant, type InsertUserTenant,
   users, divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords,
   positions, invitations, userTenants
-} from "@shared/schema";
-import { db, withTenant } from "./db";
+} from "../shared/schema.js";
+import { db, withTenant } from "./db.js";
 import { eq, and, inArray, sql, count, getTableColumns, asc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 

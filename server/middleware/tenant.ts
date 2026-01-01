@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { db } from "../db";
+import { db } from "../db.js";
 import { eq, and } from "drizzle-orm";
-import { userTenants, tenants } from "@shared/schema";
+import { userTenants, tenants } from "../../shared/schema.js";
 
 /**
  * Tenant context middleware

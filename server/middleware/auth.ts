@@ -40,8 +40,8 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    const { db } = await import("../db");
-    const { userTenants } = await import("@shared/schema");
+    const { db } = await import("../db.js");
+    const { userTenants } = await import("../../shared/schema.js");
     const { and, eq, or } = await import("drizzle-orm");
 
     const [userTenant] = await db
