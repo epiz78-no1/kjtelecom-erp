@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Search, Loader2, Trash2, Plus, Calendar, Pencil, MoreHorizontal, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
+
 import type { MaterialUsageRecord, InventoryItem, OutgoingRecord } from "@shared/schema";
 import {
   Table,
@@ -77,7 +79,18 @@ export default function TeamMaterialUsage() {
 
   // Permissions
   const canWrite = checkPermission("usage", "write");
-  // const canRegister = canWrite || checkPermission("usage", "own_only");
+
+  // 현장팀 권한 체크: usage만 write이고 나머지가 모두 none인 경우
+  const currentTenantData = tenants.find(t => t.id === currentTenant);
+  const isFieldTeam = currentTenantData?.permissions &&
+    currentTenantData.permissions.usage === 'write' &&
+    currentTenantData.permissions.incoming === 'none' &&
+    currentTenantData.permissions.outgoing === 'none' &&
+    currentTenantData.permissions.inventory === 'none';
+
+  // 엑셀 다운로드 및 전체 관리 권한 (현장팀 제외)
+  const canManage = canWrite && !isFieldTeam;
+
   const canRegister = true; // Everyone can register usage
   const isOwnOnly = !canWrite; // If not admin/write, then own only mode logic applies for suggestions
 
@@ -96,6 +109,7 @@ export default function TeamMaterialUsage() {
     division: "SKT",
     category: "",
     teamCategory: "",
+    teamId: undefined as string | undefined,
     projectName: "",
     productName: "",
     specification: "",
@@ -105,8 +119,37 @@ export default function TeamMaterialUsage() {
     drumNumber: "",
     inventoryItemId: undefined as number | undefined,
     remark: "",
-    attachment: null as { name: string, data: string, size?: number, type?: string } | null
+    attachment: null as { name: string, data: string, size?: number, type?: string } | null,
+    // 다중 품목 지원
+    items: [{
+      id: Date.now().toString(),
+      category: "",
+      productName: "",
+      specification: "",
+      quantity: "",
+      inventoryItemId: undefined as number | undefined,
+      remark: ""
+    }] as Array<{
+      id: string;
+      category: string;
+      productName: string;
+      specification: string;
+      quantity: string;
+      inventoryItemId?: number;
+      remark: string;
+    }>
   });
+
+  const lastItemRef = useRef<HTMLDivElement>(null);
+
+  // Auto scroll when items added
+  useEffect(() => {
+    if (formData.items && formData.items.length > 1) {
+      setTimeout(() => {
+        lastItemRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 100);
+    }
+  }, [formData.items?.length]);
 
   const { data: members = [], refetch: refetchMembers } = useQuery<any[]>({
     queryKey: ["/api/members/basic"],
@@ -228,11 +271,16 @@ export default function TeamMaterialUsage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/material-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       toast({ title: "사용 내역이 등록되었습니다" });
-      closeDialog();
     },
-    onError: () => {
-      toast({ title: "등록 실패", variant: "destructive" });
+    onError: (error: any) => {
+      const errorMessage = error?.message || "등록 실패";
+      toast({
+        title: "등록 실패",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 
@@ -242,11 +290,16 @@ export default function TeamMaterialUsage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/material-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       toast({ title: "사용 내역이 수정되었습니다" });
-      closeDialog();
     },
-    onError: () => {
-      toast({ title: "수정 실패", variant: "destructive" });
+    onError: (error: any) => {
+      const errorMessage = error?.message || "수정 실패";
+      toast({
+        title: "수정 실패",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 
@@ -372,6 +425,7 @@ export default function TeamMaterialUsage() {
       division: defaultDivision,
       category: "",
       teamCategory: defaultTeam,
+      teamId: undefined,
       projectName: "",
       productName: "",
       specification: "",
@@ -381,7 +435,16 @@ export default function TeamMaterialUsage() {
       drumNumber: "",
       inventoryItemId: undefined,
       remark: "",
-      attachment: null
+      attachment: null,
+      items: [{
+        id: Date.now().toString(),
+        category: "",
+        productName: "",
+        specification: "",
+        quantity: "",
+        inventoryItemId: undefined,
+        remark: ""
+      }]
     });
     setSelectedDate(new Date());
     setDialogOpen(true);
@@ -399,16 +462,26 @@ export default function TeamMaterialUsage() {
       division: record.division,
       category: record.category || "",
       teamCategory: record.teamCategory,
+      teamId: record.teamId || undefined,
       projectName: record.projectName,
       productName: record.productName,
       specification: record.specification,
       quantity: record.quantity.toString(),
       recipient: record.recipient,
-      type: record.type || "general",
+      type: "general",
       drumNumber: "",
       inventoryItemId: record.inventoryItemId || undefined,
       remark: record.remark || "",
-      attachment: null
+      attachment: null,
+      items: [{
+        id: Date.now().toString(),
+        category: record.category || "",
+        productName: record.productName,
+        specification: record.specification,
+        quantity: record.quantity.toString(),
+        inventoryItemId: record.inventoryItemId || undefined,
+        remark: record.remark || ""
+      }]
     });
 
     try {
@@ -431,66 +504,133 @@ export default function TeamMaterialUsage() {
     setFormData({
       division: "SKT",
       category: "",
-      teamCategory: "접속팀",
+      teamCategory: "",
+      teamId: undefined,
       projectName: "",
       productName: "",
       specification: "",
       quantity: "",
-      recipient: user?.name || "",
+      recipient: "",
       type: "general",
       drumNumber: "",
       inventoryItemId: undefined,
       remark: "",
-      attachment: null
+      attachment: null,
+      items: [{
+        id: Date.now().toString(),
+        category: "",
+        productName: "",
+        specification: "",
+        quantity: "",
+        inventoryItemId: undefined,
+        remark: ""
+      }]
     });
     setSelectedDate(new Date());
   };
 
-  const handleSubmit = () => {
-    if (!selectedDate || !formData.teamCategory || !formData.productName || !formData.quantity || !formData.recipient) {
-      toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
+  const handleSubmit = async () => {
+    if (!selectedDate || !formData.teamCategory || !formData.recipient) {
+      toast({ title: "필수 항목 누락", description: "날짜, 팀, 사용자는 필수입니다.", variant: "destructive" });
       return;
     }
 
-    // let attributesObj: any = {};
-    // if (formData.type === "cable") {
-    //   attributesObj.drumNumber = formData.drumNumber;
-    // }
-    // const attributes = JSON.stringify(attributesObj);
-    const attributesObj: any = {};
-    if (formData.attachment) {
-      attributesObj.attachment = formData.attachment;
+    // 유효한 아이템 필터링 (자재가 선택되고 수량이 있는 것)
+    const validItems = formData.items.filter(item => item.inventoryItemId && item.quantity);
+
+    if (validItems.length === 0) {
+      toast({ title: "품목 누락", description: "최소 하나의 유효한 품목(자재 및 수량)을 입력해주세요.", variant: "destructive" });
+      return;
     }
-    const attributes = JSON.stringify(attributesObj);
 
-    // Auto-detect division from inventory if not explicitly set (preserves previous logic, adds safety)
-    // Find matching inventory item to ensure we use the correct division
-    const matchingItem = inventoryItems.find(
-      i => i.productName === formData.productName &&
-        (i.specification || "") === (formData.specification || "")
-    );
-
-    const correctDivision = matchingItem ? matchingItem.division : formData.division;
-
-    const data = {
-      date: format(selectedDate, "yyyy-MM-dd"),
-      division: correctDivision,
-      category: formData.category,
-      teamCategory: formData.teamCategory,
-      projectName: formData.projectName,
-      productName: formData.productName,
-      specification: formData.specification,
-      quantity: parseInt(formData.quantity) || 0,
-      recipient: formData.recipient,
-      type: formData.type,
-      attributes: attributes,
-      remark: formData.remark,
-    };
-
+    // 수정 모드: 기존 항목 수정 (items[0] 사용)
     if (editingRecord) {
-      updateMutation.mutate({ ...data, id: editingRecord.id } as Omit<MaterialUsageRecord, "tenantId">);
-    } else {
-      createMutation.mutate(data as Omit<MaterialUsageRecord, "id" | "tenantId">);
+      const item = validItems[0];
+      const attributesObj: any = {};
+
+      // 수정 시 첨부파일 변경이 있으면 처리 (formData.attachment가 null이면 기존 유지? 로직 확인 필요하지만 일단 기존대로)
+      if (formData.attachment) {
+        attributesObj.attachment = formData.attachment;
+      } else if (editingRecord.attributes) {
+        // 기존 첨부파일 유지하려면 로직이 복잡해질 수 있음. 
+        // 기존 로직: setFormData 시 attachment를 null로 초기화하고, 속성 파싱해서 넣었음.
+        // 여기선 formData.attachment가 있으면 덮어쓰고, 없으면 안 보냄 (또는 null).
+        // 기존 처리를 따름.
+      }
+
+      const data = {
+        date: format(selectedDate, "yyyy-MM-dd"),
+        division: "SKT",
+        category: item.category,
+        teamCategory: formData.teamCategory,
+        projectName: formData.projectName,
+        productName: item.productName,
+        specification: item.specification,
+        quantity: parseInt(item.quantity) || 0,
+        recipient: formData.recipient,
+        type: "general",
+        attributes: JSON.stringify(attributesObj),
+        remark: item.remark,
+        inventoryItemId: item.inventoryItemId
+      };
+
+      closeDialog();
+      toast({ title: "수정중입니다", description: "잠시만 기다려주세요." });
+      try {
+        await updateMutation.mutateAsync({ ...data, id: editingRecord.id } as Omit<MaterialUsageRecord, "tenantId">);
+      } catch (e) {
+        // Error handled in onError
+      }
+      return;
+    }
+
+    // 등록 모드: 다중 저장 (직접 API 호출)
+    try {
+      closeDialog();
+      toast({ title: "등록중입니다", description: `${validItems.length}건의 자재 사용 등록을 진행합니다.` });
+
+      let successCount = 0;
+
+      for (let i = 0; i < validItems.length; i++) {
+        const item = validItems[i];
+        const attributesObj: any = {};
+        // 첫 번째 아이템에만 첨부파일 포함
+        if (i === 0 && formData.attachment) {
+          attributesObj.attachment = formData.attachment;
+        }
+
+        const data = {
+          date: format(selectedDate, "yyyy-MM-dd"),
+          division: "SKT",
+          category: item.category,
+          teamCategory: formData.teamCategory,
+          teamId: formData.teamId,
+          projectName: formData.projectName,
+          productName: item.productName,
+          specification: item.specification,
+          quantity: parseInt(item.quantity) || 0,
+          recipient: formData.recipient,
+          type: "general",
+          attributes: JSON.stringify(attributesObj),
+          remark: item.remark,
+          inventoryItemId: item.inventoryItemId
+        };
+
+        await apiRequest("POST", "/api/material-usage", data);
+        successCount++;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/material-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      toast({ title: "등록 완료", description: `${successCount}건의 사용 내역이 저장되었습니다.` });
+
+    } catch (error: any) {
+      toast({
+        title: "등록 실패",
+        description: error.message || "오류가 발생했습니다",
+        variant: "destructive"
+      });
     }
   };
 
@@ -539,7 +679,7 @@ export default function TeamMaterialUsage() {
                 </SelectContent>
               </Select>
             </div>
-            {canWrite && (
+            {canManage && (
               <>
                 <Button
                   variant="outline"
@@ -558,17 +698,24 @@ export default function TeamMaterialUsage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={openAddDialog} data-testid="button-add-usage">
-                      <Plus className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem onClick={() => openAddDialog()}>
+                      <Pencil className="mr-2 h-4 w-4" />
                       직접 등록
                     </DropdownMenuItem>
+
                     <DropdownMenuItem onClick={() => { /* open bulk upload dialog */ }}>
                       <Upload className="mr-2 h-4 w-4" />
-                      일괄 등록
+                      일괄 등록 (Excel)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
+            )}
+            {canRegister && !canManage && (
+              <Button className="flex items-center gap-2" onClick={openAddDialog} data-testid="button-add-usage">
+                <Plus className="h-4 w-4" />
+                등록
+              </Button>
             )}
           </div>
         </div>
@@ -608,7 +755,7 @@ export default function TeamMaterialUsage() {
         <div className="h-full overflow-auto relative">
           <table className="w-full caption-bottom text-sm">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-              <TableRow className="h-9">
+              <TableRow className="h-8">
                 <TableHead className="w-[40px] text-center align-middle bg-background">
                   {isTenantOwner ? (
                     <Checkbox
@@ -618,24 +765,24 @@ export default function TeamMaterialUsage() {
                     />
                   ) : null}
                 </TableHead>
-                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">팀</TableHead>
-                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
+                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background !py-1 !h-8">사용일</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">구분</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">팀</TableHead>
+                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background !py-1 !h-8">공사명</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background !py-1 !h-8">품명</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background !py-1 !h-8">규격</TableHead>
+                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background !py-1 !h-8">수량</TableHead>
 
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용자</TableHead>
-                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">비고</TableHead>
-                <TableHead className="font-semibold w-[50px] text-center align-middle bg-background">첨부</TableHead>
-                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">사용자</TableHead>
+                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background !py-1 !h-8">비고</TableHead>
+                <TableHead className="font-semibold w-[50px] text-center align-middle bg-background !py-1 !h-8">첨부</TableHead>
+                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background !py-1 !h-8"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRecords.map((record) => (
-                <TableRow key={record.id} className="h-9" data-testid={`row-usage-${record.id}`}>
-                  <TableCell className="text-center align-middle">
+                <TableRow key={record.id} className="h-8" data-testid={`row-usage-${record.id}`}>
+                  <TableCell className="text-center align-middle !py-1">
                     {isTenantOwner ? (
                       <Checkbox
                         checked={selectedIds.has(record.id)}
@@ -644,17 +791,17 @@ export default function TeamMaterialUsage() {
                       />
                     ) : null}
                   </TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.date}</TableCell>
 
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.teamCategory}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
-                  <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap truncate max-w-[150px]" title={record.remark || ""}>{record.remark}</TableCell>
-                  <TableCell className="text-center align-middle">
+                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.category}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.teamCategory}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[200px] truncate !py-1">{record.projectName}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.productName}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[120px] truncate !py-1">{record.specification}</TableCell>
+                  <TableCell className="text-center align-middle font-medium whitespace-nowrap !py-1">{record.quantity.toLocaleString()}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.recipient}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap truncate max-w-[150px] py-1" title={record.remark || ""}>{record.remark}</TableCell>
+                  <TableCell className="text-center align-middle !py-1">
                     {(() => {
                       try {
                         if (!record.attributes) return null;
@@ -682,7 +829,7 @@ export default function TeamMaterialUsage() {
                       return null;
                     })()}
                   </TableCell>
-                  <TableCell className="text-center align-middle">
+                  <TableCell className="text-center align-middle !py-1">
                     {canWrite && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -723,7 +870,7 @@ export default function TeamMaterialUsage() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingRecord ? "사용 내역 수정" : "사용 내역 등록"}</DialogTitle>
             <DialogDescription>
@@ -761,9 +908,10 @@ export default function TeamMaterialUsage() {
                 <Select
                   value={formData.teamCategory}
                   onValueChange={(value) => {
-                    setFormData({ ...formData, teamCategory: value, recipient: "" }); // Reset recipient on team change
+                    const team = teams.find((t: any) => t.name === value);
+                    setFormData({ ...formData, teamCategory: value, teamId: team?.id, recipient: "" }); // Reset recipient on team change
                   }}
-                  disabled={!canWrite} // Enabled only if user has 'write' permission
+                  disabled={!canManage} // 현장팀은 자신의 팀만 사용 가능
                 >
                   <SelectTrigger data-testid="select-usage-team">
                     <SelectValue placeholder="팀 선택" />
@@ -783,7 +931,7 @@ export default function TeamMaterialUsage() {
                 <Select
                   value={formData.recipient}
                   onValueChange={(value) => setFormData({ ...formData, recipient: value })}
-                  disabled={!formData.teamCategory || !canWrite} // Enabled only if team is selected AND user has 'write' permission
+                  disabled={!formData.teamCategory || !canManage} // 현장팀은 자신만 선택 가능
                 >
                   <SelectTrigger data-testid="select-usage-recipient">
                     <SelectValue placeholder={formData.teamCategory ? "사용자 선택" : "팀 선택 필요"} />
@@ -811,42 +959,6 @@ export default function TeamMaterialUsage() {
               </div>
             </div>
 
-            <div className="grid gap-2 border p-3 rounded-md bg-muted/20">
-              <Label>보유 자재 선택</Label>
-              <Select
-                disabled={!formData.teamCategory}
-                onValueChange={(key) => {
-                  const item = teamInventory.find(i => i.id === key);
-                  if (item) {
-                    setFormData({
-                      ...formData,
-                      division: item.division,
-                      category: item.category,
-                      productName: item.productName,
-                      specification: item.specification,
-                      type: item.type,
-                      inventoryItemId: item.inventoryItemId,
-                      quantity: ""
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={formData.teamCategory ? "보유 자재 선택..." : "팀을 먼저 선택하세요"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamInventory.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.productName} ({item.specification}) - 잔여: {item.remaining.toLocaleString()}
-                    </SelectItem>
-                  ))}
-                  {teamInventory.length === 0 && (
-                    <SelectItem value="none" disabled>보유 자재 없음</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="grid gap-2">
               <Label>공사명</Label>
               <Input
@@ -857,28 +969,105 @@ export default function TeamMaterialUsage() {
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">수량 *</Label>
-              <div className="col-span-3">
-                <Input
-                  type="number"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  placeholder="수량 입력"
-                  data-testid="input-usage-quantity"
-                />
-              </div>
-            </div>
+            <div className="space-y-4">
+              <Label>사용 자재 목록</Label>
+              {formData.items.map((item, index) => (
+                <div
+                  key={item.id}
+                  ref={index === formData.items.length - 1 ? lastItemRef : null}
+                  className="grid gap-3 border p-3 rounded-md bg-muted/20 relative"
+                >
+                  {formData.items.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 h-6 w-6 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newItems = formData.items.filter((_, i) => i !== index);
+                        setFormData({ ...formData, items: newItems });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">비고</Label>
-              <div className="col-span-3">
-                <Input
-                  value={formData.remark}
-                  onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                  placeholder="비고 입력"
-                />
-              </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs text-muted-foreground">보유 자재 선택 ({index + 1})</Label>
+                    <Select
+                      disabled={!formData.teamCategory}
+                      value={item.inventoryItemId ? teamInventory.find(inv => inv.inventoryItemId === item.inventoryItemId)?.id?.toString() : ""}
+                      onValueChange={(key) => {
+                        const selectedInventory = teamInventory.find(i => i.id.toString() === key);
+                        if (selectedInventory) {
+                          const newItems = [...formData.items];
+                          newItems[index] = {
+                            ...newItems[index],
+                            category: selectedInventory.category,
+                            productName: selectedInventory.productName,
+                            specification: selectedInventory.specification,
+                            inventoryItemId: selectedInventory.inventoryItemId,
+                          };
+
+                          if (index === formData.items.length - 1) {
+                            newItems.push({
+                              id: Date.now().toString(),
+                              category: "",
+                              productName: "",
+                              specification: "",
+                              quantity: "",
+                              inventoryItemId: undefined,
+                              remark: ""
+                            });
+                          }
+
+                          setFormData({ ...formData, items: newItems });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={formData.teamCategory ? "자재를 선택하세요" : "팀을 먼저 선택하세요"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teamInventory
+                          .filter(inv => !formData.items.some((existingItem, i) => i !== index && existingItem.inventoryItemId === inv.inventoryItemId))
+                          .map((inv) => (
+                            <SelectItem key={inv.id} value={inv.id.toString()}>
+                              {inv.productName} ({inv.specification}) - 잔여: {inv.remaining.toLocaleString()}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs text-muted-foreground">수량 *</Label>
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const newItems = [...formData.items];
+                          newItems[index].quantity = e.target.value;
+                          setFormData({ ...formData, items: newItems });
+                        }}
+                        placeholder="수량"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs text-muted-foreground">비고</Label>
+                      <Input
+                        value={item.remark}
+                        onChange={(e) => {
+                          const newItems = [...formData.items];
+                          newItems[index].remark = e.target.value;
+                          setFormData({ ...formData, items: newItems });
+                        }}
+                        placeholder="비고"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="grid grid-cols-4 items-start gap-4">
@@ -890,22 +1079,41 @@ export default function TeamMaterialUsage() {
                     type="file"
                     accept="image/*,application/pdf"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
+                        try {
+                          // 이미지 압축 적용
+                          const compressed = await compressImage(file, {
+                            maxWidth: 1920,
+                            maxHeight: 1920,
+                            quality: 0.8,
+                            maxSizeMB: 5
+                          });
+
                           setFormData({
                             ...formData,
-                            attachment: {
-                              name: file.name,
-                              data: event.target?.result as string,
-                              size: file.size,
-                              type: file.type
-                            }
+                            attachment: compressed
                           });
-                        };
-                        reader.readAsDataURL(file);
+
+                          // 압축 결과 알림
+                          if (file.type.startsWith('image/')) {
+                            const originalSize = formatFileSize(file.size);
+                            const compressedSize = formatFileSize(compressed.size);
+                            toast({
+                              title: "이미지 압축 완료",
+                              description: `${originalSize} → ${compressedSize}`,
+                            });
+                          }
+                        } catch (error: any) {
+                          toast({
+                            title: "파일 업로드 실패",
+                            description: error.message || "파일을 처리할 수 없습니다",
+                            variant: "destructive"
+                          });
+                          // 입력 초기화
+                          e.target.value = '';
+                        }
                       }
                     }}
                   />
@@ -936,7 +1144,7 @@ export default function TeamMaterialUsage() {
                 )}
               </div>
             </div>
-          </div>
+          </div >
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
               취소
@@ -949,8 +1157,8 @@ export default function TeamMaterialUsage() {
               {(createMutation.isPending || updateMutation.isPending) ? "처리 중..." : editingRecord ? "수정" : "등록"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </DialogContent >
+      </Dialog >
 
       <AlertDialog open={!!deleteRecord} onOpenChange={(open) => !open && setDeleteRecord(null)}>
         <AlertDialogContent>
@@ -981,6 +1189,8 @@ export default function TeamMaterialUsage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+
     </div >
   );
 }

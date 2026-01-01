@@ -197,7 +197,7 @@ export default function TeamOutgoing() {
         <div className="h-full overflow-auto relative">
           <table className="w-full caption-bottom text-sm">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-              <TableRow className="h-9">
+              <TableRow className="h-8">
                 <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
                 <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
                 <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">품명</TableHead>
@@ -214,7 +214,7 @@ export default function TeamOutgoing() {
                 </TableRow>
               ) : (
                 filteredStock.map((item) => (
-                  <TableRow key={item.id} className="h-9">
+                  <TableRow key={item.id} className="h-8">
                     <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>

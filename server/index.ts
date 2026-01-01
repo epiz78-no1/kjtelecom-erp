@@ -106,41 +106,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  if (!process.env.DATABASE_URL) {
-    const { db } = await import("./db");
-    const { users } = await import("@shared/schema");
-    const { migrate } = await import("drizzle-orm/pglite/migrator");
-    const fs = await import("fs");
-    const path = await import("path");
-
-    // Check if migrations folder exists and has files
-    const migrationsDir = "./migrations";
-    if (fs.existsSync(migrationsDir)) {
-      try {
-        log("Applying database migrations...");
-        await migrate(db, { migrationsFolder: migrationsDir });
-        log("Migrations applied successfully");
-      } catch (e: any) {
-        log(`Migration failed: ${e.message}`, "error");
-      }
-    }
-
-    // Auto-ensure essential users/tenants if no users exist
-    const userCount = await db.select().from(users);
-    if (userCount.length === 0) {
-      log("No users found. Ensuring essential accounts...");
-      try {
-        const { ensureUsers } = await import("./db_init");
-        await ensureUsers();
-        log("Essential accounts ensured");
-      } catch (e: any) {
-        log(`Failed to ensure accounts: ${e.message}`, "error");
-      }
-    }
-  }
-
-  // Register authentication routes
-
   // Register authentication routes
   registerAuthRoutes(app);
 

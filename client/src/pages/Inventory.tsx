@@ -477,7 +477,7 @@ export default function Inventory() {
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.category}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
                     <TableCell className="text-center align-middle max-w-[120px] truncate">{item.specification}</TableCell>
-                    {/* <TableCell className="text-center align-middle whitespace-nowrap">{item.incoming.toLocaleString()}</TableCell> REMOVED */}
+
 
                     {/* 재고현황 (Total) - Black text */}
                     <TableCell className="text-center align-middle whitespace-nowrap font-medium">

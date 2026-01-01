@@ -150,15 +150,19 @@ export class DatabaseStorage implements IStorage {
 
   async updateMember(userId: string, tenantId: string, updates: Partial<InsertUserTenant> & { name?: string; phoneNumber?: string }): Promise<UserTenant | undefined> {
     const { name, phoneNumber, ...tenantUpdates } = updates;
+    console.log("[STORAGE] updateMember called:", { userId, tenantId, updates, tenantUpdates });
+
     return await db.transaction(async (tx) => {
       // 1. Update userTenants if there are tenant-specific updates
       let updatedTenant;
       if (Object.keys(tenantUpdates).length > 0) {
+        console.log("[STORAGE] Updating userTenants with:", tenantUpdates);
         [updatedTenant] = await tx
           .update(userTenants)
           .set(tenantUpdates as any)
           .where(and(eq(userTenants.userId, userId), eq(userTenants.tenantId, tenantId)))
           .returning();
+        console.log("[STORAGE] Updated tenant:", updatedTenant);
       } else {
         // Just verify existence if no tenant updates
         [updatedTenant] = await tx
@@ -171,6 +175,7 @@ export class DatabaseStorage implements IStorage {
 
       // 2. Update users table if name or phoneNumber is provided
       if (name !== undefined || phoneNumber !== undefined) {
+        console.log("[STORAGE] Updating users table:", { name, phoneNumber });
         await tx
           .update(users)
           .set({
@@ -180,6 +185,7 @@ export class DatabaseStorage implements IStorage {
           .where(eq(users.id, userId));
       }
 
+      console.log("[STORAGE] Final updatedTenant:", updatedTenant);
       return updatedTenant;
     });
   }

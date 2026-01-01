@@ -150,18 +150,20 @@ export function registerAdminRoutes(app: any) {
                 return res.status(403).json({ error: "관리자 권한이 필요합니다" });
             }
 
-            const { role, permissions, teamId, positionId, divisionId } = req.body;
+            const { role, permissions, teamId, positionId, divisionId, status, name, phoneNumber } = req.body;
 
-            const [updated] = await db.update(userTenants)
-                .set({
-                    role,
-                    permissions,
-                    teamId,
-                    positionId,
-                    divisionId
-                })
-                .where(and(eq(userTenants.tenantId, tenantId!), eq(userTenants.userId, targetUserId)))
-                .returning();
+            const updates = {
+                role,
+                permissions,
+                teamId,
+                positionId,
+                divisionId,
+                status,
+                name,
+                phoneNumber
+            };
+
+            const updated = await storage.updateMember(targetUserId, tenantId!, updates);
 
             if (!updated) {
                 return res.status(404).json({ error: "구성원을 찾을 수 없습니다" });

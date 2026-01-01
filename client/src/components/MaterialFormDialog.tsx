@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InventoryItem } from "@shared/schema";
 
 export interface MaterialFormData {
@@ -66,20 +65,10 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
     attributes: "{}",
   });
 
-  const [drumNumber, setDrumNumber] = useState("");
-  const [cableLength, setCableLength] = useState("");
-
   useEffect(() => {
     if (editingItem) {
-      let attrs: any = {};
-      try {
-        attrs = JSON.parse(editingItem.attributes || "{}");
-      } catch (e) {
-        attrs = {};
-      }
-
       setFormData({
-        type: editingItem.type || "general",
+        type: "general",
         category: editingItem.category,
         productName: editingItem.productName,
         specification: editingItem.specification,
@@ -90,11 +79,8 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
         remaining: editingItem.remaining,
         unitPrice: editingItem.unitPrice,
         totalAmount: editingItem.totalAmount,
-        attributes: editingItem.attributes || "{}",
+        attributes: "{}",
       });
-
-      setDrumNumber(attrs.drumNumber || "");
-      setCableLength(attrs.cableLength || "");
     } else {
       setFormData({
         type: "general",
@@ -110,8 +96,6 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
         totalAmount: 0,
         attributes: "{}",
       });
-      setDrumNumber("");
-      setCableLength("");
     }
   }, [editingItem, open]);
 
@@ -129,16 +113,9 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
     const totalStock = remaining + (outgoing - usage);
     const totalAmount = totalStock * unitPrice;
 
-    // Attributes construction
-    let attributesObj: any = {};
-    if (formData.type === "cable") {
-      attributesObj.drumNumber = drumNumber;
-    }
-    const attributes = JSON.stringify(attributesObj);
-
     onSubmit({
       ...formData,
-      attributes,
+      attributes: "{}",
       carriedOver,
       incoming,
       outgoing,
@@ -162,162 +139,144 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 py-4">
 
-            <div className="flex flex-col gap-3 mb-2">
-              <Label>자재 유형</Label>
-              <RadioGroup
-                defaultValue="general"
-                value={formData.type}
-                onValueChange={(val) => setFormData({ ...formData, type: val })}
-                className="flex flex-row gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="general" id="r1" />
-                  <Label htmlFor="r1">일반 자재</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cable" id="r2" />
-                  <Label htmlFor="r2">케이블 (Drum/M)</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="category">구분 *</Label>
-                <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="예: SKT"
-                  required
-                  data-testid="input-category"
-                />
+            {/* 기본 정보 섹션 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-sm text-foreground/70">기본 정보</h4>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="productName">품명 *</Label>
-                <Input
-                  id="productName"
-                  value={formData.productName}
-                  onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                  placeholder="예: 광접속함체 직선형"
-                  required
-                  data-testid="input-product-name"
-                />
-              </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="specification">규격 *</Label>
-              <Input
-                id="specification"
-                value={formData.specification}
-                onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                placeholder={formData.type === 'cable' ? "예: 가공 96C" : "예: 가공 24C"}
-                required
-                data-testid="input-specification"
-              />
-            </div>
-
-            {formData.type === "cable" && (
-              <div className="grid grid-cols-2 gap-4 bg-muted/30 p-2 rounded-md">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="drumNumber" className="text-blue-600">드럼 번호 (Drum No.)</Label>
+                  <Label htmlFor="category">구분 <span className="text-red-500">*</span></Label>
                   <Input
-                    id="drumNumber"
-                    value={drumNumber}
-                    onChange={(e) => setDrumNumber(e.target.value)}
-                    placeholder="D-12345"
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder="예: SKT"
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="productName">품명 <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="productName"
+                    value={formData.productName}
+                    onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
+                    placeholder="예: 광접속함체"
+                    required
+                    className="h-9"
                   />
                 </div>
               </div>
-            )}
 
-            <div className="grid grid-cols-4 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="carriedOver">{formData.type === 'cable' ? "이월(M)" : "이월재"}</Label>
+                <Label htmlFor="specification">규격 <span className="text-red-500">*</span></Label>
                 <Input
-                  id="carriedOver"
-                  type="number"
-                  value={formData.carriedOver}
-                  onChange={(e) => setFormData({ ...formData, carriedOver: e.target.value })}
-                  placeholder="0"
-                  data-testid="input-carried-over"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="incoming" className="text-muted-foreground">{formData.type === 'cable' ? "입고(M)" : "입고량"} (Read-Only)</Label>
-                <Input
-                  id="incoming"
-                  type="number"
-                  value={formData.incoming}
-                  readOnly
-                  className="bg-muted"
-                  placeholder="0"
-                  data-testid="input-incoming"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="outgoing" className="text-muted-foreground">{formData.type === 'cable' ? "출고(M)" : "출고량"} (To Team)</Label>
-                <Input
-                  id="outgoing"
-                  type="number"
-                  value={formData.outgoing}
-                  readOnly
-                  className="bg-muted"
-                  placeholder="0"
-                  data-testid="input-outgoing"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="usage" className="text-muted-foreground">사용량 (Used)</Label>
-                <Input
-                  id="usage"
-                  type="number"
-                  value={formData.usage}
-                  readOnly
-                  className="bg-muted"
-                  placeholder="0"
+                  id="specification"
+                  value={formData.specification}
+                  onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
+                  placeholder="예: 가공 24C"
+                  required
+                  className="h-9"
                 />
               </div>
             </div>
 
-            <div className="space-y-3 bg-slate-50 p-4 rounded-lg border">
-              <h4 className="font-semibold text-sm text-slate-700">재고 현황 미리보기</h4>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">사무실 보유재고</div>
-                  <div className="font-bold text-lg">{remaining.toLocaleString()}</div>
+            <div className="h-px bg-border/60" />
+
+            {/* 수량 정보 섹션 */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-sm text-foreground/70">수량 및 재고</h4>
+
+              <div className="grid grid-cols-4 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="carriedOver" className="font-medium text-blue-600">
+                    이월재고
+                  </Label>
+                  <Input
+                    id="carriedOver"
+                    type="number"
+                    value={formData.carriedOver}
+                    onChange={(e) => setFormData({ ...formData, carriedOver: e.target.value })}
+                    placeholder="0"
+                    className="h-9 border-blue-200 focus-visible:ring-blue-500 font-medium"
+                  />
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">현장팀 보유재고</div>
-                  <div className="font-bold text-lg text-blue-600">{(Number(formData.outgoing) - Number(formData.usage)).toLocaleString()}</div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="incoming" className="font-medium text-muted-foreground text-center">입고</Label>
+                  <Input
+                    id="incoming"
+                    value={formData.incoming}
+                    readOnly
+                    className="h-9 bg-gray-50 text-center text-gray-500 border-gray-200"
+                    tabIndex={-1}
+                  />
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">총 재고 (합계)</div>
-                  <div className="font-bold text-lg text-slate-900">{(remaining + (Number(formData.outgoing) - Number(formData.usage))).toLocaleString()}</div>
+                <div className="grid gap-2">
+                  <Label htmlFor="outgoing" className="font-medium text-muted-foreground text-center">출고</Label>
+                  <Input
+                    id="outgoing"
+                    value={formData.outgoing}
+                    readOnly
+                    className="h-9 bg-gray-50 text-center text-gray-500 border-gray-200"
+                    tabIndex={-1}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="usage" className="font-medium text-muted-foreground text-center">사용</Label>
+                  <Input
+                    id="usage"
+                    value={formData.usage}
+                    readOnly
+                    className="h-9 bg-gray-50 text-center text-gray-500 border-gray-200"
+                    tabIndex={-1}
+                  />
+                </div>
+              </div>
+
+              {/* 재고 현황 미리보기 */}
+              <div className="bg-slate-50 p-4 rounded-lg border shadow-sm">
+                <div className="grid grid-cols-3 gap-4 text-center divide-x divide-slate-200">
+                  <div>
+                    <div className="text-xs font-medium text-slate-500 mb-1">사무실 재고</div>
+                    <div className="font-bold text-lg text-slate-700">{remaining.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-slate-500 mb-1">현장팀 재고</div>
+                    <div className="font-bold text-lg text-blue-600">{(Number(formData.outgoing) - Number(formData.usage)).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-slate-500 mb-1">총 재고 합계</div>
+                    <div className="font-bold text-lg text-slate-900">{(remaining + (Number(formData.outgoing) - Number(formData.usage))).toLocaleString()}</div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="h-px bg-border/60" />
+
+            {/* 가격 정보 섹션 */}
+            <div className="grid grid-cols-2 gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="unitPrice">단가 (원) *</Label>
+                <Label htmlFor="unitPrice">단가 <span className="text-xs font-normal text-muted-foreground">(원)</span> <span className="text-red-500">*</span></Label>
                 <Input
                   id="unitPrice"
                   type="number"
                   value={formData.unitPrice}
                   onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
-                  placeholder="10000"
+                  placeholder="0"
                   required
-                  data-testid="input-unit-price"
+                  className="h-9 font-medium text-right pr-4"
                 />
               </div>
               <div className="grid gap-2">
-                <Label>총 금액 (Total Amt)</Label>
-                <div className="flex items-center h-9 px-3 rounded-md border bg-muted text-sm">
-                  ₩{((remaining + (Number(formData.outgoing) - Number(formData.usage))) * Number(formData.unitPrice)).toLocaleString()}
+                <Label>총 예상 금액</Label>
+                <div className="flex items-center justify-end h-9 px-3 rounded-md border bg-slate-50 text-sm font-semibold text-slate-900">
+                  ₩ {((remaining + (Number(formData.outgoing) - Number(formData.usage))) * Number(formData.unitPrice)).toLocaleString()}
                 </div>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +80,7 @@ export default function Login() {
                             <Input
                                 id="username"
                                 type="text"
-                                placeholder="사용자 아이디"
+                                placeholder=""
                                 value={formData.username}
                                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                                 required
@@ -92,7 +92,7 @@ export default function Login() {
                             <Input
                                 id="password"
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder=""
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 required
@@ -109,12 +109,7 @@ export default function Login() {
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             로그인
                         </Button>
-                        <div className="text-sm text-center text-muted-foreground">
-                            계정이 없으신가요?{" "}
-                            <Link href="/register" className="text-primary hover:underline">
-                                회원가입
-                            </Link>
-                        </div>
+
                     </CardFooter>
                 </form>
             </Card>

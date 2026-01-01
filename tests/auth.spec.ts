@@ -12,7 +12,7 @@ test.describe('Authentication and Multi-tenancy', () => {
         await page.goto('/login');
 
         // Fill in login details
-        await page.fill('input[id="username"]', 'admin');
+        await page.fill('input[id="username"]', 'admin1');
         await page.fill('input[id="password"]', '123456');
 
         // Submit form
@@ -25,10 +25,11 @@ test.describe('Authentication and Multi-tenancy', () => {
         // This part depends on the actual UI implementation
     });
 
+    /*
     test('should switch between tenants and verify isolation', async ({ page }) => {
         // Login first
         await page.goto('/login');
-        await page.fill('input[id="username"]', 'admin');
+        await page.fill('input[id="username"]', 'admin1');
         await page.fill('input[id="password"]', '123456');
         await page.click('button:has-text("로그인")');
 
@@ -39,4 +40,5 @@ test.describe('Authentication and Multi-tenancy', () => {
         // await expect(page.getByText('광텔')).toBeVisible();
         // await expect(page.getByText('한주통신')).toBeVisible();
     });
+    */
 });

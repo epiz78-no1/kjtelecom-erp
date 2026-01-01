@@ -111,6 +111,7 @@ export function registerAuthRoutes(app: Express) {
             }
 
             // Get user's tenants using join
+            // Get user's tenants using join
             const userTenantsData = await db
                 .select({
                     id: userTenants.id,
@@ -119,25 +120,30 @@ export function registerAuthRoutes(app: Express) {
                     role: userTenants.role,
                     tenantName: tenants.name,
                     tenantSlug: tenants.slug,
-                    tenantIsActive: tenants.isActive
+                    tenantIsActive: tenants.isActive,
+                    status: userTenants.status
                 })
                 .from(userTenants)
                 .leftJoin(tenants, eq(userTenants.tenantId, tenants.id))
-                .where(and(
-                    eq(userTenants.userId, user.id),
-                    eq(userTenants.status, 'active') // Only active members can login
-                ));
+                .where(eq(userTenants.userId, user.id));
 
             // SuperAdmin (username === 'admin') can login without tenant
             const isSuperAdmin = user.username === 'admin';
 
-            if (userTenantsData.length === 0 && !isSuperAdmin) {
+            // Filter active tenants
+            const activeTenants = userTenantsData.filter(ut => ut.status === 'active');
+
+            if (activeTenants.length === 0 && !isSuperAdmin) {
+                // User exists but has no active status in any tenant
+                if (userTenantsData.length > 0) {
+                    return res.status(403).json({ error: "로그인 실패: 관리자에게 문의하세요" });
+                }
                 return res.status(403).json({ error: "소속된 조직이 없습니다" });
             }
 
             // Set session
             req.session.userId = user.id;
-            req.session.tenantId = userTenantsData.length > 0 ? userTenantsData[0].tenantId : undefined;
+            req.session.tenantId = activeTenants.length > 0 ? activeTenants[0].tenantId : undefined;
 
             // Update last login
             await db.update(users)
@@ -150,14 +156,14 @@ export function registerAuthRoutes(app: Express) {
                     username: user.username,
                     name: user.name
                 },
-                tenants: userTenantsData.map(ut => ({
+                tenants: activeTenants.map(ut => ({
                     id: ut.tenantId,
                     name: ut.tenantName,
                     slug: ut.tenantSlug,
                     role: ut.role,
                     isActive: ut.tenantIsActive
                 })),
-                currentTenant: userTenantsData.length > 0 ? userTenantsData[0].tenantId : null
+                currentTenant: activeTenants.length > 0 ? activeTenants[0].tenantId : null
             });
         } catch (error) {
             console.error("Login error:", error);

@@ -201,12 +201,86 @@ export async function registerRoutes(
     const divisionList = await storage.getDivisions(tenantId);
     const divisionMap = new Map(divisionList.map(d => [d.id, d.name]));
 
-    const teamsWithDivisionName = teamList.map(team => ({
-      ...team,
-      divisionName: divisionMap.get(team.divisionId) || "",
-    }));
+    // Fetch usage records to calculate last activity
+    const usageRecords = await storage.getMaterialUsageRecords(tenantId);
+    // Fetch outgoing records (received by team)
+    const outgoingRecords = await storage.getOutgoingRecords(tenantId);
 
-    res.json(teamsWithDivisionName);
+    console.log(`[TEAM ACTIVITY DEBUG] Total teams: ${teamList.length}, Usage records: ${usageRecords.length}, Outgoing records: ${outgoingRecords.length}`);
+
+    // Log unique teamCategories from records
+    const usageTeams = new Set(usageRecords.map(r => r.teamCategory));
+    const outgoingTeams = new Set(outgoingRecords.map(r => r.teamCategory));
+    console.log(`[TEAM ACTIVITY DEBUG] Unique teams in usage: [${Array.from(usageTeams).join(', ')}]`);
+    console.log(`[TEAM ACTIVITY DEBUG] Unique teams in outgoing: [${Array.from(outgoingTeams).join(', ')}]`);
+
+    // Log sample outgoing records
+    if (outgoingRecords.length > 0) {
+      console.log(`[TEAM ACTIVITY DEBUG] Sample outgoing records:`, outgoingRecords.slice(0, 3).map(r => ({
+        teamCategory: r.teamCategory,
+        date: r.date,
+        productName: r.productName
+      })));
+    }
+
+    // Log all team names from database
+    console.log(`[TEAM ACTIVITY DEBUG] Team names from DB: [${teamList.map(t => t.name).join(', ')}]`);
+
+    const normalize = (s: string | null | undefined) => s ? s.replace(/\s+/g, '').trim() : "";
+
+    const teamsWithDetails = teamList.map(team => {
+      // Find latest usage for this team using teamId (preferred) or teamCategory (fallback)
+      const teamUsage = usageRecords.filter(r =>
+        r.teamId === team.id || (!r.teamId && r.teamCategory === team.name)
+      );
+
+      // Find latest outgoing (received) for this team using teamId (preferred) or teamCategory (fallback)
+      const teamOutgoing = outgoingRecords.filter(r =>
+        r.teamId === team.id || (!r.teamId && r.teamCategory === team.name)
+      );
+
+      console.log(`[TEAM ACTIVITY DEBUG] Team '${team.name}' (normalized: '${normalize(team.name)}'): Usage=${teamUsage.length}, Outgoing=${teamOutgoing.length}`);
+
+      if (teamOutgoing.length > 0) {
+        console.log(`[TEAM ACTIVITY DEBUG]   Sample outgoing: teamCategory='${teamOutgoing[0].teamCategory}' (normalized: '${normalize(teamOutgoing[0].teamCategory)}'), date='${teamOutgoing[0].date}'`);
+      }
+
+      let lastActivity = team.lastActivity; // Start with stored value
+
+      // Check Usage
+      if (teamUsage.length > 0) {
+        const latestUsage = teamUsage.reduce((latest, current) => {
+          return new Date(current.date) > new Date(latest.date) ? current : latest;
+        });
+
+        if (!lastActivity || new Date(latestUsage.date) > new Date(lastActivity)) {
+          console.log(`[TEAM ACTIVITY DEBUG]   Updating lastActivity from usage: ${latestUsage.date}`);
+          lastActivity = latestUsage.date;
+        }
+      }
+
+      // Check Outgoing (Received)
+      if (teamOutgoing.length > 0) {
+        const latestOutgoing = teamOutgoing.reduce((latest, current) => {
+          return new Date(current.date) > new Date(latest.date) ? current : latest;
+        });
+
+        if (!lastActivity || new Date(latestOutgoing.date) > new Date(lastActivity)) {
+          console.log(`[TEAM ACTIVITY DEBUG]   Updating lastActivity from outgoing: ${latestOutgoing.date}`);
+          lastActivity = latestOutgoing.date;
+        }
+      }
+
+      console.log(`[TEAM ACTIVITY DEBUG]   Final lastActivity for '${team.name}': ${lastActivity}`);
+
+      return {
+        ...team,
+        divisionName: divisionMap.get(team.divisionId) || "",
+        lastActivity
+      };
+    });
+
+    res.json(teamsWithDetails);
   });
 
   app.post("/api/teams", requireAuth, requireTenant, async (req, res) => {
@@ -780,6 +854,45 @@ export async function registerRoutes(
       res.status(500).json({ error: "멤버 목록을 가져오는 중 오류가 발생했습니다" });
     }
   });
+
+  // Get all members (Admin only)
+  app.get("/api/admin/members", requireAuth, requireTenant, requireAdmin, async (req, res) => {
+    try {
+      const tenantId = req.session!.tenantId!;
+      console.log(`[API] Fetching admin members for tenant ${tenantId}`);
+
+      const members = await storage.getMembers(tenantId);
+      console.log(`[API] Found ${members.length} members`);
+
+      res.json(members);
+    } catch (error) {
+      console.error("Fetch admin members error:", error);
+      res.status(500).json({ error: "멤버 목록을 가져오는 중 오류가 발생했습니다" });
+    }
+  });
+
+  // Update member information (name, position, division, team, status, phoneNumber)
+  app.patch("/api/admin/members/:userId", requireAuth, requireTenant, requireAdmin, async (req, res) => {
+    const tenantId = req.session!.tenantId!;
+    const { userId } = req.params;
+    const updates = req.body;
+
+    console.log("[MEMBER UPDATE] userId:", userId, "tenantId:", tenantId, "updates:", updates);
+
+    try {
+      const updatedMember = await storage.updateMember(userId, tenantId, updates);
+      if (!updatedMember) {
+        console.log("[MEMBER UPDATE] Member not found");
+        return res.status(404).json({ error: "Member not found" });
+      }
+      console.log("[MEMBER UPDATE] Success:", updatedMember);
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("[MEMBER UPDATE] Error:", error);
+      res.status(500).json({ error: "멤버 정보 업데이트 중 오류가 발생했습니다" });
+    }
+  });
+
 
   app.patch("/api/admin/members/:userId/permissions", requireAuth, requireTenant, requireAdmin, async (req, res) => {
     const tenantId = req.session!.tenantId!;

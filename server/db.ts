@@ -1,25 +1,15 @@
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
-import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
+import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-export let db: ReturnType<typeof drizzlePglite<typeof schema>> | ReturnType<typeof drizzlePg<typeof schema>>;
-
 if (!process.env.DATABASE_URL) {
-  // Use PGLite for local testing with persistent storage
-  const client = new PGlite("./.data/pglite");
-  db = drizzlePglite(client, { schema });
-  console.log("Using PGLite (file-based) database at ./.data/pglite");
-} else {
-  // Use real Postgres for production/Supabase
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  db = drizzlePg(pool, { schema });
-  console.log("Using PostgreSQL database");
+  throw new Error("DATABASE_URL 환경 변수가 필요합니다. .env 파일에 설정해주세요.");
 }
 
-export const pool = process.env.DATABASE_URL
-  ? new Pool({ connectionString: process.env.DATABASE_URL })
-  : null; // Pool is only for real Postgres
+// PostgreSQL (Supabase) 사용
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle(pool, { schema });
+
+console.log("PostgreSQL 데이터베이스 사용 중 (Supabase)");

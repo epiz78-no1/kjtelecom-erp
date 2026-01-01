@@ -55,17 +55,33 @@ export function AppSidebar() {
   const isSuperAdmin = user?.username === 'admin';
 
   const filteredMenuItems = menuItems.filter(item => {
-    // Dashboard is always visible
+    // 현장팀 권한 체크: usage만 write이고 나머지가 모두 none인 경우
+    const currentTenantData = tenants?.find(t => t.id === currentTenantId);
+    const isFieldTeam = currentTenantData?.permissions &&
+      currentTenantData.permissions.usage === 'write' &&
+      currentTenantData.permissions.incoming === 'none' &&
+      currentTenantData.permissions.outgoing === 'none' &&
+      currentTenantData.permissions.inventory === 'none';
+
+    // 현장팀 권한인 경우 "현장팀 자재 사용등록"만 표시
+    if (isFieldTeam) {
+      return item.url === '/team-material-usage';
+    }
+
+    // 관리자는 모든 메뉴 표시
+    if (isAdmin) return true;
+
+    // 대시보드는 항상 표시
     if (item.url === '/') return true;
 
-    // Inventory, Incoming, Outgoing menus require 'read' permission
+    // 재고, 입고, 출고 메뉴는 'read' 권한 필요
     if (item.url === '/inventory') return checkPermission('inventory', 'read');
     if (item.url === '/incoming') return checkPermission('incoming', 'read');
     if (item.url === '/outgoing') return checkPermission('outgoing', 'read');
     if (item.url === '/team-outgoing') return checkPermission('outgoing', 'read');
 
-    // Team Material Usage is always visible for now (or check usage permission)
-    if (item.url === '/team-material-usage') return true; // checkPermission('usage', 'read');
+    // 현장팀 자재 사용등록은 항상 표시 (또는 usage 권한 체크)
+    if (item.url === '/team-material-usage') return true;
 
     return true;
   });

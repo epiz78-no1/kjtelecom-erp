@@ -168,7 +168,6 @@ export default function IncomingRecords() {
       queryClient.invalidateQueries({ queryKey: ["/api/incoming-records"] });
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "입고가 등록되었습니다" });
-      closeDialog();
     }
   });
 
@@ -178,7 +177,6 @@ export default function IncomingRecords() {
       queryClient.invalidateQueries({ queryKey: ["/api/incoming-records"] });
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "입고가 수정되었습니다" });
-      closeDialog();
     }
   });
 
@@ -308,7 +306,7 @@ export default function IncomingRecords() {
     setSelectedDate(new Date());
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedDate || !formData.supplier || !formData.projectName || !formData.productName || !formData.quantity) {
       toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
       return;
@@ -334,10 +332,17 @@ export default function IncomingRecords() {
       inventoryItemId: formData.inventoryItemId,
     };
 
-    if (editingRecord) {
-      updateMutation.mutate({ ...data, id: editingRecord.id } as Omit<IncomingRecord, "tenantId">);
-    } else {
-      createMutation.mutate(data as Omit<IncomingRecord, "id" | "tenantId">);
+    closeDialog();
+    toast({ title: "등록중입니다", description: "잠시만 기다려주세요." });
+
+    try {
+      if (editingRecord) {
+        await updateMutation.mutateAsync({ ...data, id: editingRecord.id } as Omit<IncomingRecord, "tenantId">);
+      } else {
+        await createMutation.mutateAsync(data as Omit<IncomingRecord, "id" | "tenantId">);
+      }
+    } catch (error) {
+      // Error toast is handled by global error handler or default
     }
   };
 

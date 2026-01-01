@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Package, ShoppingCart, Users, AlertTriangle } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
@@ -25,7 +26,16 @@ import {
 } from "@/components/ui/select";
 
 export default function Dashboard() {
-  const { divisions, teams } = useAppContext();
+  const { divisions, teams, checkPermission } = useAppContext();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    // If user has no permission to view inventory but can view usage -> Redirect to Team Material Usage
+    if (!checkPermission("inventory", "read") && checkPermission("usage", "read")) {
+      setLocation("/team-material-usage");
+    }
+  }, [checkPermission, setLocation]);
+
   const [selectedDivision, setSelectedDivision] = useState("all");
 
   const { data: inventory = [] } = useQuery<InventoryItem[]>({
@@ -78,6 +88,18 @@ export default function Dashboard() {
       const division = divisions?.find(d => d.id === t.divisionId);
       return division?.name === selectedDivision;
     });
+
+  // Debug logging for team activity
+  useEffect(() => {
+    if (teams.length > 0) {
+      console.log('[DASHBOARD DEBUG] Teams data:', teams.map(t => ({
+        name: t.name,
+        lastActivity: t.lastActivity,
+        memberCount: t.memberCount,
+        isActive: t.isActive
+      })));
+    }
+  }, [teams]);
 
   const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
 

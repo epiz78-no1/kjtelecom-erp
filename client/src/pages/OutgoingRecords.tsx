@@ -109,6 +109,7 @@ export default function OutgoingRecords() {
     division: "SKT",
     category: "",
     teamCategory: "외선팀",
+    teamId: undefined as string | undefined,
     projectName: "",
     productName: "",
     specification: "",
@@ -145,11 +146,16 @@ export default function OutgoingRecords() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       toast({ title: "출고가 등록되었습니다" });
-      closeDialog();
     },
-    onError: () => {
-      toast({ title: "등록 실패", variant: "destructive" });
+    onError: (error: any) => {
+      const errorMessage = error?.message || "등록 실패";
+      toast({
+        title: "등록 실패",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 
@@ -159,11 +165,16 @@ export default function OutgoingRecords() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       toast({ title: "출고가 수정되었습니다" });
-      closeDialog();
     },
-    onError: () => {
-      toast({ title: "수정 실패", variant: "destructive" });
+    onError: (error: any) => {
+      const errorMessage = error?.message || "수정 실패";
+      toast({
+        title: "수정 실패",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 
@@ -239,6 +250,7 @@ export default function OutgoingRecords() {
       division: "SKT",
       category: "",
       teamCategory: "외선팀",
+      teamId: undefined,
       projectName: "",
       productName: "",
       specification: "",
@@ -270,6 +282,7 @@ export default function OutgoingRecords() {
       division: record.division,
       category: record.category || "",
       teamCategory: record.teamCategory,
+      teamId: record.teamId || undefined,
       projectName: record.projectName,
       productName: record.productName,
       specification: record.specification,
@@ -291,6 +304,7 @@ export default function OutgoingRecords() {
       division: "SKT",
       category: "",
       teamCategory: "외선팀",
+      teamId: undefined,
       projectName: "",
       productName: "",
       specification: "",
@@ -303,7 +317,7 @@ export default function OutgoingRecords() {
     setSelectedDate(new Date());
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedDate || !formData.teamCategory || !formData.productName || !formData.quantity || !formData.recipient) {
       toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
       return;
@@ -320,6 +334,7 @@ export default function OutgoingRecords() {
       division: formData.division,
       category: formData.category,
       teamCategory: formData.teamCategory,
+      teamId: formData.teamId,
       projectName: formData.projectName,
       productName: formData.productName,
       specification: formData.specification,
@@ -331,10 +346,17 @@ export default function OutgoingRecords() {
       inventoryItemId: formData.inventoryItemId
     };
 
-    if (editingRecord) {
-      updateMutation.mutate({ ...data, id: editingRecord.id } as Omit<OutgoingRecord, "tenantId">);
-    } else {
-      createMutation.mutate(data as Omit<OutgoingRecord, "id" | "tenantId">);
+    closeDialog();
+    toast({ title: "등록중입니다", description: "잠시만 기다려주세요." });
+
+    try {
+      if (editingRecord) {
+        await updateMutation.mutateAsync({ ...data, id: editingRecord.id } as Omit<OutgoingRecord, "tenantId">);
+      } else {
+        await createMutation.mutateAsync(data as Omit<OutgoingRecord, "id" | "tenantId">);
+      }
+    } catch (error) {
+      // Error handled elsewhere
     }
   };
 
@@ -667,6 +689,7 @@ export default function OutgoingRecords() {
                     setFormData({
                       ...formData,
                       teamCategory: value,
+                      teamId: team?.id,
                       recipient: "" // Reset recipient using new team
                     });
                   }}

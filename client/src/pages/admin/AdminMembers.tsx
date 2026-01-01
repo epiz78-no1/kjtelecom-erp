@@ -120,7 +120,7 @@ export default function AdminMembers() {
         divisionId: "",
         teamId: "",
         phoneNumber: "", // Added phone number to edit data
-        status: ""
+        status: "active"
     });
 
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
@@ -188,16 +188,26 @@ export default function AdminMembers() {
 
     const updateMemberMutation = useMutation({
         mutationFn: async ({ userId, data }: { userId: string; data: any }) => {
-            await apiRequest("PATCH", `/api/admin/members/${userId}`, data);
+            console.log("[CLIENT] Updating member:", userId, "with data:", data);
+            const result = await apiRequest("PATCH", `/api/admin/members/${userId}`, data);
+            console.log("[CLIENT] Update result:", result);
+            return result;
         },
-        onSuccess: () => {
-            toast({ title: "멤버 정보 수정 완료" });
+        onSuccess: async (data, variables) => {
+            console.log("[CLIENT] Update success");
+            console.log("[CLIENT] Updated data:", variables.data);
+            toast({
+                title: "멤버 정보 수정 완료",
+                description: `상태: ${variables.data.status || '변경없음'}`
+            });
             setIsEditDialogOpen(false);
             setIsRoleDialogOpen(false);
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/members?v=1"] });
+            // Force refetch to ensure UI updates
+            await queryClient.refetchQueries({ queryKey: ["/api/admin/members?v=1"] });
             queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
         },
         onError: (error: any) => {
+            console.error("[CLIENT] Update error:", error);
             toast({
                 title: "수정 실패",
                 description: error.message,
@@ -328,12 +338,6 @@ export default function AdminMembers() {
                 return (
                     <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 gap-1">
                         <CheckCircle2 className="h-3 w-3" /> 활성
-                    </Badge>
-                );
-            case "pending":
-                return (
-                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 gap-1">
-                        <Clock className="h-3 w-3" /> 대기 중
                     </Badge>
                 );
             case "inactive":
@@ -750,7 +754,6 @@ export default function AdminMembers() {
                                 <SelectContent>
                                     <SelectItem value="active">활성</SelectItem>
                                     <SelectItem value="inactive">비활성</SelectItem>
-                                    <SelectItem value="pending">대기 중</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
