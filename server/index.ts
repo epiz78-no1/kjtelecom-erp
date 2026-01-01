@@ -165,7 +165,9 @@ SKT,광접속함체 직선형,가공 24C,1307,1302,5,40150,200750`;
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
+    if (process.env.VERCEL !== '1') {
+      serveStatic(app);
+    }
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
