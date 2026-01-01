@@ -8,6 +8,7 @@ import { tenantContext } from "./middleware/tenant";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { pool } from "./db";
+import { registerAdminRoutes } from "./admin";
 
 const app = express();
 const httpServer = createServer(app);
@@ -108,7 +109,6 @@ app.use((req, res, next) => {
   // Register authentication routes
   registerAuthRoutes(app);
 
-  const { registerAdminRoutes } = await import("./admin");
   registerAdminRoutes(app);
 
   // Template Download API (Global priority)
