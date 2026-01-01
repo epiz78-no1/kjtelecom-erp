@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { db } from "./db.js";
 import { users, tenants, userTenants } from "../shared/schema.js";
 import { eq, and } from "drizzle-orm";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 const SALT_ROUNDS = 10;
 
