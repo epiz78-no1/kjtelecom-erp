@@ -471,44 +471,49 @@ export async function registerRoutes(
   });
 
   app.post("/api/outgoing", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = apiInsertOutgoingRecordSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({ error: parseResult.error.message });
-    }
+    try {
+      const parseResult = apiInsertOutgoingRecordSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.message });
+      }
 
-    const tenantId = req.session!.tenantId!;
+      const tenantId = req.session!.tenantId!;
 
-    // Check stock availability
-    const inventoryItemsList = await storage.getInventoryItems(tenantId);
-    const targetItem = inventoryItemsList.find(item =>
-      item.productName === parseResult.data.productName &&
-      item.specification === parseResult.data.specification &&
-      item.division === (parseResult.data.division || "SKT")
-    );
+      // Check stock availability
+      const inventoryItemsList = await storage.getInventoryItems(tenantId);
+      const targetItem = inventoryItemsList.find(item =>
+        item.productName === parseResult.data.productName &&
+        item.specification === parseResult.data.specification &&
+        item.division === (parseResult.data.division || "SKT")
+      );
 
-    if (!targetItem) {
-      return res.status(400).json({ error: "해당 자재가 재고 목록에 존재하지 않습니다." });
-    }
+      if (!targetItem) {
+        return res.status(400).json({ error: "해당 자재가 재고 목록에 존재하지 않습니다." });
+      }
 
-    if (targetItem.remaining < parseResult.data.quantity) {
-      return res.status(400).json({
-        error: `재고가 부족합니다 (잔여: ${targetItem.remaining.toLocaleString()}, 요청: ${parseResult.data.quantity.toLocaleString()})`
+      if (targetItem.remaining < parseResult.data.quantity) {
+        return res.status(400).json({
+          error: `재고가 부족합니다 (잔여: ${targetItem.remaining.toLocaleString()}, 요청: ${parseResult.data.quantity.toLocaleString()})`
+        });
+      }
+
+      const record = await storage.createOutgoingRecord({
+        ...parseResult.data,
+        tenantId
       });
+
+      await syncInventoryItem(
+        parseResult.data.productName,
+        parseResult.data.specification,
+        parseResult.data.division || "SKT", // Fallback if missing, but client sends strict value
+        tenantId
+      );
+
+      res.status(201).json(record);
+    } catch (error: any) {
+      console.error("[OUTGOING] POST Error:", error);
+      res.status(500).json({ error: "출고 등록 중 오류가 발생했습니다: " + error.message });
     }
-
-    const record = await storage.createOutgoingRecord({
-      ...parseResult.data,
-      tenantId
-    });
-
-    await syncInventoryItem(
-      parseResult.data.productName,
-      parseResult.data.specification,
-      parseResult.data.division || "SKT", // Fallback if missing, but client sends strict value
-      tenantId
-    );
-
-    res.status(201).json(record);
   });
 
   app.patch("/api/outgoing/:id", requireAuth, requireTenant, async (req, res) => {
