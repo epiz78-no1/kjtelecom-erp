@@ -700,6 +700,40 @@ export class DatabaseStorage implements IStorage {
       const result = await tx.delete(incomingRecords).where(inArray(incomingRecords.id, ids)).returning();
       return result.length;
     });
+    async syncInventoryItems(items: InsertInventoryItem[], tenantId: string): Promise < InventoryItem[] > {
+      return withTenant(tenantId, async (tx) => {
+        const results: InventoryItem[] = [];
+        for (const item of items) {
+          const [existing] = await tx
+            .select()
+            .from(inventoryItems)
+            .where(
+              and(
+                eq(inventoryItems.tenantId, tenantId),
+                eq(inventoryItems.productName, item.productName),
+                eq(inventoryItems.specification, item.specification),
+                eq(inventoryItems.division, item.division || "SKT"),
+              )
+            );
+
+          if (existing) {
+            const [updated] = await tx
+              .update(inventoryItems)
+              .set(item)
+              .where(eq(inventoryItems.id, existing.id))
+              .returning();
+            results.push(updated);
+          } else {
+            const [created] = await tx
+              .insert(inventoryItems)
+              .values({ ...item, tenantId })
+              .returning();
+            results.push(created);
+          }
+        }
+        return results;
+      });
+    }
   }
 }
 
