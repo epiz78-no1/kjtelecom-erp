@@ -99,22 +99,8 @@ export async function registerRoutes(
       return;
     }
 
-    const incomingList = await storage.getIncomingRecords(tenantId);
-    const totalIncoming = incomingList
-      .filter(r => r.productName === productName && (r.specification || "") === (specification || "") && r.division === division)
-      .reduce((sum, r) => sum + (r.quantity || 0), 0);
-
-    const outgoingList = await storage.getOutgoingRecords(tenantId);
-    // Sent to team (Office -> Team)
-    const totalSentToTeam = outgoingList
-      .filter(r => r.productName === productName && (r.specification || "") === (specification || "") && r.division === division)
-      .reduce((sum, r) => sum + (r.quantity || 0), 0);
-
-    const usageList = await storage.getMaterialUsageRecords(tenantId);
-    // Used by team (Team -> Used)
-    const totalUsage = usageList
-      .filter(r => r.productName === productName && (r.specification || "") === (specification || "") && r.division === division)
-      .reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const stats = await storage.calculateInventoryStats(tenantId, productName, specification, division);
+    const { totalIncoming, totalSentToTeam, totalUsage } = stats;
 
     // Logic Update:
     // Office Stock (remaining) = Incoming - Sent

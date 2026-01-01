@@ -60,6 +60,7 @@ export interface IStorage {
   createMaterialUsageRecord(record: InsertMaterialUsageRecord): Promise<MaterialUsageRecord>;
   updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>, tenantId: string): Promise<MaterialUsageRecord | undefined>;
   getTeamItemStock(tenantId: string, teamCategory: string, productName: string, specification: string, division: string): Promise<number>;
+  calculateInventoryStats(tenantId: string, productName: string, specification: string, division: string): Promise<{ totalIncoming: number; totalSentToTeam: number; totalUsage: number }>;
   deleteMaterialUsageRecord(id: number, tenantId: string): Promise<boolean>;
   bulkDeleteMaterialUsageRecords(ids: number[], tenantId: string): Promise<number>;
 
@@ -734,6 +735,48 @@ export class DatabaseStorage implements IStorage {
         }
       }
       return results;
+    });
+  }
+  async calculateInventoryStats(tenantId: string, productName: string, specification: string, division: string): Promise<{ totalIncoming: number; totalSentToTeam: number; totalUsage: number }> {
+    return withTenant(tenantId, async (tx) => {
+      // 1. Total Incoming
+      const [incomingResult] = await tx
+        .select({ sum: sql<number>`coalesce(sum(${incomingRecords.quantity}), 0)` })
+        .from(incomingRecords)
+        .where(and(
+          eq(incomingRecords.productName, productName),
+          eq(incomingRecords.specification, specification),
+          eq(incomingRecords.division, division),
+          eq(incomingRecords.tenantId, tenantId)
+        ));
+
+      // 2. Total Outgoing (Sent to Team)
+      const [outgoingResult] = await tx
+        .select({ sum: sql<number>`coalesce(sum(${outgoingRecords.quantity}), 0)` })
+        .from(outgoingRecords)
+        .where(and(
+          eq(outgoingRecords.productName, productName),
+          eq(outgoingRecords.specification, specification),
+          eq(outgoingRecords.division, division),
+          eq(outgoingRecords.tenantId, tenantId)
+        ));
+
+      // 3. Total Usage
+      const [usageResult] = await tx
+        .select({ sum: sql<number>`coalesce(sum(${materialUsageRecords.quantity}), 0)` })
+        .from(materialUsageRecords)
+        .where(and(
+          eq(materialUsageRecords.productName, productName),
+          eq(materialUsageRecords.specification, specification),
+          eq(materialUsageRecords.division, division),
+          eq(materialUsageRecords.tenantId, tenantId)
+        ));
+
+      return {
+        totalIncoming: Number(incomingResult?.sum || 0),
+        totalSentToTeam: Number(outgoingResult?.sum || 0),
+        totalUsage: Number(usageResult?.sum || 0)
+      };
     });
   }
 }
