@@ -9,7 +9,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Settings as SettingsIcon } from "lucide-react";
+import { Link } from "wouter";
 import Dashboard from "@/pages/Dashboard";
 import Auth from "@/pages/Auth";
 import Login from "@/pages/Login";
@@ -97,7 +98,15 @@ function AppContent() {
                         <LogOut className="h-4 w-4" />
                         로그아웃
                       </Button>
-                      <ThemeToggle />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        asChild
+                      >
+                        <Link href="/settings">
+                          <SettingsIcon className="h-4 w-4" />
+                        </Link>
+                      </Button>
                     </div>
                   </header>
                   <main className="flex-1 overflow-auto p-6">

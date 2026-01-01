@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
+// import connectPgSimple from "connect-pg-simple"; // Moved down or handled inline
 import { registerRoutes } from "./routes";
 import { registerAuthRoutes } from "./auth";
 import { tenantContext } from "./middleware/tenant";
@@ -45,14 +45,15 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 // Session configuration
-import sessionFileStore from "session-file-store";
-const FileStore = sessionFileStore(session);
+// Session configuration
+import connectPgSimple from "connect-pg-simple";
+const PgStore = connectPgSimple(session);
 
 app.use(session({
-  store: new FileStore({
-    path: './.data/sessions',
-    ttl: 30 * 24 * 60 * 60, // 30 days
-    retries: 0, // Disable retries to prevent slow responses on missing sessions
+  store: new PgStore({
+    pool, // Uses existing db pool from ./db
+    tableName: 'session',
+    createTableIfMissing: true // Although we ran SQL, this is safe
   }),
   secret: process.env.SESSION_SECRET || 'pro-tracker-secret-key-change-in-production',
   resave: false,
@@ -176,14 +177,19 @@ SKT,광접속함체 직선형,가공 24C,1307,1302,5,40150,200750`;
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5001", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+  // Export for Vercel
+  if (process.env.VERCEL !== '1') {
+    const port = parseInt(process.env.PORT || "5001", 10);
+    httpServer.listen(
+      {
+        port,
+        host: "0.0.0.0",
+      },
+      () => {
+        log(`serving on port ${port}`);
+      },
+    );
+  }
 })();
+
+export { app };

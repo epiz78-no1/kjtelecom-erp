@@ -3,13 +3,14 @@ import {
   LayoutDashboard,
   Package,
   Users,
-  Settings,
   Cable,
   ArrowDownToLine,
   ArrowUpFromLine,
   ClipboardList,
   Network,
   Award,
+  ChevronRight,
+  Folder,
 } from "lucide-react";
 import {
   Sidebar,
@@ -22,7 +23,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useAppContext } from "@/contexts/AppContext";
 
 const menuItems = [
@@ -40,10 +49,6 @@ const adminItems = [
   { title: "직급/직책 관리", url: "/admin/positions", icon: Award },
 ];
 
-const settingsItems = [
-  { title: "설정", url: "/settings", icon: Settings },
-];
-
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, tenants, currentTenant: contextTenantId, checkPermission } = useAppContext();
@@ -52,7 +57,6 @@ export function AppSidebar() {
   const currentTenantId = contextTenantId || window.localStorage.getItem('currentTenantId') || tenants?.[0]?.id;
   const currentTenant = tenants?.find(t => t.id === currentTenantId);
   const isAdmin = currentTenant?.role === 'admin' || currentTenant?.role === 'owner';
-  const isSuperAdmin = user?.username === 'admin';
 
   const filteredMenuItems = menuItems.filter(item => {
     // 현장팀 권한 체크: usage만 write이고 나머지가 모두 none인 경우
@@ -86,6 +90,13 @@ export function AppSidebar() {
     return true;
   });
 
+  // Separate items into groups based on URL
+  const generalUrlList = ['/', '/inventory', '/incoming', '/outgoing'];
+  const fieldUrlList = ['/team-outgoing', '/team-material-usage'];
+
+  const generalItems = filteredMenuItems.filter(item => generalUrlList.includes(item.url));
+  const fieldItems = filteredMenuItems.filter(item => fieldUrlList.includes(item.url));
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
@@ -98,21 +109,114 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>메뉴</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location === item.url}>
-                    <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
+          <SidebarMenu>
+            {/* 일반 자재 관리 */}
+            <Collapsible defaultOpen className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip="일반 자재 관리">
+                    <span>일반 자재 관리</span>
+                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {generalItems.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuSubButton asChild isActive={location === item.url}>
+                          <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            {/* 광케이블 자재 관리 */}
+            <Collapsible className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip="광케이블 자재 관리">
+                    <span>광케이블 자재 관리</span>
+                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton className="pointer-events-none opacity-50">
+                        <span>준비 중...</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            {/* 현장팀별 출고 현황 */}
+            {filteredMenuItems.some(item => item.url === '/team-outgoing') && (
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="현장팀별 출고 현황">
+                      <span>현장팀별 출고 현황</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === '/team-outgoing'}>
+                          <Link href="/team-outgoing">
+                            <span>일반 자재</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton className="pointer-events-none opacity-50">
+                          <span>광케이블</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+              </Collapsible>
+            )}
+
+            {/* 현장팀 자재 사용등록 */}
+            {filteredMenuItems.some(item => item.url === '/team-material-usage') && (
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="현장팀 자재 사용등록">
+                      <span>현장팀 자재 사용등록</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === '/team-material-usage'}>
+                          <Link href="/team-material-usage">
+                            <span>일반 자재</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton className="pointer-events-none opacity-50">
+                          <span>광케이블</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            )}
+          </SidebarMenu>
         </SidebarGroup>
 
         {isAdmin && (
@@ -136,18 +240,7 @@ export function AppSidebar() {
         )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
-        <SidebarMenu>
-          {settingsItems.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={location === item.url}>
-                <Link href={item.url} data-testid={`nav-${item.url.replace("/", "")}`}>
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+        {/* Footer content removed as per request to move settings to header */}
       </SidebarFooter>
     </Sidebar>
   );
