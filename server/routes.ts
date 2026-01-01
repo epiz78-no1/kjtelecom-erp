@@ -599,41 +599,46 @@ export async function registerRoutes(
   });
 
   app.post("/api/material-usage", requireAuth, requireTenant, async (req, res) => {
-    const parseResult = apiInsertMaterialUsageRecordSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({ error: parseResult.error.message });
-    }
+    try {
+      const parseResult = apiInsertMaterialUsageRecordSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.message });
+      }
 
-    const tenantId = req.session!.tenantId!;
+      const tenantId = req.session!.tenantId!;
 
-    // Check team stock availability
-    const teamStock = await storage.getTeamItemStock(
-      tenantId,
-      parseResult.data.teamCategory,
-      parseResult.data.productName,
-      parseResult.data.specification,
-      parseResult.data.division || "SKT"
-    );
+      // Check team stock availability
+      const teamStock = await storage.getTeamItemStock(
+        tenantId,
+        parseResult.data.teamCategory,
+        parseResult.data.productName,
+        parseResult.data.specification,
+        parseResult.data.division || "SKT"
+      );
 
-    if (teamStock < parseResult.data.quantity) {
-      return res.status(400).json({
-        error: `팀 보유 재고가 부족합니다 (보유: ${teamStock.toLocaleString()}, 사용시도: ${parseResult.data.quantity.toLocaleString()})`
+      if (teamStock < parseResult.data.quantity) {
+        return res.status(400).json({
+          error: `팀 보유 재고가 부족합니다 (보유: ${teamStock.toLocaleString()}, 사용시도: ${parseResult.data.quantity.toLocaleString()})`
+        });
+      }
+
+      const record = await storage.createMaterialUsageRecord({
+        ...parseResult.data,
+        tenantId
       });
+
+      await syncInventoryItem(
+        parseResult.data.productName,
+        parseResult.data.specification,
+        parseResult.data.division || "SKT",
+        tenantId
+      );
+
+      res.status(201).json(record);
+    } catch (error: any) {
+      console.error("[USAGE] POST Error:", error);
+      res.status(500).json({ error: "사용 등록 중 오류가 발생했습니다: " + error.message });
     }
-
-    const record = await storage.createMaterialUsageRecord({
-      ...parseResult.data,
-      tenantId
-    });
-
-    await syncInventoryItem(
-      parseResult.data.productName,
-      parseResult.data.specification,
-      parseResult.data.division || "SKT",
-      tenantId
-    );
-
-    res.status(201).json(record);
   });
 
   app.patch("/api/material-usage/:id", requireAuth, requireTenant, async (req, res) => {
