@@ -6,7 +6,7 @@ import { divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords
 import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema, insertIncomingRecordSchema } from "../shared/schema.js";
 import { apiInsertTeamSchema, apiInsertInventoryItemSchema, apiInsertOutgoingRecordSchema, apiInsertMaterialUsageRecordSchema, apiInsertIncomingRecordSchema } from "../shared/schema.js";
 import { requireAuth, requireTenant, requireAdmin } from "./middleware/auth.js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -16,6 +16,33 @@ export async function registerRoutes(
   // await storage.initializeTeams();
   // await storage.initializeOutgoingRecords();
   console.log("Server routes initialized");
+
+  app.get("/api/debug/diag", async (req, res) => {
+    try {
+      const dbStart = Date.now();
+      await db.execute(sql`SELECT 1`);
+      const dbDuration = Date.now() - dbStart;
+
+      const tenants = await db.query.tenants.findMany();
+      const usersCount = await db.query.users.findMany();
+
+      res.json({
+        status: "ok",
+        env: process.env.NODE_ENV,
+        db_latency: `${dbDuration}ms`,
+        session: req.session,
+        tenant_count: tenants.length,
+        user_count: usersCount.length,
+        vercel_region: process.env.VERCEL_REGION
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        error: error.message,
+        stack: error.stack
+      });
+    }
+  });
 
   // DB migrations and initialization are handled by SQL files and db_init.ts
   // Manual trigger for debugging if needed: POST /api/debug/init
