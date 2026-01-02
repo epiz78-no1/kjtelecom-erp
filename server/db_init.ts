@@ -165,12 +165,10 @@ export async function ensureUsers() {
             }
         }
 
-        // 2. Explicitly Link SuperAdmin to Tenants
         if (adminUser) {
-            const tenantsToLink = [
-                { id: gwangtel.id, role: 'admin' },
-                { id: hanju.id, role: 'admin' }
-            ];
+            const tenantsToLink = [];
+            if (gwangtel) tenantsToLink.push({ id: gwangtel.id, role: 'admin' });
+            if (hanju) tenantsToLink.push({ id: hanju.id, role: 'admin' });
 
             for (const t of tenantsToLink) {
                 const [existingLink] = await db.select().from(userTenants).where(

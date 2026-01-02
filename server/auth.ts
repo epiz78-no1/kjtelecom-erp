@@ -141,6 +141,19 @@ export function registerAuthRoutes(app: Express) {
                 return res.status(403).json({ error: "소속된 조직이 없습니다" });
             }
 
+            // Sort tenants to prioritize Main Company (KJtelecom/gwangtel) and Owner role
+            activeTenants.sort((a, b) => {
+                const isMainA = /KJtelecom|gwangtel|gwangju/i.test(a.tenantSlug || "");
+                const isMainB = /KJtelecom|gwangtel|gwangju/i.test(b.tenantSlug || "");
+                if (isMainA && !isMainB) return -1;
+                if (!isMainA && isMainB) return 1;
+
+                if (a.role === 'owner' && b.role !== 'owner') return -1;
+                if (a.role !== 'owner' && b.role === 'owner') return 1;
+
+                return (a.tenantName || "").localeCompare(b.tenantName || "");
+            });
+
             // Set session
             req.session.userId = user.id;
             req.session.tenantId = activeTenants.length > 0 ? activeTenants[0].tenantId : undefined;
