@@ -26,6 +26,13 @@ export async function registerRoutes(
       const tenants = await db.query.tenants.findMany();
       const usersCount = await db.query.users.findMany();
 
+      // Check members for the current tenant
+      let members = [];
+      let currentTenantId = req.session?.tenantId;
+      if (currentTenantId) {
+        members = await storage.getMembers(currentTenantId);
+      }
+
       res.json({
         status: "ok",
         env: process.env.NODE_ENV,
@@ -33,6 +40,8 @@ export async function registerRoutes(
         session: req.session,
         tenant_count: tenants.length,
         user_count: usersCount.length,
+        member_count_in_view: members.length,
+        members_sample: members.slice(0, 5), // Show top 5 members
         vercel_region: process.env.VERCEL_REGION
       });
     } catch (error: any) {
