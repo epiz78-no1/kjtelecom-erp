@@ -133,7 +133,7 @@ export async function ensureUsers() {
             await db.update(users).set({ password: hashedPassword, name: u.name }).where(eq(users.id, existingUser.id));
         }
 
-        // Link Tenants
+        // Link Tenants for regular users
         for (const t of u.tenants) {
             const [existingLink] = await db.select().from(userTenants).where(
                 and(eq(userTenants.userId, existingUser.id), eq(userTenants.tenantId, t.id))
@@ -156,6 +156,32 @@ export async function ensureUsers() {
             }
         }
     }
+
+    // 2. Explicitly Link SuperAdmin to Tenants
+    if (adminUser) {
+        const tenantsToLink = [
+            { id: gwangtel.id, role: 'admin' },
+            { id: hanju.id, role: 'admin' }
+        ];
+
+        for (const t of tenantsToLink) {
+            const [existingLink] = await db.select().from(userTenants).where(
+                and(eq(userTenants.userId, adminUser.id), eq(userTenants.tenantId, t.id))
+            );
+
+            if (!existingLink) {
+                await db.insert(userTenants).values({
+                    id: randomUUID(),
+                    userId: adminUser.id,
+                    tenantId: t.id,
+                    role: "admin",
+                    status: "active"
+                });
+                console.log(`🔗 Linked SuperAdmin to tenant ${t.id}`);
+            }
+        }
+    }
+
     console.log("✨ Ensure Users Completed");
 }
 
