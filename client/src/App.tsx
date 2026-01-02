@@ -72,6 +72,17 @@ function AppContent() {
             return <Login />;
           }
 
+          // Strict Separation: Super Admin cannot access tenant routes
+          if (user.username === 'admin') {
+            // Use window location to ensure clean state or useRedirect
+            // Since we are inside a Route w/o path (catch-all for authenticated),
+            // and /super-admin is defined ABOVE this block,
+            // reaching here means the user is trying to access a tenant page (/, /inventory, etc).
+            // We must redirect them back to super-admin.
+            window.location.href = "/super-admin";
+            return null;
+          }
+
           const style = {
             "--sidebar-width": "16rem",
             "--sidebar-width-icon": "3rem",
