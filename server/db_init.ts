@@ -1,6 +1,6 @@
 import { db } from "./db.js";
 import { users, tenants, userTenants, inventoryItems, incomingRecords, outgoingRecords, materialUsageRecords } from "../shared/schema.js";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 
@@ -30,159 +30,171 @@ export async function ensureUsers() {
     }
 
     // 1. Tenants (Assume exist or create)
-    let [gwangtel] = await db.select().from(tenants).where(eq(tenants.slug, 'gwangtel'));
+    // Try to find the main tenant by various common slugs
+    // 1. Tenants (Assume exist or create)
+    // Try to find the main tenant by various common slugs
+    const targetSlugs = ['gwangtel', 'KJtelecom', 'gwangju-telecom', 'default'];
+    let mainTenant = await db.query.tenants.findFirst({
+        where: inArray(tenants.slug, targetSlugs)
+    });
+
     let [hanju] = await db.select().from(tenants).where(eq(tenants.slug, 'hanju'));
 
-    if (!gwangtel || !hanju) {
-        console.log("Tenants missing, skipping member ensure (only Admin is guaranteed)");
-        return;
+    if (!mainTenant && !hanju) {
+        // Fallback: Use ANY first tenant found
+        mainTenant = await db.query.tenants.findFirst();
     }
 
-    const usersToCreate = [
-        // Admin is handled above, removing from list to avoid double processing
-        {
-            username: "admin1",
-            password: "123456",
-            name: "광텔관리자",
-            tenants: [
-                { id: gwangtel.id, role: "admin" }
-            ]
-        },
-        {
-            username: "admin2",
-            password: "123456",
-            name: "한주관리자",
-            tenants: [
-                { id: hanju.id, role: "admin" }
-            ]
-        },
-        {
-            username: "inventory01",
-            password: "123456",
-            name: "재고담당자",
-            tenants: [
-                {
-                    id: gwangtel.id,
-                    role: "member",
-                    permissions: {
-                        incoming: "write",
-                        outgoing: "write",
-                        usage: "read",
-                        inventory: "write"
-                    }
-                }
-            ]
-        },
-        {
-            username: "field01",
-            password: "123456",
-            name: "현장작업자",
-            tenants: [
-                {
-                    id: gwangtel.id,
-                    role: "member",
-                    permissions: {
-                        incoming: "none",
-                        outgoing: "own_only",
-                        usage: "own_only",
-                        inventory: "read"
-                    }
-                }
-            ]
-        },
-        {
-            username: "readonly01",
-            password: "123456",
-            name: "조회담당자",
-            tenants: [
-                {
-                    id: gwangtel.id,
-                    role: "member",
-                    permissions: {
-                        incoming: "read",
-                        outgoing: "read",
-                        usage: "read",
-                        inventory: "read"
-                    }
-                }
-            ]
-        }
-    ];
+    // Alias for backward compatibility with existing code
+    const gwangtel = mainTenant;
 
-    for (const u of usersToCreate) {
-        const hashedPassword = await bcrypt.hash(u.password, SALT_ROUNDS);
-
-        // Find or Create User
-        let [existingUser] = await db.select().from(users).where(eq(users.username, u.username));
-        if (!existingUser) {
-            try {
-                [existingUser] = await db.insert(users).values({
-                    id: randomUUID(),
-                    username: u.username,
-                    password: hashedPassword,
-                    name: u.name
-                }).returning();
-                console.log(`✅ Created User: ${u.username}`);
-            } catch (e) {
-                // Ignore unique violation race conditions
+    if (!gwangtel) {
+        console.log("No tenants found at all, skipping regular user ensure.");
+    } else {
+        const usersToCreate = [
+            // Admin is handled above
+            {
+                username: "admin1",
+                password: "123456",
+                name: "광주텔레콤 관리자", // Changed from "최고관리자" to avoid confusion with SuperAdmin
+                tenants: [
+                    { id: gwangtel.id, role: "admin" }
+                ]
+            },
+            {
+                username: "admin2",
+                password: "123456",
+                name: "한주관리자",
+                tenants: hanju ? [{ id: hanju.id, role: "admin" }] : []
+            },
+            {
+                username: "inventory01",
+                password: "123456",
+                name: "재고담당자",
+                tenants: [
+                    {
+                        id: gwangtel.id,
+                        role: "member",
+                        permissions: {
+                            incoming: "write",
+                            outgoing: "write",
+                            usage: "read",
+                            inventory: "write"
+                        }
+                    }
+                ]
+            },
+            {
+                username: "field01",
+                password: "123456",
+                name: "현장작업자",
+                tenants: [
+                    {
+                        id: gwangtel.id,
+                        role: "member",
+                        permissions: {
+                            incoming: "none",
+                            outgoing: "own_only",
+                            usage: "own_only",
+                            inventory: "read"
+                        }
+                    }
+                ]
+            },
+            {
+                username: "readonly01",
+                password: "123456",
+                name: "조회담당자",
+                tenants: [
+                    {
+                        id: gwangtel.id,
+                        role: "member",
+                        permissions: {
+                            incoming: "read",
+                            outgoing: "read",
+                            usage: "read",
+                            inventory: "read"
+                        }
+                    }
+                ]
             }
-        }
-
-        if (existingUser) {
-            // Ensure password
-            await db.update(users).set({ password: hashedPassword, name: u.name }).where(eq(users.id, existingUser.id));
-        }
-
-        // Link Tenants for regular users
-        for (const t of u.tenants) {
-            const [existingLink] = await db.select().from(userTenants).where(
-                and(eq(userTenants.userId, existingUser.id), eq(userTenants.tenantId, t.id))
-            );
-
-            if (!existingLink) {
-                await db.insert(userTenants).values({
-                    id: randomUUID(),
-                    userId: existingUser.id,
-                    tenantId: t.id,
-                    role: t.role,
-                    permissions: (t as any).permissions,
-                    status: "active"
-                });
-            } else {
-                await db.update(userTenants).set({
-                    role: t.role,
-                    permissions: (t as any).permissions
-                }).where(eq(userTenants.id, existingLink.id));
-            }
-        }
-    }
-
-    // 2. Explicitly Link SuperAdmin to Tenants
-    if (adminUser) {
-        const tenantsToLink = [
-            { id: gwangtel.id, role: 'admin' },
-            { id: hanju.id, role: 'admin' }
         ];
 
-        for (const t of tenantsToLink) {
-            const [existingLink] = await db.select().from(userTenants).where(
-                and(eq(userTenants.userId, adminUser.id), eq(userTenants.tenantId, t.id))
-            );
+        for (const u of usersToCreate) {
+            const hashedPassword = await bcrypt.hash(u.password, SALT_ROUNDS);
 
-            if (!existingLink) {
-                await db.insert(userTenants).values({
-                    id: randomUUID(),
-                    userId: adminUser.id,
-                    tenantId: t.id,
-                    role: "admin",
-                    status: "active"
-                });
-                console.log(`🔗 Linked SuperAdmin to tenant ${t.id}`);
+            // Find or Create User
+            let [existingUser] = await db.select().from(users).where(eq(users.username, u.username));
+            if (!existingUser) {
+                try {
+                    [existingUser] = await db.insert(users).values({
+                        id: randomUUID(),
+                        username: u.username,
+                        password: hashedPassword,
+                        name: u.name
+                    }).returning();
+                    console.log(`✅ Created User: ${u.username}`);
+                } catch (e) {
+                    // Ignore unique violation race conditions
+                }
+            }
+
+            if (existingUser) {
+                // Ensure password
+                await db.update(users).set({ password: hashedPassword, name: u.name }).where(eq(users.id, existingUser.id));
+            }
+
+            // Link Tenants for regular users
+            for (const t of u.tenants) {
+                const [existingLink] = await db.select().from(userTenants).where(
+                    and(eq(userTenants.userId, existingUser.id), eq(userTenants.tenantId, t.id))
+                );
+
+                if (!existingLink) {
+                    await db.insert(userTenants).values({
+                        id: randomUUID(),
+                        userId: existingUser.id,
+                        tenantId: t.id,
+                        role: t.role,
+                        permissions: (t as any).permissions,
+                        status: "active"
+                    });
+                } else {
+                    await db.update(userTenants).set({
+                        role: t.role,
+                        permissions: (t as any).permissions
+                    }).where(eq(userTenants.id, existingLink.id));
+                }
             }
         }
-    }
 
-    console.log("✨ Ensure Users Completed");
+        // 2. Explicitly Link SuperAdmin to Tenants
+        if (adminUser) {
+            const tenantsToLink = [
+                { id: gwangtel.id, role: 'admin' },
+                { id: hanju.id, role: 'admin' }
+            ];
+
+            for (const t of tenantsToLink) {
+                const [existingLink] = await db.select().from(userTenants).where(
+                    and(eq(userTenants.userId, adminUser.id), eq(userTenants.tenantId, t.id))
+                );
+
+                if (!existingLink) {
+                    await db.insert(userTenants).values({
+                        id: randomUUID(),
+                        userId: adminUser.id,
+                        tenantId: t.id,
+                        role: "admin",
+                        status: "active"
+                    });
+                    console.log(`🔗 Linked SuperAdmin to tenant ${t.id}`);
+                }
+            }
+        }
+
+        console.log("✨ Ensure Users Completed");
+    }
 }
 
 export async function backfillInventory() {
