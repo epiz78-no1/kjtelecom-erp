@@ -112,7 +112,7 @@ export class DatabaseStorage implements IStorage {
 
   async getPositions(tenantId: string): Promise<Position[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(positions).orderBy(positions.rankOrder)
+      tx.select().from(positions).where(eq(positions.tenantId, tenantId)).orderBy(positions.rankOrder)
     );
   }
 
@@ -235,7 +235,7 @@ export class DatabaseStorage implements IStorage {
 
   async getInvitations(tenantId: string): Promise<Invitation[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(invitations)
+      tx.select().from(invitations).where(eq(invitations.tenantId, tenantId))
     );
   }
 
@@ -308,7 +308,7 @@ export class DatabaseStorage implements IStorage {
 
   async getDivisions(tenantId: string): Promise<Division[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(divisions)
+      tx.select().from(divisions).where(eq(divisions.tenantId, tenantId))
     );
   }
 
@@ -356,6 +356,7 @@ export class DatabaseStorage implements IStorage {
       })
         .from(teams)
         .leftJoin(userTenants, eq(teams.id, userTenants.teamId))
+        .where(eq(teams.tenantId, tenantId))
         .groupBy(teams.id)
         .orderBy(sql`${teams.lastActivity} DESC NULLS LAST`);
 
@@ -371,7 +372,10 @@ export class DatabaseStorage implements IStorage {
       })
         .from(teams)
         .leftJoin(userTenants, eq(teams.id, userTenants.teamId))
-        .where(eq(teams.divisionId, divisionId))
+        .where(and(
+          eq(teams.divisionId, divisionId),
+          eq(teams.tenantId, tenantId)
+        ))
         .groupBy(teams.id)
         .orderBy(sql`${teams.lastActivity} DESC NULLS LAST`);
 
@@ -454,7 +458,7 @@ export class DatabaseStorage implements IStorage {
 
   async getInventoryItems(tenantId: string): Promise<InventoryItem[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(inventoryItems).orderBy(asc(inventoryItems.productName))
+      tx.select().from(inventoryItems).where(eq(inventoryItems.tenantId, tenantId)).orderBy(asc(inventoryItems.productName))
     );
   }
 
@@ -532,7 +536,7 @@ export class DatabaseStorage implements IStorage {
 
   async getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(outgoingRecords)
+      tx.select().from(outgoingRecords).where(eq(outgoingRecords.tenantId, tenantId))
     );
   }
 
@@ -587,7 +591,7 @@ export class DatabaseStorage implements IStorage {
 
   async getMaterialUsageRecords(tenantId: string): Promise<MaterialUsageRecord[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(materialUsageRecords)
+      tx.select().from(materialUsageRecords).where(eq(materialUsageRecords.tenantId, tenantId))
     );
   }
 
@@ -633,7 +637,7 @@ export class DatabaseStorage implements IStorage {
 
   async getIncomingRecords(tenantId: string): Promise<IncomingRecord[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(incomingRecords)
+      tx.select().from(incomingRecords).where(eq(incomingRecords.tenantId, tenantId))
     );
   }
 
