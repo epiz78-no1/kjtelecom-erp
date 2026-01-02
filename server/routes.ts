@@ -35,6 +35,7 @@ export async function registerRoutes(
 
       res.json({
         status: "ok",
+        version: "v3-ForceView", // Visible flag to confirm deployment
         env: process.env.NODE_ENV,
         db_latency: `${dbDuration}ms`,
         session: req.session,
