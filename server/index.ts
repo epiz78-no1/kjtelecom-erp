@@ -9,6 +9,7 @@ import { serveStatic } from "./static.js";
 import { createServer } from "http";
 import { pool } from "./db.js";
 import { registerAdminRoutes } from "./admin.js";
+import { ensureUsers } from "./db_init.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -109,6 +110,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure critical data (Admin user) exists
+  await ensureUsers().catch(e => console.error("Failed to ensure users:", e));
+
   // Register authentication routes
   registerAuthRoutes(app);
 

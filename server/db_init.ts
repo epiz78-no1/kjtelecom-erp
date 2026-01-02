@@ -9,25 +9,37 @@ const SALT_ROUNDS = 10;
 export async function ensureUsers() {
     console.log("🔒 Running Auto-Ensure Users...");
 
+    // 0. Ensure Super Admin Always Exists
+    const adminPassword = await bcrypt.hash("admin", SALT_ROUNDS);
+    let [adminUser] = await db.select().from(users).where(eq(users.username, "admin"));
+
+    if (!adminUser) {
+        [adminUser] = await db.insert(users).values({
+            id: randomUUID(),
+            username: "admin",
+            password: adminPassword,
+            name: "최고관리자"
+        }).returning();
+        console.log("✅ Created Super Admin (System Default)");
+    } else {
+        // Always reset admin password to ensure access in production
+        await db.update(users)
+            .set({ password: adminPassword, name: "최고관리자" })
+            .where(eq(users.id, adminUser.id));
+        console.log("🔄 Reset Super Admin Password");
+    }
+
     // 1. Tenants (Assume exist or create)
     let [gwangtel] = await db.select().from(tenants).where(eq(tenants.slug, 'gwangtel'));
     let [hanju] = await db.select().from(tenants).where(eq(tenants.slug, 'hanju'));
 
     if (!gwangtel || !hanju) {
-        console.log("Tenants missing, skipping user ensure (Seed likely running)");
+        console.log("Tenants missing, skipping member ensure (only Admin is guaranteed)");
         return;
     }
 
     const usersToCreate = [
-        {
-            username: "admin",
-            password: "admin",
-            name: "최고관리자",
-            tenants: [
-                { id: gwangtel.id, role: "admin" },
-                { id: hanju.id, role: "admin" }
-            ]
-        },
+        // Admin is handled above, removing from list to avoid double processing
         {
             username: "admin1",
             password: "123456",
