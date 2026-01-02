@@ -17,43 +17,6 @@ export async function registerRoutes(
   // await storage.initializeOutgoingRecords();
   console.log("Server routes initialized");
 
-  app.get("/api/debug/diag", async (req, res) => {
-    try {
-      const dbStart = Date.now();
-      await db.execute(sql`SELECT 1`);
-      const dbDuration = Date.now() - dbStart;
-
-      const tenants = await db.query.tenants.findMany();
-      const usersCount = await db.query.users.findMany();
-
-      // Check members for the current tenant
-      let members = [];
-      let currentTenantId = req.session?.tenantId;
-      if (currentTenantId) {
-        members = await storage.getMembers(currentTenantId);
-      }
-
-      res.json({
-        status: "ok",
-        version: "v3-ForceView", // Visible flag to confirm deployment
-        env: process.env.NODE_ENV,
-        db_latency: `${dbDuration}ms`,
-        session: req.session,
-        tenant_count: tenants.length,
-        user_count: usersCount.length,
-        member_count_in_view: members.length,
-        members_sample: members.slice(0, 5), // Show top 5 members
-        vercel_region: process.env.VERCEL_REGION
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        status: "error",
-        error: error.message,
-        stack: error.stack
-      });
-    }
-  });
-
   // DB migrations and initialization are handled by SQL files and db_init.ts
   // Manual trigger for debugging if needed: POST /api/debug/init
   app.post("/api/debug/init", async (req, res) => {

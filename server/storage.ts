@@ -175,12 +175,11 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(divisions, eq(userTenants.divisionId, divisions.id))
         .leftJoin(teams, eq(userTenants.teamId, teams.id))
         .where(
-          eq(userTenants.tenantId, tenantId)
-        )
-      // .where(and(
-      //   eq(userTenants.tenantId, tenantId),
-      //   sql`${users.username} != 'admin'`
-      // )) // Hide superadmin from list, filter by tenant explicitly
+          and(
+            eq(userTenants.tenantId, tenantId),
+            sql`${users.username} != 'admin'`
+          )
+        ) // Hide superadmin from list, filter by tenant explicitly
     );
   }
 
