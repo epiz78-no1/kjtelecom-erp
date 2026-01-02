@@ -22,11 +22,7 @@ export async function ensureUsers() {
         }).returning();
         console.log("✅ Created Super Admin (System Default)");
     } else {
-        // Always reset admin password to ensure access in production
-        await db.update(users)
-            .set({ password: adminPassword, name: "최고관리자" })
-            .where(eq(users.id, adminUser.id));
-        console.log("🔄 Reset Super Admin Password");
+        console.log("ℹ️ Super Admin already exists");
     }
 
     // 1. Tenants (Assume exist or create)
@@ -140,9 +136,10 @@ export async function ensureUsers() {
             }
 
             if (existingUser) {
-                // Ensure password
-                await db.update(users).set({ password: hashedPassword, name: u.name }).where(eq(users.id, existingUser.id));
+                // Skip updating existing users to speed up startup
+                // await db.update(users).set({ password: hashedPassword, name: u.name }).where(eq(users.id, existingUser.id));
             }
+
 
             // Link Tenants for regular users
             for (const t of u.tenants) {
