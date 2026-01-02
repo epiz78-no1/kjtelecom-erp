@@ -448,8 +448,8 @@ export function registerAdminRoutes(app: any) {
             const [newMember] = await db.insert(userTenants).values({
                 userId: userId,
                 tenantId: tenantId,
-                role: 'admin', // Force admin role
-                permissions: { // Full permissions for company admin
+                role: 'owner', // Grant full ownership
+                permissions: { // Full permissions for company owner
                     incoming: 'write',
                     outgoing: 'write',
                     usage: 'write',
