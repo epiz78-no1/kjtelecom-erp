@@ -100,12 +100,12 @@
 
 ## 7. Git 및 배포 전략 (Git & Deployment Rules)
 - **브랜치 전략 (Branch Strategy)**:
-  - `dev` (Development): 개발 및 테스트용 기본 브랜치. Vercel Development(Preview) 환경에 배포됩니다.
-  - `main` (Production): 실제 사용자가 사용하는 운영 브랜치. Vercel Production 환경에 배포됩니다.
-- **운영 배포 절차 (Production Deployment)**:
-  1. 모든 개발 작업은 `dev` 브랜치에서 수행하고 커밋합니다.
-  2. **운영 배포(`main` 브랜치로의 병합 및 푸시)**는 반드시 **사용자의 명시적 확인 및 승인**을 받은 후에만 수행합니다.
-  3. 에이전트는 운영 배포 전 변경 사항과 영향을 사용자에게 보고해야 합니다.
+  - `dev` (Development): 개발 및 테스트용 브랜치. Vercel Development(Preview) 환경.
+  - `main` (Production): 운영 브랜치. Vercel Production 환경.
+- **배포 프로세스 (Strict Workflow)**:
+  1. **로컬 개발 (Local First)**: 모든 수정 사항은 로컬 환경에서 먼저 적용하고 테스트합니다.
+  2. **개발 배포 (Development Deployment)**: 사용자의 **명시적 요청(커밋 해달라는 요청)**이 있을 때만 `dev` 브랜치에 커밋 및 푸시합니다.
+  3. **운영 배포 (Production Deployment)**: 개발 서버에서 정상 작동이 확인된 후, **사용자의 승인**을 받아 `main` 브랜치로 병합합니다.
 
 ---
 

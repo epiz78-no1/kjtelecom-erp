@@ -586,14 +586,30 @@ export default function OutgoingRecords() {
                   </TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
 
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[80px]">
+                    <div className="truncate" title={record.category}>{record.category}</div>
+                  </TableCell>
+                  <TableCell className="text-center align-middle max-w-[200px]">
+                    <div className="truncate" title={record.projectName}>{record.projectName}</div>
+                  </TableCell>
+                  <TableCell className="text-center align-middle max-w-[150px]">
+                    <div className="truncate" title={record.productName}>{record.productName}</div>
+                  </TableCell>
+                  <TableCell className="text-center align-middle max-w-[120px]">
+                    <div className="truncate" title={record.specification}>{record.specification}</div>
+                  </TableCell>
                   <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[150px] truncate" title={record.remark || ""}>{record.remark}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{(record as any).createdByName || "-"}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[100px]">
+                    <div className="truncate" title={record.recipient}>{record.recipient}</div>
+                  </TableCell>
+                  <TableCell className="text-center align-middle max-w-[150px]">
+                    <div className="truncate" title={record.remark || ""}>{record.remark}</div>
+                  </TableCell>
+                  <TableCell className="text-center align-middle max-w-[100px]">
+                    <div className="truncate" title={(record as any).createdByName || ""}>
+                      {(record as any).createdByName || "-"}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center align-middle">
                     {(() => {
                       try {
