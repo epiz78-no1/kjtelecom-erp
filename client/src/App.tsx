@@ -36,20 +36,7 @@ import SuperAdminDashboard from "@/pages/admin/SuperAdminDashboard";
 import NotFound from "@/pages/common/NotFound";
 import { FEATURE_FLAGS } from "@/lib/constants";
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/inventory" component={Inventory} />
-      <Route path="/incoming" component={IncomingRecords} />
-      <Route path="/outgoing" component={OutgoingRecords} />
-      <Route path="/team-outgoing" component={TeamOutgoing} />
-      <Route path="/team-material-usage" component={TeamMaterialUsage} />
-      <Route path="/settings" component={Settings} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
+
 
 function AppContent() {
   const { user, isLoading, logout, tenants, currentTenant } = useAppContext();
@@ -145,17 +132,13 @@ function AppContent() {
                       <Route path="/outgoing" component={OutgoingRecords} />
                       <Route path="/team-outgoing" component={TeamOutgoing} />
                       <Route path="/team-material-usage" component={TeamMaterialUsage} />
-                      <Route path="/team-material-usage" component={TeamMaterialUsage} />
-                      {FEATURE_FLAGS.ENABLE_OPTICAL && (
-                        <>
-                          <Route path="/optical-cables" component={OpticalCables} />
-                          <Route path="/optical-dashboard" component={OpticalDashboard} />
-                          <Route path="/optical-incoming" component={OpticalIncoming} />
-                          <Route path="/optical-outgoing" component={OpticalOutgoing} />
-                          <Route path="/team-outgoing-optical" component={FieldOpticalStatus} />
-                          <Route path="/team-material-usage-optical" component={FieldOpticalUsage} />
-                        </>
-                      )}
+
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-cables" component={OpticalCables} />}
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-dashboard" component={OpticalDashboard} />}
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-incoming" component={OpticalIncoming} />}
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-outgoing" component={OpticalOutgoing} />}
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/team-outgoing-optical" component={FieldOpticalStatus} />}
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/team-material-usage-optical" component={FieldOpticalUsage} />}
                       <Route path="/admin/members" component={AdminMembers} />
                       <Route path="/admin/org" component={AdminOrg} />
                       <Route path="/admin/positions" component={AdminPositions} />
