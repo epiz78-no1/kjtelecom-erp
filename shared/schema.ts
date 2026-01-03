@@ -180,6 +180,7 @@ export const inventoryItems = pgTable("inventory_items", {
   remaining: integer("remaining").notNull().default(0),
   unitPrice: integer("unit_price").notNull().default(0),
   totalAmount: integer("total_amount").notNull().default(0),
+  createdBy: varchar("created_by").references(() => users.id),
 });
 
 export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true });
@@ -220,6 +221,7 @@ export const outgoingRecords = pgTable("outgoing_records", {
   quantity: integer("quantity").notNull().default(0),
   recipient: text("recipient").notNull(),
   remark: text("remark"),
+  createdBy: varchar("created_by").references(() => users.id),
 });
 
 export const insertOutgoingRecordSchema = createInsertSchema(outgoingRecords).omit({ id: true });
@@ -262,6 +264,7 @@ export const materialUsageRecords = pgTable("material_usage_records", {
   quantity: integer("quantity").notNull().default(0),
   recipient: text("recipient").notNull(),
   remark: text("remark"),
+  createdBy: varchar("created_by").references(() => users.id),
 });
 
 export const insertMaterialUsageRecordSchema = createInsertSchema(materialUsageRecords).omit({ id: true });
@@ -304,6 +307,7 @@ export const incomingRecords = pgTable("incoming_records", {
   quantity: integer("quantity").notNull().default(0),
   unitPrice: integer("unit_price").notNull().default(0),
   remark: text("remark"),
+  createdBy: varchar("created_by").references(() => users.id),
 });
 
 export const insertIncomingRecordSchema = createInsertSchema(incomingRecords).omit({ id: true });
@@ -446,3 +450,120 @@ export const materialUsageRecordsRelations = relations(materialUsageRecords, ({ 
   }),
 }));
 
+
+// Optical Cables Master Table
+export const opticalCables = pgTable("optical_cables", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  division: text("division").notNull().default("SKT"),
+  category: text("category").notNull().default(""), // For "구분"
+  managementNo: text("management_no").notNull(),
+  projectCode: text("project_code"),
+  projectName: text("project_name"),
+  receivedDate: text("received_date"),
+  manufacturer: text("manufacturer"),
+  manufactureYear: text("manufacture_year"),
+  spec: text("spec").notNull(), // 가공, 지중, 배선
+  coreCount: integer("core_count").notNull(),
+  drumNo: text("drum_no").notNull(), // Unique per tenant usually
+  totalLength: text("total_length").notNull(),
+  usedLength: integer("used_length").notNull().default(0),
+  remainingLength: integer("remaining_length").notNull(),
+  wasteLength: integer("waste_length").notNull().default(0),
+  status: text("status").notNull().default("in_stock"), // in_stock, assigned, used_up, returned, waste
+  location: text("location"),
+  remark: text("remark"),
+  unitPrice: integer("unit_price").notNull().default(0),
+  totalAmount: integer("total_amount").notNull().default(0),
+  currentTeamId: varchar("current_team_id").references(() => teams.id), // Currently assigned team
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertOpticalCableSchema = createInsertSchema(opticalCables).omit({ id: true, createdAt: true, updatedAt: true });
+export const apiInsertOpticalCableSchema = z.object({
+  managementNo: z.string(),
+  division: z.string().optional(),
+  category: z.string().optional(),
+  projectCode: z.string().optional(),
+  projectName: z.string().optional(),
+  receivedDate: z.string().optional(),
+  manufacturer: z.string().optional(),
+  manufactureYear: z.string().optional(),
+  spec: z.string(),
+  coreCount: z.number(),
+  drumNo: z.string(),
+  totalLength: z.union([z.string(), z.number().transform(String)]),
+  location: z.string().optional(),
+  remark: z.string().optional(),
+  wasteLength: z.number().optional(),
+  unitPrice: z.number().optional(),
+  totalAmount: z.number().optional(),
+  remainingLength: z.number().optional(),
+});
+export type InsertOpticalCable = z.infer<typeof insertOpticalCableSchema>;
+export type OpticalCable = typeof opticalCables.$inferSelect;
+
+// Optical Cable Logs (History) Table
+export const opticalCableLogs = pgTable("optical_cable_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  cableId: varchar("cable_id").notNull().references(() => opticalCables.id, { onDelete: "cascade" }),
+  teamId: varchar("team_id").references(() => teams.id), // Team involved in this log (assignee or user)
+  logType: text("log_type").notNull(), // assign (불출), usage (사용), return (반납), waste (폐기)
+  projectNameUsage: text("project_name_usage"), // 공사명 (사용 시)
+  sectionName: text("section_name"), // 구간명
+  usedLength: integer("used_length").notNull().default(0), // Total usage in this action
+  installLength: integer("install_length").default(0), // Net installed
+  wasteLength: integer("waste_length").default(0), // Wasted
+  usageDate: text("usage_date").notNull(),
+  workerName: text("worker_name"),
+  beforeRemaining: integer("before_remaining"),
+  afterRemaining: integer("after_remaining"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertOpticalCableLogSchema = createInsertSchema(opticalCableLogs).omit({ id: true, createdAt: true });
+export const apiInsertOpticalCableLogSchema = z.object({
+  cableId: z.string(),
+  teamId: z.string().optional(),
+  logType: z.enum(['assign', 'usage', 'return', 'waste']),
+  projectNameUsage: z.string().optional(),
+  sectionName: z.string().optional(),
+  installLength: z.number().optional(),
+  wasteLength: z.number().optional(),
+  usageDate: z.string(),
+  workerName: z.string().optional(),
+});
+export type InsertOpticalCableLog = z.infer<typeof insertOpticalCableLogSchema>;
+export type OpticalCableLog = typeof opticalCableLogs.$inferSelect;
+
+// Relations
+export const opticalCablesRelations = relations(opticalCables, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [opticalCables.tenantId],
+    references: [tenants.id],
+  }),
+  currentTeam: one(teams, {
+    fields: [opticalCables.currentTeamId],
+    references: [teams.id],
+  }),
+  logs: many(opticalCableLogs),
+}));
+
+export const opticalCableLogsRelations = relations(opticalCableLogs, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [opticalCableLogs.tenantId],
+    references: [tenants.id],
+  }),
+  cable: one(opticalCables, {
+    fields: [opticalCableLogs.cableId],
+    references: [opticalCables.id],
+  }),
+  team: one(teams, {
+    fields: [opticalCableLogs.teamId],
+    references: [teams.id],
+  }),
+}));

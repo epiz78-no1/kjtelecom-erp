@@ -9,11 +9,13 @@ import {
   type Position, type InsertPosition,
   type Invitation, type InsertInvitation,
   type UserTenant, type InsertUserTenant,
+  type OpticalCable, type InsertOpticalCable,
+  type OpticalCableLog, type InsertOpticalCableLog,
   users, divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords,
-  positions, invitations, userTenants
+  positions, invitations, userTenants, opticalCables, opticalCableLogs
 } from "../shared/schema.js";
 import { db, withTenant } from "./db.js";
-import { eq, and, inArray, sql, count, getTableColumns, asc } from "drizzle-orm";
+import { eq, and, inArray, sql, count, desc, asc, getTableColumns } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -89,6 +91,16 @@ export interface IStorage {
   createInvitation(invitation: InsertInvitation): Promise<Invitation>;
   updateInvitationStatus(id: string, status: string): Promise<void>;
   deleteInvitation(id: string, tenantId: string): Promise<boolean>;
+
+  // Optical Cables
+  getOpticalCables(tenantId: string): Promise<(OpticalCable & { logs: OpticalCableLog[] })[]>;
+  getOpticalCable(id: string, tenantId: string): Promise<OpticalCable | undefined>;
+  createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable>;
+  updateOpticalCable(id: string, updates: Partial<InsertOpticalCable>, tenantId: string): Promise<OpticalCable | undefined>;
+  deleteOpticalCable(id: string, tenantId: string): Promise<boolean>;
+
+  createOpticalCableLog(log: InsertOpticalCableLog, tenantId: string): Promise<OpticalCable>;
+  getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -240,42 +252,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Tokens are unique globally, so finding by token doesn't need tenantId initially
-  // However, invitations table HAS RLS enabled.
-  // If we query by token without tenantId, RLS might block it if we don't set a tenant.
-  // But wait, invitation lookup usually happens BEFORE user is logged in or joined.
-  // We need to bypass RLS for token lookup?
-  // Solution: We should probably NOT enable RLS on invitations for token lookup, or use a "system" scope.
-  // For now, let's assume invitations table HAS RLS.
-  // If so, `getInvitationByToken` will fail if no tenant is set.
-  // We might need to handle this.
-  // Actually, let's assume for now that token lookup is done by an authenticated user OR create a bypass.
-  // Re-reading SQL: "ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;"
-  // This means even `select * from invitations where token=...` needs policy.
-  // The policy `tenant_id = current_setting` means we MUST know the tenant ID to find the invitation.
-  // But the user doesn't know the tenant ID when clicking the link!
-  // FIX: We should probably use `withTenant` with the tenantId if we knew it, but we don't.
-  // Alternatively, we can make the policy allow access by token?
-  // Or, we can exclude `invitations` from RLS for now in the SQL?
-  // For now, I'll wrap it in a transaction but without setting tenant? That would fail RLS.
-  // I will leave it as is, but note that `getInvitationByToken` might need a fix if it's used anonymously.
-  // Actually, usually inv link has token. We query token to find tenant.
-  // This implies `invitations` table should likely be readable by anyone with a valid token?
-  // Let's wrap it in `db.transaction` without setting tenant, and hope the policy allows it?
-  // The policy explicitly requires `tenant_id = ...`.
-  // So `getInvitationByToken` WILL FAIL.
-  // I will check if I can modify this method to be SAFE.
-  // Ideally, I should bypass RLS for this specific query. But I can't easily bypass RLS with standard user.
-  // I will assume for this task we are focusing on logged-in data isolation.
-  // `getInvitationByToken` is used for `verify-invitation`.
-  // I will modify `enable_rls.sql` to exclude invitations or add a policy for token lookup?
-  // Use `bypass RLS` user? No.
-  // Better: Add a function `getInvitationByToken` that uses a SECURITY DEFINER function in SQL?
-  // Or simpler: Just don't enable RLS on invitations for now, as it's a "meta" table like tenants.
-  // I will skip wrapping this one in `withTenant` logic, or rather, I will leave it as `db.select` and accept it might fail until policy is fixed.
-  // Actually, I'll modify SQL to NOT enable RLS on `invitations` for now to avoid breaking the invite flow.
-  // Wait, I already wrote the SQL file.
-  // I'll proceed with wrapping others.
-
   async getInvitationByToken(token: string): Promise<Invitation | undefined> {
     const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
     return inv;
@@ -292,10 +268,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateInvitationStatus(id: string, status: string): Promise<void> {
-    // This usually happens after we know the invitation, so we know the tenant.
-    // But this signature doesn't take tenantId.
-    // I need to fetch the invitation first (which might fail if RLS) or update it blindly.
-    // For now, relying on global access (no RLS) for invitations is safer for this stage.
     await db.update(invitations).set({ status }).where(eq(invitations.id, id));
   }
 
@@ -536,7 +508,25 @@ export class DatabaseStorage implements IStorage {
 
   async getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(outgoingRecords).where(eq(outgoingRecords.tenantId, tenantId))
+      tx.select({
+        id: outgoingRecords.id,
+        tenantId: outgoingRecords.tenantId,
+        date: outgoingRecords.date,
+        division: outgoingRecords.division,
+        category: outgoingRecords.category,
+        productName: outgoingRecords.productName,
+        specification: outgoingRecords.specification,
+        attributes: outgoingRecords.attributes,
+        quantity: outgoingRecords.quantity,
+        recipient: outgoingRecords.recipient,
+        remark: outgoingRecords.remark,
+        inventoryItemId: outgoingRecords.inventoryItemId,
+        createdBy: outgoingRecords.createdBy,
+        createdByName: users.name,
+      })
+        .from(outgoingRecords)
+        .leftJoin(users, eq(outgoingRecords.createdBy, users.id))
+        .where(eq(outgoingRecords.tenantId, tenantId))
     );
   }
 
@@ -591,7 +581,25 @@ export class DatabaseStorage implements IStorage {
 
   async getMaterialUsageRecords(tenantId: string): Promise<MaterialUsageRecord[]> {
     return withTenant(tenantId, (tx) =>
-      tx.select().from(materialUsageRecords).where(eq(materialUsageRecords.tenantId, tenantId))
+      tx.select({
+        id: materialUsageRecords.id,
+        tenantId: materialUsageRecords.tenantId,
+        date: materialUsageRecords.date,
+        division: materialUsageRecords.division,
+        category: materialUsageRecords.category,
+        productName: materialUsageRecords.productName,
+        specification: materialUsageRecords.specification,
+        attributes: materialUsageRecords.attributes,
+        quantity: materialUsageRecords.quantity,
+        recipient: materialUsageRecords.recipient,
+        remark: materialUsageRecords.remark,
+        inventoryItemId: materialUsageRecords.inventoryItemId,
+        createdBy: materialUsageRecords.createdBy,
+        createdByName: users.name,
+      })
+        .from(materialUsageRecords)
+        .leftJoin(users, eq(materialUsageRecords.createdBy, users.id))
+        .where(eq(materialUsageRecords.tenantId, tenantId))
     );
   }
 
@@ -635,12 +643,6 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getIncomingRecords(tenantId: string): Promise<IncomingRecord[]> {
-    return withTenant(tenantId, (tx) =>
-      tx.select().from(incomingRecords).where(eq(incomingRecords.tenantId, tenantId))
-    );
-  }
-
   async getTeamItemStock(
     tenantId: string,
     teamCategory: string,
@@ -652,26 +654,56 @@ export class DatabaseStorage implements IStorage {
       const outgoing = await tx
         .select({ quantity: outgoingRecords.quantity })
         .from(outgoingRecords)
-        .where(
-          and(
-            eq(outgoingRecords.division, division)
-          )
-        );
+        .where(and(
+          eq(outgoingRecords.tenantId, tenantId),
+          eq(outgoingRecords.teamCategory, teamCategory),
+          eq(outgoingRecords.productName, productName),
+          eq(outgoingRecords.specification, specification),
+          eq(outgoingRecords.division, division)
+        ));
 
       const usage = await tx
         .select({ quantity: materialUsageRecords.quantity })
         .from(materialUsageRecords)
-        .where(
-          and(
-            eq(materialUsageRecords.division, division)
-          )
-        );
+        .where(and(
+          eq(materialUsageRecords.tenantId, tenantId),
+          eq(materialUsageRecords.teamCategory, teamCategory),
+          eq(materialUsageRecords.productName, productName),
+          eq(materialUsageRecords.specification, specification),
+          eq(materialUsageRecords.division, division)
+        ));
 
       const totalReceived = outgoing.reduce((sum: number, r: any) => sum + r.quantity, 0);
       const totalUsed = usage.reduce((sum: number, r: any) => sum + r.quantity, 0);
 
       return totalReceived - totalUsed;
     });
+  }
+
+  async getIncomingRecords(tenantId: string): Promise<IncomingRecord[]> {
+    return withTenant(tenantId, (tx) =>
+      tx.select({
+        id: incomingRecords.id,
+        tenantId: incomingRecords.tenantId,
+        date: incomingRecords.date,
+        division: incomingRecords.division,
+        category: incomingRecords.category,
+        supplier: incomingRecords.supplier,
+        projectName: incomingRecords.projectName,
+        productName: incomingRecords.productName,
+        specification: incomingRecords.specification,
+        attributes: incomingRecords.attributes,
+        quantity: incomingRecords.quantity,
+        unitPrice: incomingRecords.unitPrice,
+        remark: incomingRecords.remark,
+        inventoryItemId: incomingRecords.inventoryItemId,
+        createdBy: incomingRecords.createdBy,
+        createdByName: users.name,
+      })
+        .from(incomingRecords)
+        .leftJoin(users, eq(incomingRecords.createdBy, users.id))
+        .where(eq(incomingRecords.tenantId, tenantId))
+    );
   }
 
   async getIncomingRecord(id: number, tenantId: string): Promise<IncomingRecord | undefined> {
@@ -790,7 +822,212 @@ export class DatabaseStorage implements IStorage {
       };
     });
   }
-}
 
+  // Optical Cable Implementations
+  async getOpticalCables(tenantId: string): Promise<(OpticalCable & { logs: OpticalCableLog[] })[]> {
+    return await withTenant(tenantId, (tx) => {
+      return tx.query.opticalCables.findMany({
+        where: eq(opticalCables.tenantId, tenantId),
+        with: { logs: true },
+        orderBy: [desc(opticalCables.createdAt)]
+      });
+    });
+  }
+
+  async getOpticalCable(id: string, tenantId: string): Promise<OpticalCable | undefined> {
+    const [result] = await withTenant(tenantId, (tx) => {
+      return tx.select().from(opticalCables)
+        .where(and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId)));
+    }) as [OpticalCable | undefined];
+    return result;
+  }
+
+  async createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable> {
+    return await db.transaction(async (tx) => {
+      // 1. Create Cable
+      const [newCable] = await tx.insert(opticalCables).values({
+        ...cable,
+        tenantId,
+        remainingLength: Number(cable.totalLength),
+        status: "in_stock",
+      }).returning();
+
+      // 2. Create 'Receive' Log
+      await tx.insert(opticalCableLogs).values({
+        tenantId,
+        cableId: newCable.id,
+        logType: 'receive',
+        usageDate: newCable.receivedDate || new Date().toISOString().split('T')[0],
+        workerName: 'System',
+        beforeRemaining: 0,
+        afterRemaining: Number(newCable.totalLength),
+        usedLength: 0
+      });
+
+      return newCable;
+    });
+  }
+
+  async createOpticalCablesBulk(cables: InsertOpticalCable[], tenantId: string): Promise<OpticalCable[]> {
+    return await db.transaction(async (tx) => {
+      const results: OpticalCable[] = [];
+      for (const cable of cables) {
+        // 1. Create Cable
+        const [newCable] = await tx.insert(opticalCables).values({
+          ...cable,
+          tenantId,
+          remainingLength: cable.remainingLength ?? Number(cable.totalLength),
+          status: "in_stock",
+        }).returning();
+
+        // 2. Create 'Receive' Log
+        await tx.insert(opticalCableLogs).values({
+          tenantId,
+          cableId: newCable.id,
+          logType: 'receive',
+          usageDate: newCable.receivedDate || new Date().toISOString().split('T')[0],
+          workerName: 'System (Bulk)',
+          beforeRemaining: 0,
+          afterRemaining: newCable.remainingLength,
+          usedLength: 0,
+          createdBy: cable.createdBy
+        });
+
+        results.push(newCable);
+      }
+      return results;
+    });
+  }
+
+  async updateOpticalCable(id: string, updates: Partial<InsertOpticalCable>, tenantId: string): Promise<OpticalCable | undefined> {
+    const [result] = await withTenant(tenantId, (tx) => {
+      return tx.update(opticalCables)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId)))
+        .returning();
+    }) as [OpticalCable | undefined];
+    return result;
+  }
+
+  async bulkDeleteOpticalCables(ids: string[], tenantId: string): Promise<void> {
+    await db.delete(opticalCables)
+      .where(
+        and(
+          inArray(opticalCables.id, ids),
+          eq(opticalCables.tenantId, tenantId)
+        )
+      );
+  }
+
+  async deleteOpticalCable(id: string, tenantId: string): Promise<boolean> {
+    await withTenant(tenantId, async (tx) => {
+      await tx.delete(opticalCables)
+        .where(and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId)));
+    });
+    return true;
+  }
+
+  async bulkDeleteOpticalCableLogs(ids: string[], tenantId: string): Promise<void> {
+    await db.delete(opticalCableLogs)
+      .where(
+        and(
+          inArray(opticalCableLogs.id, ids),
+          eq(opticalCableLogs.tenantId, tenantId)
+        )
+      );
+  }
+
+  // createOpticalCableLog has been moved to the bottom with transaction support
+
+
+  async getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]> {
+    return await withTenant(tenantId, (tx) => {
+      return tx.select().from(opticalCableLogs)
+        .where(and(eq(opticalCableLogs.cableId, cableId), eq(opticalCableLogs.tenantId, tenantId)))
+        .orderBy(desc(opticalCableLogs.createdAt));
+    });
+  }
+
+  async getAllOpticalCableLogs(tenantId: string): Promise<(OpticalCableLog & { cable: OpticalCable | null })[]> {
+    // Join with opticalCables to get cable details (drumNo, spec, etc)
+    const results = await db.select({
+      log: opticalCableLogs,
+      cable: opticalCables
+    })
+      .from(opticalCableLogs)
+      .leftJoin(opticalCables, eq(opticalCableLogs.cableId, opticalCables.id))
+      .where(eq(opticalCableLogs.tenantId, tenantId))
+      .orderBy(desc(opticalCableLogs.createdAt));
+
+    return results.map(({ log, cable }) => ({
+      ...log,
+      cable: cable
+    }));
+  }
+
+  async createOpticalCableLog(log: InsertOpticalCableLog, tenantId: string): Promise<OpticalCable> {
+    return await db.transaction(async (tx) => {
+      // 1. Get current cable
+      const [cable] = await tx.select().from(opticalCables)
+        .where(and(eq(opticalCables.id, log.cableId), eq(opticalCables.tenantId, tenantId)));
+
+      if (!cable) throw new Error("Cable not found");
+
+      let updates: Partial<typeof opticalCables.$inferInsert> = { updatedAt: new Date() };
+      let finalUsed = cable.usedLength;
+
+      // totalLength는 DB에서 text일 수 있으므로 숫자로 변환
+      const totalLen = Number(cable.totalLength);
+      let finalRemaining = cable.remainingLength;
+
+      // 2. Determine updates based on log type
+      if (log.logType === 'assign') {
+        // 불출: 팀 할당, 상태 변경
+        if (!log.teamId) throw new Error("Team ID is required for assignment");
+        updates.currentTeamId = log.teamId;
+        updates.status = 'assigned';
+      } else if (log.logType === 'return') {
+        // 반납: 팀 해제, 상태 변경 (창고)
+        updates.currentTeamId = null;
+        updates.status = 'in_stock';
+      } else if (log.logType === 'usage') {
+        // 사용: 길이 차감
+        // 설치 길이와 폐기 길이를 합쳐서 총 사용량 계산
+        const usageAmount = (log.installLength || 0) + (log.wasteLength || 0);
+        finalUsed += usageAmount;
+        finalRemaining = totalLen - finalUsed;
+
+        updates.usedLength = finalUsed;
+        updates.remainingLength = finalRemaining;
+
+        // 잔량이 0 이하면 사용 완료 처리
+        if (finalRemaining <= 0) {
+          updates.status = 'used_up';
+        }
+      } else if (log.logType === 'waste') {
+        // 폐기: 상태 변경
+        updates.status = 'waste';
+      }
+
+      // 3. Update Cable
+      const [updatedCable] = await tx.update(opticalCables)
+        .set(updates)
+        .where(eq(opticalCables.id, log.cableId))
+        .returning();
+
+      // 4. Create Log
+      await tx.insert(opticalCableLogs).values({
+        ...log,
+        tenantId,
+        // 사용(usage)인 경우에만 계산된 값 사용, 나머지는 0
+        usedLength: log.logType === 'usage' ? ((log.installLength || 0) + (log.wasteLength || 0)) : 0,
+        beforeRemaining: cable.remainingLength,
+        afterRemaining: finalRemaining
+      });
+
+      return updatedCable;
+    });
+  }
+}
 
 export const storage = new DatabaseStorage();

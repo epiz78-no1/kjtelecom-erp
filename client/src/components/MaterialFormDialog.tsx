@@ -149,7 +149,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="category">구분 <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="category">사업 <span className="text-red-500">*</span></Label>
                   <Input
                     id="category"
                     value={formData.category}

@@ -78,7 +78,7 @@ export function BulkUploadDialog({
         const getValue = (key: string) => row[key] || row[key.trim()];
 
         // 필수 필드 검증
-        if (!getValue("구분")) rowErrors.push(`${index + 2}행: 구분이 필요합니다`);
+        if (!getValue("사업") && !getValue("구분")) rowErrors.push(`${index + 2}행: 사업(구분)이 필요합니다`);
         if (!getValue("품명")) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
         if (!getValue("규격")) rowErrors.push(`${index + 2}행: 규격이 필요합니다`);
 
@@ -122,9 +122,12 @@ export function BulkUploadDialog({
                         // 금액이 비어있거나 0이면 자동 계산: 단가 × (현장팀 + 사무실)
                         const calculatedAmount = totalAmount > 0 ? totalAmount : unitPrice * (outgoing + remaining);
 
+                        // 사업(구분) 필드 처리
+                        const division = row["사업"] || row["구분"] || "SKT";
+
                         validRows.push({
-                            division: row["구분"] || "SKT",
-                            category: row["구분"] || "SKT",
+                            division: division,
+                            category: division,
                             productName: row["품명"],
                             specification: row["규격"],
                             carriedOver: 0, // Not typically in template, but if needed: parseNum(row["이월재"])
@@ -254,19 +257,32 @@ export function BulkUploadDialog({
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    <div className="flex gap-2">
+                    <div className="flex justify-between items-center gap-2">
                         <Button
                             variant="outline"
                             onClick={handleDownloadTemplate}
-                            className="w-full"
+                            size="sm"
                         >
                             <Download className="h-4 w-4 mr-2" />
                             템플릿 다운로드
                         </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={handleClose} size="sm">
+                                취소
+                            </Button>
+                            <Button
+                                onClick={handleUpload}
+                                disabled={parsedData.length === 0 || errors.length > 0}
+                                size="sm"
+                            >
+                                <Upload className="h-4 w-4 mr-2" />
+                                일괄 등록 ({parsedData.length}개)
+                            </Button>
+                        </div>
                     </div>
 
                     <div
-                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
+                        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${isDragging
                             ? "border-primary bg-primary/5"
                             : "border-muted-foreground/25"
                             }`}
@@ -274,27 +290,31 @@ export function BulkUploadDialog({
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                     >
-                        <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground mb-2">
-                            CSV 파일을 드래그하거나 클릭하여 선택하세요
-                        </p>
-                        <input
-                            type="file"
-                            accept=".csv"
-                            onChange={handleFileChange}
-                            className="hidden"
-                            id="csv-upload"
-                        />
-                        <label htmlFor="csv-upload">
-                            <Button variant="secondary" asChild>
-                                <span>파일 선택</span>
-                            </Button>
-                        </label>
-                        {fileName && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                                선택된 파일: {fileName}
-                            </p>
-                        )}
+                        <div className="flex flex-col items-center justify-center gap-2">
+                            <Upload className="h-8 w-8 text-muted-foreground" />
+                            <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">
+                                    CSV 파일을 드래그하거나 클릭하여 선택하세요
+                                </p>
+                                {fileName && (
+                                    <p className="text-sm font-medium text-foreground">
+                                        선택된 파일: {fileName}
+                                    </p>
+                                )}
+                            </div>
+                            <input
+                                type="file"
+                                accept=".csv"
+                                onChange={handleFileChange}
+                                className="hidden"
+                                id="csv-upload"
+                            />
+                            <label htmlFor="csv-upload">
+                                <Button variant="secondary" size="sm" asChild className="h-8">
+                                    <span>파일 선택</span>
+                                </Button>
+                            </label>
+                        </div>
                     </div>
 
                     {errors.length > 0 && (
@@ -321,44 +341,44 @@ export function BulkUploadDialog({
                             <h3 className="text-sm font-semibold mb-2">
                                 미리보기 ({parsedData.length}개 항목)
                             </h3>
-                            <div className="border rounded-md max-h-64 overflow-auto">
+                            <div className="border rounded-md max-h-[400px] overflow-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[80px]">구분</TableHead>
-                                            <TableHead className="w-[140px]">품명</TableHead>
-                                            <TableHead className="w-[120px]">규격</TableHead>
-                                            <TableHead className="w-[80px] text-right">재고현황</TableHead>
-                                            <TableHead className="w-[80px] text-right">현장팀</TableHead>
-                                            <TableHead className="w-[80px] text-right">사무실</TableHead>
-                                            <TableHead className="w-[100px] text-right">단가</TableHead>
-                                            <TableHead className="w-[110px] text-right">금액</TableHead>
-                                            <TableHead className="w-[50px]"></TableHead>
+                                            <TableHead className="whitespace-nowrap w-[80px]">사업</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[140px]">품명</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[120px]">규격</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[80px] text-right">재고현황</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[80px] text-right">현장팀</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[80px] text-right">사무실</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[100px] text-right">단가</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[110px] text-right">금액</TableHead>
+                                            <TableHead className="whitespace-nowrap w-[50px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {parsedData.map((item, index) => (
                                             <TableRow key={index}>
-                                                <TableCell>{item.division}</TableCell>
-                                                <TableCell className="max-w-[140px] truncate">
+                                                <TableCell className="whitespace-nowrap">{item.division}</TableCell>
+                                                <TableCell className="whitespace-nowrap max-w-[140px] truncate">
                                                     {item.productName}
                                                 </TableCell>
-                                                <TableCell className="max-w-[120px] truncate">
+                                                <TableCell className="whitespace-nowrap max-w-[120px] truncate">
                                                     {item.specification}
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="whitespace-nowrap text-right">
                                                     {(item.remaining + item.outgoing).toLocaleString()}
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="whitespace-nowrap text-right">
                                                     {item.outgoing.toLocaleString()}
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="whitespace-nowrap text-right">
                                                     {item.remaining.toLocaleString()}
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="whitespace-nowrap text-right">
                                                     {item.unitPrice.toLocaleString()}
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="whitespace-nowrap text-right">
                                                     {item.totalAmount.toLocaleString()}
                                                 </TableCell>
                                                 <TableCell>
@@ -373,25 +393,12 @@ export function BulkUploadDialog({
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-
                                     </TableBody>
                                 </Table>
                             </div>
                         </div>
                     )}
                 </div>
-
-                <DialogFooter>
-                    <Button variant="outline" onClick={handleClose}>
-                        취소
-                    </Button>
-                    <Button
-                        onClick={handleUpload}
-                        disabled={parsedData.length === 0 || errors.length > 0}
-                    >
-                        업로드 ({parsedData.length}개)
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

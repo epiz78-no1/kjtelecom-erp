@@ -11,6 +11,7 @@ import {
   Award,
   ChevronRight,
   Folder,
+  Cuboid,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,6 +34,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useAppContext } from "@/contexts/AppContext";
+import { FEATURE_FLAGS } from "@/lib/constants";
 
 const menuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard },
@@ -139,7 +141,9 @@ export function AppSidebar() {
             )}
 
             {/* 광케이블 자재 관리 - 현장팀에게는 숨김 */}
-            {!isFieldTeam && (
+            {/* 광케이블 자재 관리 - 현장팀에게는 숨김 */}
+            {/* 광케이블 자재 관리 - 현장팀에게는 숨김 + 기능 플래그 확인 */}
+            {!isFieldTeam && FEATURE_FLAGS.ENABLE_OPTICAL && (
               <Collapsible className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
@@ -151,8 +155,35 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       <SidebarMenuSubItem>
-                        <SidebarMenuSubButton className="pointer-events-none opacity-50">
-                          <span>준비 중...</span>
+                        <SidebarMenuSubButton asChild isActive={location === "/optical-dashboard"}>
+                          <Link href="/optical-dashboard">
+                            <LayoutDashboard className="h-4 w-4" />
+                            <span>대시보드</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === "/optical-cables"}>
+                          <Link href="/optical-cables">
+                            <Package className="h-4 w-4" />
+                            <span>재고 현황</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === "/optical-incoming"}>
+                          <Link href="/optical-incoming">
+                            <ArrowDownToLine className="h-4 w-4" />
+                            <span>입고 내역</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === "/optical-outgoing"}>
+                          <Link href="/optical-outgoing">
+                            <ArrowUpFromLine className="h-4 w-4" />
+                            <span>출고 내역</span>
+                          </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
@@ -180,11 +211,15 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton className="pointer-events-none opacity-50">
-                          <span>광케이블</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && (
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={location === '/team-outgoing-optical'}>
+                            <Link href="/team-outgoing-optical">
+                              <span>광케이블</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -210,11 +245,16 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton className="pointer-events-none opacity-50">
-                          <span>광케이블</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
+
+                      {FEATURE_FLAGS.ENABLE_OPTICAL && (
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={location === '/team-material-usage-optical'}>
+                            <Link href="/team-material-usage-optical">
+                              <span>광케이블</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -246,6 +286,6 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border">
         {/* Footer content removed as per request to move settings to header */}
       </SidebarFooter>
-    </Sidebar>
+    </Sidebar >
   );
 }

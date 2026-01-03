@@ -54,14 +54,14 @@ export async function ensureUsers() {
                 password: "123456",
                 name: "광주텔레콤 관리자", // Changed from "최고관리자" to avoid confusion with SuperAdmin
                 tenants: [
-                    { id: gwangtel.id, role: "admin" }
+                    { id: gwangtel.id, role: "owner" }
                 ]
             },
             {
                 username: "admin2",
                 password: "123456",
                 name: "한주관리자",
-                tenants: hanju ? [{ id: hanju.id, role: "admin" }] : []
+                tenants: hanju ? [{ id: hanju.id, role: "owner" }] : []
             },
             {
                 username: "inventory01",

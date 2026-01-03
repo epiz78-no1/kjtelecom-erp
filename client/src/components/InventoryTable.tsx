@@ -20,7 +20,7 @@ interface InventoryTableProps {
 
 export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   const filteredItems = items.filter(
     (item) =>
       item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -36,7 +36,7 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="품명, 구분, 규격 검색..."
+          placeholder="품명, 사업, 규격 검색..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -47,7 +47,7 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="font-semibold min-w-[80px]">구분</TableHead>
+              <TableHead className="font-semibold min-w-[80px]">사업</TableHead>
               <TableHead className="font-semibold min-w-[150px]">품명</TableHead>
               <TableHead className="font-semibold min-w-[120px]">규격</TableHead>
               <TableHead className="font-semibold text-right min-w-[80px]">이월재</TableHead>

@@ -126,17 +126,17 @@ app.get("/api/templates/:type", (req, res, next) => {
   let filename = "";
 
   if (type === "inventory") {
-    template = `구분,품명,규격,재고현황,현장팀보유재고,사무실보유재고,단가,금액
+    template = `사업,품명,규격,재고현황,현장팀보유재고,사무실보유재고,단가,금액
   SKT,광접속함체 무여장중간분기형,24C,109,100,9,147882,1330938
   SKT,광접속함체 직선형,가공 24C,1307,1302,5,40150,200750`;
     filename = "inventory_template.csv";
   } else if (type === "outgoing") {
-    template = `출고일,구분,수령팀,공사명,품명,규격,수량,수령인
+    template = `출고일,사업,수령팀,공사명,품명,규격,수량,수령인
   2024-12-24,접속팀,접속팀,효자동 2가 함체교체,광접속함체 돔형,가공 96C,5,홍길동
   2024-12-24,외선팀,외선팀,종로구 광케이블 설치,광점퍼코드,SM 1C SC/APC-SC/APC 3M,20,김철수`;
     filename = "outgoing_template.csv";
   } else if (type === "incoming") {
-    template = `입고일,구분,구매처,공사명,품명,규격,수량,비고
+    template = `입고일,사업,구매처,공사명,품명,규격,수량,비고
   2024-12-24,SKT,텔레시스,[광텔] 2025년 SKT 운용사업,광접속함체 돔형,가공 96C,10,
   2024-12-24,SKT,삼성전자,[광텔] 2025년 SKT 운용사업,광점퍼코드,SM 1C SC/APC-SC/APC 3M,50,긴급입고`;
     filename = "incoming_template.csv";

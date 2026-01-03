@@ -186,7 +186,7 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>구분</TableHead>
+                  <TableHead>사업</TableHead>
                   <TableHead className="text-right">품목 수</TableHead>
                   <TableHead className="text-right">총 수량</TableHead>
                   <TableHead className="text-right">총 금액</TableHead>

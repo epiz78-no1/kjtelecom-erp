@@ -337,7 +337,7 @@ export default function TeamMaterialUsage() {
   const handleExportExcel = () => {
     const dataToExport = filteredRecords.map(record => ({
       "사용일": record.date,
-      "구분": record.category,
+      "사업": record.category,
       "팀": record.teamCategory,
       "공사명": record.projectName,
       "품명": record.productName,
@@ -667,7 +667,7 @@ export default function TeamMaterialUsage() {
             <div className="w-[180px]">
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger data-testid="select-category">
-                  <SelectValue placeholder="구분 선택" />
+                  <SelectValue placeholder="사업 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체</SelectItem>
@@ -767,7 +767,7 @@ export default function TeamMaterialUsage() {
                   ) : null}
                 </TableHead>
                 <TableHead className="font-semibold w-[100px] text-center align-middle bg-background !py-1 !h-8">사용일</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">구분</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">사업</TableHead>
                 <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">팀</TableHead>
                 <TableHead className="font-semibold w-[200px] text-center align-middle bg-background !py-1 !h-8">공사명</TableHead>
                 <TableHead className="font-semibold w-[120px] text-center align-middle bg-background !py-1 !h-8">품명</TableHead>
@@ -775,6 +775,7 @@ export default function TeamMaterialUsage() {
                 <TableHead className="font-semibold w-[70px] text-center align-middle bg-background !py-1 !h-8">수량</TableHead>
 
                 <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">사용자</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">입력자</TableHead>
                 <TableHead className="font-semibold w-[150px] text-center align-middle bg-background !py-1 !h-8">비고</TableHead>
                 <TableHead className="font-semibold w-[50px] text-center align-middle bg-background !py-1 !h-8">첨부</TableHead>
                 <TableHead className="font-semibold w-[70px] text-center align-middle bg-background !py-1 !h-8"></TableHead>
@@ -801,6 +802,7 @@ export default function TeamMaterialUsage() {
                   <TableCell className="text-center align-middle max-w-[120px] truncate !py-1">{record.specification}</TableCell>
                   <TableCell className="text-center align-middle font-medium whitespace-nowrap !py-1">{record.quantity.toLocaleString()}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.recipient}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{(record as any).createdByName || "-"}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap truncate max-w-[150px] py-1" title={record.remark || ""}>{record.remark}</TableCell>
                   <TableCell className="text-center align-middle !py-1">
                     {(() => {

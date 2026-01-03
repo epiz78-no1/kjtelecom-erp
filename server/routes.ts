@@ -4,7 +4,7 @@ import { storage } from "./storage.js";
 import { db } from "./db.js";
 import { divisions, teams, inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords } from "../shared/schema.js";
 import { insertTeamSchema, insertInventoryItemSchema, insertOutgoingRecordSchema, insertMaterialUsageRecordSchema, insertIncomingRecordSchema } from "../shared/schema.js";
-import { apiInsertTeamSchema, apiInsertInventoryItemSchema, apiInsertOutgoingRecordSchema, apiInsertMaterialUsageRecordSchema, apiInsertIncomingRecordSchema } from "../shared/schema.js";
+import { apiInsertTeamSchema, apiInsertInventoryItemSchema, apiInsertOutgoingRecordSchema, apiInsertMaterialUsageRecordSchema, apiInsertIncomingRecordSchema, apiInsertOpticalCableSchema, apiInsertOpticalCableLogSchema } from "../shared/schema.js";
 import { requireAuth, requireTenant, requireAdmin } from "./middleware/auth.js";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -365,7 +365,8 @@ export async function registerRoutes(
     try {
       const item = await storage.createInventoryItem({
         ...parseResult.data,
-        tenantId
+        tenantId,
+        createdBy: req.session!.userId!
       });
       res.status(201).json(item);
     } catch (error: any) {
@@ -485,7 +486,8 @@ export async function registerRoutes(
 
       const record = await storage.createOutgoingRecord({
         ...parseResult.data,
-        tenantId
+        tenantId,
+        createdBy: req.session!.userId!
       });
 
       await syncInventoryItem(
@@ -615,7 +617,8 @@ export async function registerRoutes(
 
       const record = await storage.createMaterialUsageRecord({
         ...parseResult.data,
-        tenantId
+        tenantId,
+        createdBy: req.session!.userId!
       });
 
       await syncInventoryItem(
@@ -731,7 +734,8 @@ export async function registerRoutes(
       const tenantId = req.session!.tenantId!;
       const record = await storage.createIncomingRecord({
         ...parseResult.data,
-        tenantId
+        tenantId,
+        createdBy: req.session!.userId!
       });
 
       // Ensure inventory item exists
@@ -966,6 +970,120 @@ export async function registerRoutes(
     }
 
     res.status(204).send();
+  });
+
+  // Optical Cable Management API
+  app.get("/api/optical-cables", requireAuth, requireTenant, async (req, res) => {
+    const tenantId = req.session!.tenantId!;
+    const cables = await storage.getOpticalCables(tenantId);
+    res.json(cables);
+  });
+
+  app.get("/api/optical-cables/logs", requireAuth, requireTenant, async (req, res) => {
+    const tenantId = req.session!.tenantId!;
+    const logs = await storage.getAllOpticalCableLogs(tenantId);
+    res.json(logs);
+  });
+
+  app.get("/api/optical-cables/:id", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const tenantId = req.session!.tenantId!;
+    const cable = await storage.getOpticalCable(id, tenantId);
+    if (!cable) return res.status(404).json({ error: "Cable not found" });
+    res.json(cable);
+  });
+
+  app.post("/api/optical-cables", requireAuth, requireTenant, async (req, res) => {
+    const parseResult = apiInsertOpticalCableSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: parseResult.error.message });
+    }
+    const tenantId = req.session!.tenantId!;
+    try {
+      const cable = await storage.createOpticalCable({
+        ...parseResult.data,
+        remainingLength: Number(parseResult.data.totalLength),
+        tenantId,
+        createdBy: req.session!.userId!
+      }, tenantId);
+      res.status(201).json(cable);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+
+
+  app.post("/api/optical-cables/bulk", requireAuth, requireTenant, async (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: "Items must be an array" });
+    }
+
+    const tenantId = req.session!.tenantId!;
+    try {
+      const cables = await storage.createOpticalCablesBulk(items, tenantId);
+      res.status(201).json(cables);
+    } catch (error: any) {
+      console.error("Bulk optical cable upload error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/optical-cables/bulk-delete", requireAuth, requireTenant, requireAdmin, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "삭제할 항목을 선택해주세요" });
+      }
+
+      await storage.bulkDeleteOpticalCables(ids, req.session!.tenantId!);
+      res.json({ success: true, message: "삭제되었습니다" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/optical-cables/logs/bulk-delete", requireAuth, requireTenant, requireAdmin, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "삭제할 항목을 선택해주세요" });
+      }
+
+      await storage.bulkDeleteOpticalCableLogs(ids, req.session!.tenantId!);
+      res.json({ success: true, message: "삭제되었습니다" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/optical-cables/:id/log", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const parseResult = apiInsertOpticalCableLogSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: parseResult.error.message });
+    }
+    const tenantId = req.session!.tenantId!;
+    try {
+      // cableId는 URL param이 우선하도록 설정 (혹은 body와 일치 확인)
+      const cable = await storage.createOpticalCableLog({
+        ...parseResult.data,
+        cableId: id,
+        tenantId,
+        createdBy: req.session!.userId
+      }, tenantId);
+      res.json(cable);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/optical-cables/:id/logs", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const tenantId = req.session!.tenantId!;
+    const logs = await storage.getOpticalCableLogs(id, tenantId);
+    res.json(logs);
   });
 
   return httpServer;

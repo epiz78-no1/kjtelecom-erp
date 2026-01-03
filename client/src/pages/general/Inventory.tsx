@@ -265,7 +265,7 @@ export default function Inventory() {
       const totalStock = officeStock + teamStock;
 
       return {
-        "구분": item.category,
+        "사업": item.category,
         "품명": item.productName,
         "규격": item.specification,
         "재고현황": totalStock,
@@ -292,7 +292,7 @@ export default function Inventory() {
       <div className="flex-shrink-0 space-y-4 pb-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">재고 현황</h1>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">일반자재 재고현황</h1>
             <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -340,7 +340,7 @@ export default function Inventory() {
             <div className="relative max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="품명 검색..."
+                placeholder="품명, 사업, 규격 검색..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -394,7 +394,7 @@ export default function Inventory() {
                   ) : null}
                 </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
-                  구분
+                  사업
                   <div
                     className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
                     onMouseDown={(e) => startResizing("category", e)}

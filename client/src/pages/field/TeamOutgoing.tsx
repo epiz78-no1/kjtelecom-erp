@@ -90,7 +90,7 @@ export default function TeamOutgoing() {
 
   const handleExportExcel = () => {
     const dataToExport = filteredStock.map(item => ({
-      "구분": item.division,
+      "사업": item.division,
       "현장팀": item.teamCategory,
       "품명": item.productName,
       "규격": item.specification,
@@ -199,7 +199,7 @@ export default function TeamOutgoing() {
           <table className="w-full caption-bottom text-sm">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">구분</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
                 <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
                 <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">품명</TableHead>
                 <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
