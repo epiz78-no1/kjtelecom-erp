@@ -617,7 +617,7 @@ export default function AdminMembers() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Table>
+                        <Table className="table-fixed">
                             <TableHeader>
                                 <TableRow className="h-8">
                                     <TableHead className="w-[100px]">이름</TableHead>
@@ -646,7 +646,7 @@ export default function AdminMembers() {
                                     </TableRow>
                                 ) : (
                                     members?.map((member) => (
-                                        <TableRow key={member.id}>
+                                        <TableRow key={member.id} className="h-6 [&_td]:py-0">
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">

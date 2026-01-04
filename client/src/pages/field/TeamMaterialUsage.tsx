@@ -452,17 +452,15 @@ export default function TeamMaterialUsage() {
 
   const openEditDialog = (record: MaterialUsageRecord) => {
     setEditingRecord(record);
-    // let drumNo = "";
-    // try {
-    //   const attrs = JSON.parse(record.attributes || "{}");
-    //   drumNo = attrs.drumNumber || "";
-    // } catch (e) { }
+    // Find team robustly
+    const teamName = (record.teamCategory || "").trim();
+    const foundTeam = teams.find(t => t.id === record.teamId || t.name === teamName);
 
     setFormData({
       division: record.division,
       category: record.category || "",
-      teamCategory: record.teamCategory,
-      teamId: record.teamId || undefined,
+      teamCategory: foundTeam ? foundTeam.name : teamName,
+      teamId: foundTeam ? foundTeam.id : (record.teamId || undefined),
       projectName: record.projectName,
       productName: record.productName,
       specification: record.specification,
@@ -561,16 +559,17 @@ export default function TeamMaterialUsage() {
       const data = {
         date: format(selectedDate, "yyyy-MM-dd"),
         division: "SKT",
-        category: item.category,
-        teamCategory: formData.teamCategory,
-        projectName: formData.projectName,
-        productName: item.productName,
-        specification: item.specification,
+        category: (item.category || "").trim(),
+        teamCategory: formData.teamCategory.trim(),
+        teamId: formData.teamId, // Ensure teamId is sent
+        projectName: (formData.projectName || "").trim(),
+        productName: item.productName.trim(),
+        specification: (item.specification || "").trim(),
         quantity: parseInt(item.quantity) || 0,
-        recipient: formData.recipient,
+        recipient: formData.recipient.trim(),
         type: "general",
         attributes: JSON.stringify(attributesObj),
-        remark: item.remark,
+        remark: (item.remark || "").trim(),
         inventoryItemId: item.inventoryItemId
       };
 
@@ -602,17 +601,17 @@ export default function TeamMaterialUsage() {
         const data = {
           date: format(selectedDate, "yyyy-MM-dd"),
           division: "SKT",
-          category: item.category,
-          teamCategory: formData.teamCategory,
+          category: (item.category || "").trim(),
+          teamCategory: formData.teamCategory.trim(),
           teamId: formData.teamId,
-          projectName: formData.projectName,
-          productName: item.productName,
-          specification: item.specification,
+          projectName: (formData.projectName || "").trim(),
+          productName: item.productName.trim(),
+          specification: (item.specification || "").trim(),
           quantity: parseInt(item.quantity) || 0,
-          recipient: formData.recipient,
+          recipient: formData.recipient.trim(),
           type: "general",
           attributes: JSON.stringify(attributesObj),
-          remark: item.remark,
+          remark: (item.remark || "").trim(),
           inventoryItemId: item.inventoryItemId
         };
 
@@ -754,7 +753,7 @@ export default function TeamMaterialUsage() {
       <div className="flex-1 rounded-md border bg-background overflow-hidden relative">
         {/* PC View: Table */}
         <div className="hidden md:block h-full overflow-auto">
-          <table className="w-full caption-bottom text-sm">
+          <table className="w-full caption-bottom text-sm table-fixed">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
                 <TableHead className="w-[40px] text-center align-middle bg-background">
@@ -766,25 +765,25 @@ export default function TeamMaterialUsage() {
                     />
                   ) : null}
                 </TableHead>
-                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background !py-1 !h-8">사용일</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">사업</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">팀</TableHead>
-                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background !py-1 !h-8">공사명</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background !py-1 !h-8">품명</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background !py-1 !h-8">규격</TableHead>
-                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background !py-1 !h-8">수량</TableHead>
+                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용팀</TableHead>
+                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
+                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
 
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">사용자</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background !py-1 !h-8">입력자</TableHead>
-                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background !py-1 !h-8">비고</TableHead>
-                <TableHead className="font-semibold w-[50px] text-center align-middle bg-background !py-1 !h-8">첨부</TableHead>
-                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background !py-1 !h-8"></TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용자</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입력자</TableHead>
+                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">비고</TableHead>
+                <TableHead className="font-semibold w-[50px] text-center align-middle bg-background">첨부</TableHead>
+                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRecords.map((record) => (
-                <TableRow key={record.id} className="h-6 [&_td]:py-0" data-testid={`row-usage-${record.id}`}>
-                  <TableCell className="text-center align-middle !py-1">
+                <TableRow key={record.id} data-testid={`row-usage-${record.id}`} className="h-6 [&_td]:py-0">
+                  <TableCell className="text-center align-middle">
                     {isTenantOwner ? (
                       <Checkbox
                         checked={selectedIds.has(record.id)}
@@ -793,18 +792,23 @@ export default function TeamMaterialUsage() {
                       />
                     ) : null}
                   </TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.date}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
 
-                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.category}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.teamCategory}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[200px] truncate !py-1">{record.projectName}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.productName}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[120px] truncate !py-1">{record.specification}</TableCell>
-                  <TableCell className="text-center align-middle font-medium whitespace-nowrap !py-1">{record.quantity.toLocaleString()}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{record.recipient}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap !py-1">{(record as any).createdByName || "-"}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap truncate max-w-[150px] py-1" title={record.remark || ""}>{record.remark}</TableCell>
-                  <TableCell className="text-center align-middle !py-1">
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">
+                    {record.teamCategory || teams.find(t => t.id === record.teamId)?.name || '-'}
+                  </TableCell>
+                  <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
+                  <TableCell className="text-center align-middle font-bold">
+                    {Number(record.quantity).toLocaleString()}
+                  </TableCell>
+
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient || '-'}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{(record as any).createdByName || "-"}</TableCell>
+                  <TableCell className="text-center align-middle max-w-[150px] truncate" title={record.remark || ""}>{record.remark}</TableCell>
+                  <TableCell className="text-center align-middle">
                     {(() => {
                       try {
                         if (!record.attributes) return null;
@@ -832,27 +836,28 @@ export default function TeamMaterialUsage() {
                       return null;
                     })()}
                   </TableCell>
-                  <TableCell className="text-center align-middle !py-1">
-                    <div className="flex justify-center items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => openEditDialog(record)}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-destructive"
-                        onClick={() => {
-                          setDeleteRecord(record);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                  <TableCell className="text-center align-middle">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">메뉴 열기</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>작업</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => openEditDialog(record)}>
+                          <Pencil className="mr-2 h-4 w-4" /> 수정
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setDeleteRecord(record)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> 삭제
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

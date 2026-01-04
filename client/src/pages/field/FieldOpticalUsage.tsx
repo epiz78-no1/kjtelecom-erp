@@ -267,7 +267,7 @@ export default function FieldOpticalUsage() {
 
             <div className="flex-1 rounded-md border bg-background overflow-hidden relative">
                 <div className="h-full overflow-auto">
-                    <table className="w-full caption-bottom text-sm">
+                    <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                             <TableRow className="h-8">
                                 <TableHead className="w-[40px] text-center align-middle bg-background">

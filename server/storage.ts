@@ -594,6 +594,8 @@ export class DatabaseStorage implements IStorage {
         quantity: materialUsageRecords.quantity,
         recipient: materialUsageRecords.recipient,
         remark: materialUsageRecords.remark,
+        teamId: materialUsageRecords.teamId,
+        teamCategory: materialUsageRecords.teamCategory,
         inventoryItemId: materialUsageRecords.inventoryItemId,
         createdBy: materialUsageRecords.createdBy,
         createdByName: users.name,

@@ -184,15 +184,15 @@ export default function FieldOpticalStatus() {
 
             <div className="flex-1 rounded-md border overflow-hidden">
                 <div className="h-full overflow-auto relative">
-                    <table className="w-full caption-bottom text-sm">
+                    <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-8">
-                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
-                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
-                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">제조번호</TableHead>
-                                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
-                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">코어</TableHead>
-                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">잔량(m)</TableHead>
+                            <TableRow className="h-10 bg-muted/50">
+                                <TableHead className="font-semibold w-[80px] text-center align-middle">사업</TableHead>
+                                <TableHead className="font-semibold w-[120px] text-center align-middle">현장팀</TableHead>
+                                <TableHead className="font-semibold w-[120px] text-center align-middle">제조번호</TableHead>
+                                <TableHead className="font-semibold w-[150px] text-center align-middle">규격</TableHead>
+                                <TableHead className="font-semibold w-[80px] text-center align-middle">코어</TableHead>
+                                <TableHead className="font-semibold w-[100px] text-center align-middle">잔량(m)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -204,13 +204,13 @@ export default function FieldOpticalStatus() {
                                 </TableRow>
                             ) : (
                                 filteredStock.map((item) => (
-                                    <TableRow key={item.id} className="h-6 [&_td]:py-0">
+                                    <TableRow key={item.id} className="h-10 hover:bg-muted/50">
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.drumNo}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.spec}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.coreCount}</TableCell>
-                                        <TableCell className="text-center align-middle font-bold text-primary">
+                                        <TableCell className="text-center align-middle font-bold">
                                             {item.remainingLength.toLocaleString()}
                                         </TableCell>
                                     </TableRow>

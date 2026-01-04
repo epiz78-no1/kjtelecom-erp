@@ -164,7 +164,7 @@ export default function AdminPositions() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Table>
+                        <Table className="table-fixed">
                             <TableHeader>
                                 <TableRow className="h-8">
                                     <TableHead className="w-[50px]">순서</TableHead>
@@ -187,7 +187,7 @@ export default function AdminPositions() {
                                     </TableRow>
                                 ) : (
                                     positions.map((pos, index) => (
-                                        <TableRow key={pos.id}>
+                                        <TableRow key={pos.id} className="h-6 [&_td]:py-0">
                                             <TableCell>
                                                 <div className="flex flex-col">
                                                     <Button

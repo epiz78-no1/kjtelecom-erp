@@ -48,14 +48,20 @@ export default function TeamOutgoing() {
   const stockMap = new Map<string, any>();
 
   outgoingRecords.forEach(record => {
-    const key = `${record.division}| ${record.teamCategory}| ${record.productName}| ${record.specification} `;
+    // Trim keys to prevent whitespace mismatches
+    const d = record.division.trim();
+    const t = record.teamCategory.trim();
+    const p = record.productName.trim();
+    const s = (record.specification || "").trim();
+
+    const key = `${d}|${t}|${p}|${s}`;
     if (!stockMap.has(key)) {
       stockMap.set(key, {
         id: key, // Pseudo ID for key
-        division: record.division,
-        teamCategory: record.teamCategory,
-        productName: record.productName,
-        specification: record.specification,
+        division: d,
+        teamCategory: t,
+        productName: p,
+        specification: s,
         quantity: 0
       });
     }
@@ -63,14 +69,37 @@ export default function TeamOutgoing() {
   });
 
   usageRecords.forEach(record => {
-    const key = `${record.division}| ${record.teamCategory}| ${record.productName}| ${record.specification} `;
+    // Resolve team name: use record.teamCategory or fallback to looking up via teamId
+    let teamName = record.teamCategory || allTeams.find(t => t.id === record.teamId)?.name || "";
+    teamName = teamName.trim();
+
+    if (!teamName) return; // Skip if no team can be identified
+
+    const d = record.division.trim();
+    const p = record.productName.trim();
+    const s = (record.specification || "").trim();
+
+    const key = `${d}|${teamName}|${p}|${s}`;
+
+    // Initialize if not exists (usage without receiving)
+    if (!stockMap.has(key)) {
+      stockMap.set(key, {
+        id: key,
+        division: d,
+        teamCategory: teamName,
+        productName: p,
+        specification: s,
+        quantity: 0
+      });
+    }
+
     if (stockMap.has(key)) {
       stockMap.get(key).quantity -= record.quantity;
     }
   });
 
-  // Convert to array and filter out zero/negative stock
-  const allStockItems = Array.from(stockMap.values()).filter(item => item.quantity > 0);
+  // Convert to array and filter out zero stock (allow negative for data consistency check)
+  const allStockItems = Array.from(stockMap.values()).filter(item => item.quantity !== 0);
 
   const divisionFiltered = selectedDivision === "all"
     ? allStockItems
@@ -196,14 +225,14 @@ export default function TeamOutgoing() {
 
       <div className="flex-1 rounded-md border overflow-hidden">
         <div className="h-full overflow-auto relative">
-          <table className="w-full caption-bottom text-sm">
+          <table className="w-full caption-bottom text-sm table-fixed">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-              <TableRow className="h-8">
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
-                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">품명</TableHead>
-                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
-                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">보유 수량</TableHead>
+              <TableRow className="h-10 bg-muted/50">
+                <TableHead className="font-semibold w-[80px] text-center align-middle">사업</TableHead>
+                <TableHead className="font-semibold w-[120px] text-center align-middle">현장팀</TableHead>
+                <TableHead className="font-semibold w-[200px] text-center align-middle">품명</TableHead>
+                <TableHead className="font-semibold w-[150px] text-center align-middle">규격</TableHead>
+                <TableHead className="font-semibold w-[100px] text-center align-middle">보유 수량</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -215,12 +244,12 @@ export default function TeamOutgoing() {
                 </TableRow>
               ) : (
                 filteredStock.map((item) => (
-                  <TableRow key={item.id} className="h-6 [&_td]:py-0">
+                  <TableRow key={item.id} className="h-10 hover:bg-muted/50">
                     <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.specification}</TableCell>
-                    <TableCell className="text-center align-middle font-bold text-primary">
+                    <TableCell className="text-center align-middle font-bold">
                       {item.quantity.toLocaleString()}
                     </TableCell>
                   </TableRow>

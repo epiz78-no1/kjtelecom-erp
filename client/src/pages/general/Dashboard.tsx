@@ -183,9 +183,9 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
-                <TableRow className="bg-muted/50 h-[50px]">
+                <TableRow className="bg-muted/50 h-8">
                   <TableHead>카테고리</TableHead>
                   <TableHead className="text-right">품목 수</TableHead>
                   <TableHead className="text-right">총 수량</TableHead>
@@ -201,7 +201,7 @@ export default function Dashboard() {
                   </TableRow>
                 ) : (
                   categoryList.map((cat) => (
-                    <TableRow key={cat.name} data-testid={`row-category-${cat.name}`}>
+                    <TableRow key={cat.name} data-testid={`row-category-${cat.name}`} className="h-6 [&_td]:py-0">
                       <TableCell className="font-medium">{cat.name}</TableCell>
                       <TableCell className="text-right">{cat.count}개</TableCell>
                       <TableCell className="text-right">{cat.quantity.toLocaleString()}</TableCell>
@@ -210,7 +210,7 @@ export default function Dashboard() {
                   ))
                 )}
                 {categoryList.length > 0 && (
-                  <TableRow className="bg-muted/50 font-semibold">
+                  <TableRow className="bg-muted/50 font-semibold h-6 [&_td]:py-0">
                     <TableCell>합계</TableCell>
                     <TableCell className="text-right">{filteredInventory.length}개</TableCell>
                     <TableCell className="text-right">{totalRemaining.toLocaleString()}</TableCell>

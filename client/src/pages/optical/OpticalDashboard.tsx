@@ -164,9 +164,9 @@ export default function OpticalDashboard() {
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-x-auto">
-                        <Table>
+                        <Table className="table-fixed">
                             <TableHeader>
-                                <TableRow className="bg-muted/50 h-[50px]">
+                                <TableRow className="bg-muted/50 h-8">
                                     <TableHead>구분</TableHead>
                                     <TableHead className="text-right">보유 드럼</TableHead>
                                     <TableHead className="text-right">총 잔여 길이</TableHead>
@@ -182,7 +182,7 @@ export default function OpticalDashboard() {
                                     </TableRow>
                                 ) : (
                                     specList.map((item) => (
-                                        <TableRow key={item.spec}>
+                                        <TableRow key={item.spec} className="h-6 [&_td]:py-0">
                                             <TableCell className="font-medium">{item.spec}</TableCell>
                                             <TableCell className="text-right">{item.count}개</TableCell>
                                             <TableCell className="text-right">{item.length.toLocaleString()}m</TableCell>
