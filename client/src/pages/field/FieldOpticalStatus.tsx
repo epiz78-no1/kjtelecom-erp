@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useAppContext } from "@/contexts/AppContext";
-import { Loader2, Cable, ArrowRightLeft } from "lucide-react";
+import { Download, Search, Loader2, Cable } from "lucide-react";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useAppContext } from "@/contexts/AppContext";
+import { useQuery } from "@tanstack/react-query";
+import type { OpticalCable, OpticalCableLog } from "@shared/schema";
+import { exportToExcel } from "@/lib/excel";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -13,51 +22,73 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 
 export default function FieldOpticalStatus() {
-    const { toast } = useToast();
-    const { tenants, currentTenant } = useAppContext();
-    const activeTenant = tenants.find(t => t.id === currentTenant);
-    const myTeamId = activeTenant?.teamId;
+    const { divisions, teams: allTeams, checkPermission } = useAppContext();
+    const canWrite = checkPermission("usage", "write");
+    const [selectedDivision, setSelectedDivision] = useState("all");
+    const [selectedTeam, setSelectedTeam] = useState("all");
+    const [searchQuery, setSearchQuery] = useState("");
 
-    // Fetch all cables (filtered by tenant)
     const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
         queryKey: ["/api/optical-cables"],
     });
 
-    const returnMutation = useMutation({
-        mutationFn: async (cableId: string) => {
-            if (!myTeamId) throw new Error("Team ID not found");
-            const res = await apiRequest("POST", `/api/optical-cables/${cableId}/return`, { teamId: myTeamId });
-            return res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "본사로 반납 처리되었습니다" });
-        },
-        onError: (error: Error) => {
-            toast({ title: "반납 실패", description: error.message, variant: "destructive" });
+    // Filter assigned cables only
+    const assignedCables = cables.filter(c => c.status === 'assigned' && c.currentTeamId);
+
+    // Aggregate by team
+    const stockMap = new Map<string, any>();
+
+    assignedCables.forEach(cable => {
+        const team = allTeams.find(t => t.id === cable.currentTeamId);
+        if (!team) return;
+
+        const division = divisions?.find(d => d.id === team.divisionId);
+        const divisionName = division?.name || 'SKT';
+
+        const key = `${divisionName}|${team.name}|${cable.drumNo}|${cable.spec}`;
+        if (!stockMap.has(key)) {
+            stockMap.set(key, {
+                id: key,
+                division: divisionName,
+                teamCategory: team.name,
+                drumNo: cable.drumNo,
+                spec: cable.spec,
+                coreCount: cable.coreCount,
+                remainingLength: cable.remainingLength
+            });
         }
     });
 
-    if (!myTeamId) {
-        return (
-            <div className="flex h-64 items-center justify-center text-muted-foreground">
-                소속된 현장팀 정보가 없습니다.
-            </div>
-        );
-    }
+    const allStockItems = Array.from(stockMap.values());
 
-    // Filter for my team
-    const myCables = cables.filter(c => c.currentTeamId === myTeamId && c.status === 'assigned');
+    const divisionFiltered = selectedDivision === "all"
+        ? allStockItems
+        : allStockItems.filter((item) => item.division === selectedDivision);
 
-    const handleReturn = (cable: OpticalCable) => {
-        if (confirm(`${cable.drumNo} 드럼을 본사(자재팀)로 반납하시겠습니까?`)) {
-            returnMutation.mutate(cable.id);
-        }
+    const teams = Array.from(new Set(divisionFiltered.map((r) => r.teamCategory))).filter(Boolean).sort();
+
+    const filteredStock = divisionFiltered.filter((item) => {
+        const matchesTeam = selectedTeam === "all" || item.teamCategory === selectedTeam;
+        const matchesSearch =
+            item.drumNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.spec?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.teamCategory?.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesTeam && matchesSearch;
+    });
+
+    const handleExportExcel = () => {
+        const dataToExport = filteredStock.map(item => ({
+            "사업": item.division,
+            "현장팀": item.teamCategory,
+            "제조번호": item.drumNo,
+            "규격": item.spec,
+            "코어": item.coreCount,
+            "잔량(m)": item.remainingLength
+        }));
+
+        exportToExcel(dataToExport, "현장팀_광케이블_보유현황");
     };
 
     if (isLoading) {
@@ -69,63 +100,126 @@ export default function FieldOpticalStatus() {
     }
 
     return (
-        <div className="flex flex-col h-full space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Cable className="h-6 w-6" />
-                    현장 불출 현황 (광케이블)
-                </h1>
-                <p className="text-muted-foreground">현재 우리 팀이 보유한 광케이블 드럼 목록입니다.</p>
+        <div className="flex flex-col h-full">
+            <div className="flex-shrink-0 space-y-4 pb-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold">현장팀 보유 재고 현황 (광케이블)</h1>
+                        <p className="text-muted-foreground">각 현장팀이 현재 보유하고 있는 광케이블 드럼을 조회합니다</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {canWrite && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 border-green-600 text-green-600 hover:bg-green-50"
+                                onClick={handleExportExcel}
+                            >
+                                <Download className="h-3 w-3 mr-1" />
+                                Excel
+                            </Button>
+                        )}
+                        <div className="w-[180px]">
+                            <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="사업부 선택" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">전체</SelectItem>
+                                    <SelectItem value="SKT">SKT</SelectItem>
+                                    <SelectItem value="SKB">SKB</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {allTeams
+                        .filter((t: any) => {
+                            if (selectedDivision === "all") return true;
+                            const division = divisions?.find(d => d.id === t.divisionId);
+                            return division?.name === selectedDivision;
+                        })
+                        .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
+                        .map((team: any) => {
+                            // Calculate current cable count for this team
+                            const teamCableCount = allStockItems.filter(item => item.teamCategory === team.name).length;
+
+                            return (
+                                <FieldTeamCard
+                                    key={team.id}
+                                    team={{ ...team, materialCount: teamCableCount }}
+                                    onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "all" : t.name)}
+                                />
+                            );
+                        })}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                    <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="제조번호, 규격, 팀명 검색..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                        <SelectTrigger className="w-48">
+                            <SelectValue placeholder="팀 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">전체</SelectItem>
+                            {teams.map((team) => (
+                                <SelectItem key={team} value={team}>
+                                    {team}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>보유 드럼 목록 ({myCables.length}개)</CardTitle>
-                    <CardDescription>사용 중인 드럼만 표시됩니다. 사용 완료된 드럼은 목록에서 사라집니다.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>드럼번호</TableHead>
-                                <TableHead>규격</TableHead>
-                                <TableHead className="text-right">총 길이</TableHead>
-                                <TableHead className="text-right">현재 잔량</TableHead>
-                                <TableHead className="text-right">액션</TableHead>
+            <div className="flex-1 rounded-md border overflow-hidden">
+                <div className="h-full overflow-auto relative">
+                    <table className="w-full caption-bottom text-sm">
+                        <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                            <TableRow className="h-8">
+                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
+                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
+                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">제조번호</TableHead>
+                                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
+                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">코어</TableHead>
+                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">잔량(m)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {myCables.length === 0 ? (
+                            {filteredStock.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        보유 중인 광케이블 드럼이 없습니다.
+                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                        보유 중인 광케이블이 없습니다
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                myCables.map((cable) => (
-                                    <TableRow key={cable.id}>
-                                        <TableCell className="font-medium">{cable.drumNo}</TableCell>
-                                        <TableCell>{cable.spec}</TableCell>
-                                        <TableCell className="text-right">{cable.totalLength.toLocaleString()}m</TableCell>
-                                        <TableCell className="text-right font-bold text-blue-600">{cable.remainingLength.toLocaleString()}m</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleReturn(cable)}
-                                                disabled={returnMutation.isPending}
-                                            >
-                                                <ArrowRightLeft className="mr-2 h-3 w-3" />
-                                                반납
-                                            </Button>
+                                filteredStock.map((item) => (
+                                    <TableRow key={item.id} className="h-6 [&_td]:py-0">
+                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.drumNo}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{item.spec}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{item.coreCount}</TableCell>
+                                        <TableCell className="text-center align-middle font-bold text-primary">
+                                            {item.remainingLength.toLocaleString()}
                                         </TableCell>
                                     </TableRow>
                                 ))
                             )}
                         </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 }

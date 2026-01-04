@@ -166,8 +166,8 @@ export default function OpticalDashboard() {
                     <div className="rounded-md border overflow-x-auto">
                         <Table>
                             <TableHeader>
-                                <TableRow>
-                                    <TableHead>규격</TableHead>
+                                <TableRow className="bg-muted/50 h-[50px]">
+                                    <TableHead>구분</TableHead>
                                     <TableHead className="text-right">보유 드럼</TableHead>
                                     <TableHead className="text-right">총 잔여 길이</TableHead>
                                     <TableHead className="text-right">총 금액</TableHead>

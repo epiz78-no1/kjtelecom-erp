@@ -783,7 +783,7 @@ export default function TeamMaterialUsage() {
             </TableHeader>
             <TableBody>
               {filteredRecords.map((record) => (
-                <TableRow key={record.id} className="h-8" data-testid={`row-usage-${record.id}`}>
+                <TableRow key={record.id} className="h-6 [&_td]:py-0" data-testid={`row-usage-${record.id}`}>
                   <TableCell className="text-center align-middle !py-1">
                     {isTenantOwner ? (
                       <Checkbox

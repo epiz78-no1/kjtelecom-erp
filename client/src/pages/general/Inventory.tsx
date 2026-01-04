@@ -464,7 +464,7 @@ export default function Inventory() {
                 const totalStock = officeStock + teamStock; // 재고현황
 
                 return (
-                  <TableRow key={item.id} className="h-8 [&_td]:py-1" data-testid={`row-inventory-${item.id}`}>
+                  <TableRow key={item.id} className="h-6 [&_td]:py-0" data-testid={`row-inventory-${item.id}`}>
                     <TableCell className="text-center align-middle">
                       {isTenantOwner ? (
                         <Checkbox

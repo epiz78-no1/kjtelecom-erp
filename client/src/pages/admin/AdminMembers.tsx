@@ -619,8 +619,8 @@ export default function AdminMembers() {
                     <CardContent>
                         <Table>
                             <TableHeader>
-                                <TableRow>
-                                    <TableHead>멤버</TableHead>
+                                <TableRow className="h-8">
+                                    <TableHead className="w-[100px]">이름</TableHead>
                                     <TableHead>ID</TableHead>
                                     <TableHead>직급/부서</TableHead>
                                     <TableHead>연락처</TableHead>

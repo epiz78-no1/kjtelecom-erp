@@ -185,8 +185,8 @@ export default function Dashboard() {
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>사업</TableHead>
+                <TableRow className="bg-muted/50 h-[50px]">
+                  <TableHead>카테고리</TableHead>
                   <TableHead className="text-right">품목 수</TableHead>
                   <TableHead className="text-right">총 수량</TableHead>
                   <TableHead className="text-right">총 금액</TableHead>

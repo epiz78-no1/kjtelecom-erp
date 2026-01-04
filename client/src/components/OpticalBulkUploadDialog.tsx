@@ -92,6 +92,28 @@ export function OpticalBulkUploadDialog({
         return { valid: rowErrors.length === 0, errors: rowErrors };
     };
 
+    // 날짜 형식을 YYYY-MM-DD로 표준화하는 함수
+    const normalizeDateFormat = (dateStr: string): string => {
+        if (!dateStr) return new Date().toISOString().split('T')[0];
+
+        // 이미 YYYY-MM-DD 형식인지 확인
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            return dateStr;
+        }
+
+        // YYYY-M-D 형식을 YYYY-MM-DD로 변환
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const year = parts[0].padStart(4, '0');
+            const month = parts[1].padStart(2, '0');
+            const day = parts[2].padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // 파싱 실패 시 현재 날짜 반환
+        return new Date().toISOString().split('T')[0];
+    };
+
     const parseCSV = (file: File) => {
         setFileName(file.name);
         setErrors([]);
@@ -167,7 +189,7 @@ export function OpticalBulkUploadDialog({
                             category: category,
                             managementNo: managementNo,
                             drumNo: drumNo,
-                            receivedDate: row["입고일자"] || row["입고일"] || new Date().toISOString().split('T')[0],
+                            receivedDate: normalizeDateFormat(row["입고일자"] || row["입고일"] || ""),
                             manufacturer: row["제조사"] || "",
                             manufactureYear: row["제조연도"] || "",
                             spec: spec,

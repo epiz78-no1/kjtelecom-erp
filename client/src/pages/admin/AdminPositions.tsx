@@ -166,7 +166,7 @@ export default function AdminPositions() {
                     <CardContent>
                         <Table>
                             <TableHeader>
-                                <TableRow>
+                                <TableRow className="h-8">
                                     <TableHead className="w-[50px]">순서</TableHead>
                                     <TableHead>직급명</TableHead>
                                     <TableHead className="text-right">작업</TableHead>

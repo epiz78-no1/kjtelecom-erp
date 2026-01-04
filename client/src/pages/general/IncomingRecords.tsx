@@ -550,7 +550,7 @@ export default function IncomingRecords() {
             </TableHeader>
             <TableBody>
               {filteredRecords.map((record) => (
-                <TableRow key={record.id} className="h-8 [&_td]:py-1" data-testid={`row-incoming-${record.id}`}>
+                <TableRow key={record.id} className="h-6 [&_td]:py-0" data-testid={`row-incoming-${record.id}`}>
                   <TableCell className="text-center align-middle">
                     {isTenantOwner ? (
                       <Checkbox

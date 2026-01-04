@@ -77,24 +77,24 @@ export default function OpticalCables() {
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
-        division: 50,
-        category: 60,
-        receivedDate: 90,
-        manufacturer: 80,
-        manufactureYear: 70,
-        spec: 100,
-        coreCount: 50,
-        drumNo: 120,
-        location: 60,
-        totalLength: 80,
-        incomingLength: 80,
-        usedLength: 80,
-        wasteLength: 60,
-        remainingLength: 80,
-        unitPrice: 90,
-        totalAmount: 110,
-        remark: 60,
-        actions: 50
+        division: 60,           // 사업 (SKT/SKB) - 디자인 가이드 표준
+        category: 50,           // 구분 (광케이블/철거/구매) - 디자인 가이드 표준
+        receivedDate: 95,       // 입고일자 (YYYY-MM-DD)
+        manufacturer: 90,       // 제조사
+        manufactureYear: 70,    // 제조연도
+        spec: 50,               // 규격
+        coreCount: 50,          // 코어
+        drumNo: 70,             // 제조번호 (최대 6자리)
+        location: 70,           // 위치
+        totalLength: 90,        // 케이블용량
+        incomingLength: 75,     // 입고량
+        usedLength: 75,         // 사용량
+        wasteLength: 65,        // 폐기량
+        remainingLength: 75,    // 잔량
+        unitPrice: 85,          // 단가
+        totalAmount: 100,       // 금액
+        remark: 80,             // 비고
+        actions: 50             // 작업
     });
 
     const createMutation = useMutation({
@@ -325,7 +325,7 @@ export default function OpticalCables() {
 
             <div className="flex-1 rounded-md border overflow-hidden">
                 <div className="h-full overflow-auto relative pb-20">
-                    <table className="w-max caption-bottom text-sm table-fixed">
+                    <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                             <TableRow className="h-8">
                                 <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
@@ -416,7 +416,14 @@ export default function OpticalCables() {
                                 </TableRow>
                             ) : (
                                 filteredCables.map((cable) => (
-                                    <TableRow key={cable.id} className="h-8 [&_td]:py-1">
+                                    <TableRow
+                                        key={cable.id}
+                                        className="h-6 [&_td]:py-0 cursor-pointer hover:bg-muted/50"
+                                        onDoubleClick={() => {
+                                            setHistoryItem(cable);
+                                            setHistoryOpen(true);
+                                        }}
+                                    >
                                         <TableCell className="text-center align-middle">
                                             {isTenantOwner ? (
                                                 <Checkbox
@@ -521,15 +528,17 @@ export default function OpticalCables() {
                 drumNo={historyItem?.drumNo}
             />
 
-            {selectedActionCable && (
-                <OpticalCableActionDialog
-                    open={actionDialogOpen}
-                    onOpenChange={setActionDialogOpen}
-                    cable={selectedActionCable}
-                    actionType={actionType}
-                    teams={teams}
-                />
-            )}
+            {
+                selectedActionCable && (
+                    <OpticalCableActionDialog
+                        open={actionDialogOpen}
+                        onOpenChange={setActionDialogOpen}
+                        cable={selectedActionCable}
+                        actionType={actionType}
+                        teams={teams}
+                    />
+                )
+            }
         </div >
     );
 }

@@ -215,7 +215,7 @@ export default function TeamOutgoing() {
                 </TableRow>
               ) : (
                 filteredStock.map((item) => (
-                  <TableRow key={item.id} className="h-8">
+                  <TableRow key={item.id} className="h-6 [&_td]:py-0">
                     <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>

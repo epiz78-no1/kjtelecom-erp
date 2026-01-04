@@ -511,7 +511,8 @@ export const opticalCableLogs = pgTable("optical_cable_logs", {
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   cableId: varchar("cable_id").notNull().references(() => opticalCables.id, { onDelete: "cascade" }),
   teamId: varchar("team_id").references(() => teams.id), // Team involved in this log (assignee or user)
-  logType: text("log_type").notNull(), // assign (불출), usage (사용), return (반납), waste (폐기)
+  logType: text("log_type").notNull(), // assign (불출), usage (사용), return (반납), waste (폐기), create (입고), receive (입고)
+  projectCode: text("project_code"), // 공사코드
   projectNameUsage: text("project_name_usage"), // 공사명 (사용 시)
   sectionName: text("section_name"), // 구간명
   usedLength: integer("used_length").notNull().default(0), // Total usage in this action
@@ -521,6 +522,7 @@ export const opticalCableLogs = pgTable("optical_cable_logs", {
   workerName: text("worker_name"),
   beforeRemaining: integer("before_remaining"),
   afterRemaining: integer("after_remaining"),
+  attributes: text("attributes"), // JSON for additional data like remark, attachment
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

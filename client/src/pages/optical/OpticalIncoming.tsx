@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowDownToLine, Search, Plus } from "lucide-react";
+import { Loader2, ArrowDownToLine, Search, Plus, MoreHorizontal, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     TableHeader,
@@ -15,6 +15,14 @@ import { useColumnResize } from "@/hooks/useColumnResize";
 import { Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { OpticalCableFormDialog } from "@/components/OpticalCableFormDialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -32,12 +40,22 @@ export default function OpticalIncoming() {
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
-        date: 100,
-        drumNo: 150,
-        spec: 150,
-        amount: 80,
-        manufacturer: 120,
-        mgmtNo: 120
+        division: 60,           // 사업
+        category: 50,           // 구분
+        receivedDate: 95,       // 입고일자
+        projectCode: 120,       // 공사코드 (T210177093003 형식)
+        projectName: 250,       // 공사명 (긴 텍스트)
+        manufacturer: 90,       // 제조사
+        manufactureYear: 70,    // 제조연도
+        spec: 50,               // 규격
+        coreCount: 50,          // 코어
+        drumNo: 70,             // 제조번호
+        location: 70,           // 위치
+        totalLength: 90,        // 총길이
+        remark: 80,             // 비고
+        createdBy: 80,          // 입력자
+        attachment: 60,         // 첨부
+        actions: 50             // 작업
     });
 
     const { data: logs = [], isLoading } = useQuery<(OpticalCableLog & { cable: OpticalCable | null })[]>({
@@ -74,6 +92,20 @@ export default function OpticalIncoming() {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
             toast({ title: `${selectedIds.size}개 항목이 삭제되었습니다` });
             setSelectedIds(new Set());
+        },
+        onError: () => {
+            toast({ title: "삭제 실패", variant: "destructive" });
+        },
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            return apiRequest("DELETE", `/api/optical-cables/logs/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            toast({ title: "입고 내역이 삭제되었습니다" });
         },
         onError: () => {
             toast({ title: "삭제 실패", variant: "destructive" });
@@ -179,60 +211,80 @@ export default function OpticalIncoming() {
                                         />
                                     ) : null}
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
+                                    사업
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("division", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
+                                    구분
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("category", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.receivedDate }}>
                                     입고일자
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("date", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("receivedDate", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
-                                    드럼번호
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("drumNo", e)}
-                                    />
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectCode }}>
+                                    공사코드
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectCode", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
-                                    규격
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("spec", e)}
-                                    />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.amount }}>
-                                    입고량(m)
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("amount", e)}
-                                    />
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
+                                    공사명
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectName", e)} />
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.manufacturer }}>
                                     제조사
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("manufacturer", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufacturer", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.mgmtNo }}>
-                                    관리번호
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("mgmtNo", e)}
-                                    />
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.manufactureYear }}>
+                                    제조연도
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufactureYear", e)} />
                                 </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
+                                    규격
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("spec", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.coreCount }}>
+                                    코어
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("coreCount", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
+                                    제조번호
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("drumNo", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.location }}>
+                                    위치
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("location", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.totalLength }}>
+                                    케이블용량
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("totalLength", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
+                                    비고
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remark", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.createdBy }}>
+                                    입력자
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("createdBy", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.attachment }}>
+                                    첨부
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("attachment", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
+
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredLogs.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
                                         입고 내역이 없습니다.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filteredLogs.map((log) => (
-                                    <TableRow key={log.id} className="h-8 [&_td]:py-1">
+                                    <TableRow key={log.id} className="h-6 [&_td]:py-0">
                                         <TableCell className="text-center align-middle">
                                             {isTenantOwner ? (
                                                 <Checkbox
@@ -241,18 +293,73 @@ export default function OpticalIncoming() {
                                                 />
                                             ) : null}
                                         </TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.division || 'SKT'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.category || '-'}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">
                                             {log.usageDate
                                                 ? format(new Date(log.usageDate), 'yyyy-MM-dd')
                                                 : format(new Date(log.createdAt), 'yyyy-MM-dd')}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{log.cable?.drumNo || '-'}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.spec || '-'}</TableCell>
-                                        <TableCell className="text-right font-bold whitespace-nowrap">
-                                            {(log.afterRemaining || 0).toLocaleString()}
-                                        </TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectCode || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectNameUsage || log.cable?.projectName || '-'}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufacturer || '-'}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap text-muted-foreground text-xs">{log.cable?.managementNo || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufactureYear || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.spec || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.coreCount || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{log.cable?.drumNo || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.location || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{String(log.cable?.totalLength || '')}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap" style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.cable?.remark || '-'}</TableCell>
+                                        <TableCell className="text-center align-middle">
+                                            {(log as any).createdByName || "-"}
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle">
+                                            {(() => {
+                                                try {
+                                                    const attrs = JSON.parse((log as any).attributes || "{}");
+                                                    if (attrs.attachment) {
+                                                        return (
+                                                            <a
+                                                                href={attrs.attachment.data}
+                                                                download={attrs.attachment.name}
+                                                                className="text-blue-600 hover:underline text-xs"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                다운로드
+                                                            </a>
+                                                        );
+                                                    }
+                                                    return "-";
+                                                } catch {
+                                                    return "-";
+                                                }
+                                            })()}
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" className="h-6 w-6 p-0">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>입고 관리</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-destructive"
+                                                        onClick={() => {
+                                                            if (confirm('이 입고 내역을 삭제하시겠습니까?')) {
+                                                                deleteMutation.mutate(log.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        삭제
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+
                                     </TableRow>
                                 ))
                             )}

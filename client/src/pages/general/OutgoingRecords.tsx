@@ -90,7 +90,7 @@ export default function OutgoingRecords() {
     checkbox: 40,
     date: 100,
     division: 80,
-    category: 80,
+    category: 60,
     teamCategory: 100,
     projectName: 200,
     productName: 120,
@@ -574,7 +574,7 @@ export default function OutgoingRecords() {
             </TableHeader>
             <TableBody>
               {filteredRecords.map((record) => (
-                <TableRow key={record.id} className="h-8 [&_td]:py-1" data-testid={`row-outgoing-${record.id}`}>
+                <TableRow key={record.id} className="h-6 [&_td]:py-0" data-testid={`row-outgoing-${record.id}`}>
                   <TableCell className="text-center align-middle">
                     {isTenantOwner ? (
                       <Checkbox
