@@ -2,6 +2,45 @@
 
 모든 프로젝트의 주요 변경 사항은 이 문서에 기록됩니다.
 
+## [v1.1.4] - 2026-01-04 (Major UI Overhaul)
+### 🎨 UI/UX Improvements
+- **전체 테이블 행 높이 표준화**:
+  - 모든 테이블의 헤더 높이를 `h-8` (32px)로 통일.
+  - 데이터 행 높이를 `h-6` (24px), 패딩 `py-0`으로 표준화.
+  - 총 11개 파일 수정 (일반 자재 4개, 광케이블 3개, 현장팀 2개, 관리 메뉴 2개).
+  - `DESIGN_GUIDE.md`에 행 높이 표준 추가.
+
+- **광케이블 입출고 내역 UI 개선**:
+  - 입고/출고 내역에 "공사코드" (120px), "공사명" (250px) 컬럼 추가.
+  - 출고 내역의 출고량 너비 확대 (75px → 90px).
+  - 수령자를 팀 이름 대신 사용자 이름으로 표시.
+  - 출고량 및 수령자의 진한 글자색 제거 (일반 텍스트로 표시).
+
+- **광케이블 현장팀 페이지 완전 재구성**:
+  - `FieldOpticalStatus` (현장 불출 현황):
+    - 일반 자재의 `TeamOutgoing`과 동일한 UI로 재작성.
+    - 팀별 카드 뷰 추가 (보유 드럼 수 표시).
+    - Excel 다운로드 기능 추가.
+    - 검색 및 사업/팀 필터 기능.
+  - `FieldOpticalUsage` (사용 등록):
+    - 일반 자재의 `TeamMaterialUsage`와 동일한 테이블 형식으로 재작성.
+    - 사용 내역 목록을 테이블로 표시 (체크박스, 편집/삭제 기능).
+    - 등록 다이얼로그 (`OpticalUsageDialog`) 컴포넌트 생성.
+    - Excel 다운로드 및 선택 삭제 기능 추가.
+    - 컬럼: 사용일, 사업, 팀, 공사명, 구간명, 제조번호, 규격, 설치/폐기, 작업자, 입력자.
+
+### 🗄️ Database
+- **광케이블 로그 스키마 확장**:
+  - `opticalCableLogs` 테이블에 `projectCode` (TEXT) 필드 추가.
+  - `opticalCableLogs` 테이블에 `attributes` (TEXT) 필드 추가 (비고, 첨부파일 등 저장).
+  - 마이그레이션 스크립트 (`add-project-code-to-optical-logs.ts`) 실행.
+
+### 🔧 Maintenance
+- **날짜 형식 표준화**:
+  - 광케이블 데이터의 `receivedDate` 형식을 `YYYY-MM-DD`로 일괄 변환.
+  - `normalizeDateFormat` 함수 추가 (`OpticalBulkUploadDialog.tsx`).
+  - 마이그레이션 스크립트 (`normalize-optical-dates.ts`) 실행.
+
 ## [v1.1.3] - 2026-01-03 (UI Patch)
 ### 💄 UI Improvements
 - **광케이블 컬럼 정리**: 입고/출고 내역에서 내부 식별용 '관리번호' 숨김 처리 및 '드럼번호' 헤더를 '제조번호'로 통일.
