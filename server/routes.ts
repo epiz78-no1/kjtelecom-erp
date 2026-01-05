@@ -31,6 +31,25 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/debug/recalculate", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const tenantId = req.session!.tenantId!;
+      const items = await storage.getInventoryItems(tenantId);
+      console.log(`[DEBUG] Recalculating ${items.length} items for tenant ${tenantId}`);
+
+      let updatedCount = 0;
+      for (const item of items) {
+        await syncInventoryItem(item.productName, item.specification, item.division, tenantId);
+        updatedCount++;
+      }
+
+      res.json({ success: true, message: `Recalculated ${updatedCount} items` });
+    } catch (error: any) {
+      console.error("Recalculate failed:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/debug/audit", async (req, res) => {
     try {
       const items = await storage.getInventoryItems(req.session!.tenantId!);
