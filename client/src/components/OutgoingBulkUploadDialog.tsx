@@ -125,7 +125,7 @@ export function OutgoingBulkUploadDialog({
             header: true,
             skipEmptyLines: true,
             encoding: "UTF-8",
-            transformHeader: (h) => h.trim(), // Trim whitespace from headers
+            transformHeader: (h) => h.trim().replace(/^\ufeff/, ''), // Trim whitespace and remove BOM
             complete: (results) => {
                 const allErrors: string[] = [];
                 const validRows: ParsedOutgoingRow[] = [];
