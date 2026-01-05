@@ -186,13 +186,13 @@ export default function FieldOpticalStatus() {
                 <div className="h-full overflow-auto relative">
                     <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-10 bg-muted/50">
-                                <TableHead className="font-semibold w-[80px] text-center align-middle">사업</TableHead>
-                                <TableHead className="font-semibold w-[120px] text-center align-middle">현장팀</TableHead>
-                                <TableHead className="font-semibold w-[120px] text-center align-middle">제조번호</TableHead>
-                                <TableHead className="font-semibold w-[150px] text-center align-middle">규격</TableHead>
-                                <TableHead className="font-semibold w-[80px] text-center align-middle">코어</TableHead>
-                                <TableHead className="font-semibold w-[100px] text-center align-middle">잔량(m)</TableHead>
+                            <TableRow className="h-10">
+                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
+                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
+                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">제조번호</TableHead>
+                                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
+                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">코어</TableHead>
+                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">잔량(m)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

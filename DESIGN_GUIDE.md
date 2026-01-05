@@ -26,6 +26,7 @@
 - **Table Container**: `flex-1 rounded-md border overflow-hidden`
 - **Table Header**:
   - `sticky top-0 bg-background z-10 shadow-sm`
+  - **배경색 규칙**: 모든 테이블 헤더 셀(`TableHead`)에 `bg-background` 클래스를 적용하여 배경색을 흰색으로 통일합니다. 이는 `sticky` 속성과 함께 사용될 때 헤더 뒤로 콘텐츠가 비치는 것을 방지하고 리스트 배경색과 일치시키기 위함입니다.
   - **Resizable Columns**: `useColumnResize` 훅 사용 필수.
     ```tsx
     const { widths, startResizing } = useColumnResize({ productName: 200, ... });
