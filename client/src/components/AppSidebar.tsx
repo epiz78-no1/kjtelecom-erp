@@ -284,7 +284,9 @@ export function AppSidebar() {
         )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
-        {/* Footer content removed as per request to move settings to header */}
+        <div className="px-4 py-2 text-xs text-muted-foreground text-center">
+          v1.2.0 (Fix Sync)
+        </div>
       </SidebarFooter>
     </Sidebar >
   );
