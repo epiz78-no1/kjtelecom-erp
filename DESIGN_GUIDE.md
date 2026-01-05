@@ -55,6 +55,10 @@
     - Row Height: `h-10` (Comfortable)
     - Cell Padding: 기본 패딩 유지 (`py-0` 제거)
     - 이는 대시보드에서 가독성을 높이기 위함입니다.
+  - **텍스트 오버플로우 처리**:
+    - 긴 텍스트가 셀을 넘어갈 경우 `truncate` 클래스를 사용하여 말줄임표(...) 표시
+    - 예: `<TableCell className="truncate" title={item.productName}>{item.productName}</TableCell>`
+    - 전체 내용 확인이 필요한 경우 `title` 속성 추가 권장
 
 ---
 

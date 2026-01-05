@@ -182,6 +182,7 @@ export default function TeamOutgoing() {
               return division?.name === selectedDivision;
             })
             .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
+            .slice(0, 4) // 최근 활동 순 상위 4개만 표시
             .map((team: any) => {
               // Calculate current material count for this team
               const teamStockCount = allStockItems.filter(item => item.teamCategory === team.name).length;

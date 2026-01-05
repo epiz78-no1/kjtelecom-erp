@@ -497,7 +497,7 @@ export default function Inventory() {
                     <TableCell className="text-center align-middle whitespace-nowrap">{item.unitPrice.toLocaleString()}</TableCell>
                     <TableCell className="text-center align-middle whitespace-nowrap">{(totalStock * item.unitPrice).toLocaleString()}</TableCell>
                     <TableCell className="text-center align-middle">
-                      {canWrite && (
+                      {canWrite && isTenantOwner && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-6 w-6 p-0">
