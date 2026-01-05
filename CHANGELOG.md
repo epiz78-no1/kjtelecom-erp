@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.1.7] - 2026-01-05
+### 🐞 Bug Fixes (Critical)
+- **재고 금액 변동 이슈 해결**:
+  - `calculateInventoryStats` 로직에 SQL `TRIM()` 함수 적용으로 공백이 포함된 기존 데이터까지 정확히 합산하도록 개선.
+  - 입고, 출고, 자재 사용, 재고 수정 등 모든 데이터 입력 경로에 자동 공백 제거(String Normalization) 로직 적용.
+- **출고 일괄 등록 기능 정상화**:
+  - 클라이언트 사이드 루프 방식에서 서버 사이드 트랜잭션(`bulkCreateOutgoingRecords`) 방식으로 전환.
+  - 일부 항목 실패 시 전체 롤백(All-or-Nothing) 처리로 데이터 정합성 보장.
+
 ## [1.1.6] - 2026-01-04
 ### 🐞 Bug Fixes (Critical)
 - **재고 데이터 정합성 확보**:
