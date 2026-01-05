@@ -31,6 +31,23 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/debug/db-schema", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      // Query specific table schema information
+      // Drizzle ORM doesn't have a direct schema inspector, using raw SQL
+      const result = await db.execute(sql`
+        SELECT table_name, column_name, data_type, udt_name
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('inventory_items', 'outgoing_records', 'incoming_records', 'material_usage_records')
+        ORDER BY table_name, ordinal_position;
+      `);
+      res.json(result.rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/debug/recalculate", requireAuth, requireAdmin, async (req, res) => {
     try {
       const tenantId = req.session!.tenantId!;
@@ -126,8 +143,8 @@ export async function registerRoutes(
     // Team Stock = Sent - Used
     // Total Assets = Office Stock + Team Stock = Incoming - Used
 
-    const officeStock = matchingItem.carriedOver + totalIncoming - totalSentToTeam;
-    const teamStock = totalSentToTeam - totalUsage;
+    const officeStock = Number(matchingItem.carriedOver || 0) + Number(totalIncoming) - Number(totalSentToTeam);
+    const teamStock = Number(totalSentToTeam) - Number(totalUsage);
     const totalStock = officeStock + teamStock;
 
     console.log(`[SYNC] New totals - Incoming: ${totalIncoming}, Sent: ${totalSentToTeam}, Usage: ${totalUsage}`);
@@ -138,7 +155,7 @@ export async function registerRoutes(
       outgoing: totalSentToTeam, // Tracks 'Sent to Team'
       usage: totalUsage,         // Tracks 'Used'
       remaining: officeStock,    // Tracks 'Office Stock'
-      totalAmount: totalStock * matchingItem.unitPrice // Total Asset Value
+      totalAmount: isNaN(totalStock * Number(matchingItem.unitPrice || 0)) ? 0 : totalStock * Number(matchingItem.unitPrice || 0) // Total Asset Value
     }, tenantId);
   }
 
