@@ -373,13 +373,19 @@ export default function OutgoingRecords() {
 
   const handleBulkUpload = async (items: any[]) => {
     try {
-      for (const item of items) {
-        await createMutation.mutateAsync(item);
-      }
+      await apiRequest("POST", "/api/outgoing/bulk", { items });
+      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+
       toast({ title: `${items.length}건의 출고내역이 등록되었습니다` });
       setBulkUploadOpen(false);
-    } catch (error) {
-      toast({ title: "일괄등록 실패", variant: "destructive" });
+    } catch (error: any) {
+      toast({
+        title: "일괄등록 실패",
+        description: error.message || "서버 오류가 발생했습니다.",
+        variant: "destructive"
+      });
     }
   };
 

@@ -56,6 +56,7 @@ export interface IStorage {
   deleteOutgoingRecord(id: number, tenantId: string): Promise<boolean>;
   bulkDeleteOutgoingRecords(ids: number[], tenantId: string): Promise<number>;
   clearOutgoingRecords(tenantId: string): Promise<void>;
+  bulkCreateOutgoingRecords(records: InsertOutgoingRecord[]): Promise<OutgoingRecord[]>;
   initializeOutgoingRecords(): Promise<void>;
 
   getMaterialUsageRecords(tenantId: string): Promise<MaterialUsageRecord[]>;
@@ -579,6 +580,68 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async bulkCreateOutgoingRecords(records: InsertOutgoingRecord[]): Promise<OutgoingRecord[]> {
+    if (records.length === 0) return [];
+
+    // All records should belong to the same tenant because the caller (route) sets tenantId from session
+    const tenantId = records[0].tenantId;
+
+    return withTenant(tenantId, async (tx) => {
+      // 1. Check inventory for ALL items first
+      const uniqueItems = new Set(records.map(r => `${r.productName}|${r.specification}|${r.division}`));
+      const itemKeys = Array.from(uniqueItems).map(k => {
+        const [productName, specification, division] = k.split('|');
+        return { productName, specification, division };
+      });
+
+      // Fetch all relevant inventory items
+      const inventoryList = await tx.select().from(inventoryItems).where(eq(inventoryItems.tenantId, tenantId));
+
+      // Map for quick lookup
+      // Key format: productName|specification|division
+      const inventoryMap = new Map<string, InventoryItem>();
+      inventoryList.forEach((item: InventoryItem) => {
+        inventoryMap.set(`${item.productName}|${item.specification}|${item.division}`, item);
+      });
+
+      // 2. Validate availability
+      // We need to track total requested quantity per item to ensure we don't exceed stock with multiple records for same item
+      const requestedTotals = new Map<string, number>();
+
+      for (const record of records) {
+        const key = `${record.productName}|${record.specification}|${record.division}`;
+        const currentTotal = requestedTotals.get(key) || 0;
+        requestedTotals.set(key, currentTotal + (record.quantity || 0));
+      }
+
+      Array.from(requestedTotals.entries()).forEach(([key, totalRequested]) => {
+        const item = inventoryMap.get(key);
+        if (!item) {
+          const [p, s, d] = key.split('|');
+          throw new Error(`재고 목록에 없는 자재가 포함되어 있습니다: ${p} (${s}) [${d}]`);
+        }
+        if (item.remaining < totalRequested) {
+          const [p, s, d] = key.split('|');
+          throw new Error(`재고가 부족합니다: ${p} (${s}) [${d}] (보유: ${item.remaining.toLocaleString()}, 요청 총계: ${totalRequested.toLocaleString()})`);
+        }
+      });
+
+      // 3. Insert Records
+      const recordsToInsert = records.map(record => {
+        const key = `${record.productName}|${record.specification}|${record.division || "SKT"}`;
+        const item = inventoryMap.get(key);
+        return {
+          ...record,
+          inventoryItemId: item ? item.id : undefined
+        };
+      });
+
+      const createdRecords = await tx.insert(outgoingRecords).values(recordsToInsert).returning();
+
+      return createdRecords;
+    });
+  }
+
   async initializeOutgoingRecords(): Promise<void> {
   }
 
@@ -874,9 +937,9 @@ export class DatabaseStorage implements IStorage {
         .select({ sum: sql<number>`coalesce(sum(${incomingRecords.quantity}), 0)` })
         .from(incomingRecords)
         .where(and(
-          eq(incomingRecords.productName, productName),
-          eq(incomingRecords.specification, specification),
-          eq(incomingRecords.division, division),
+          sql`TRIM(${incomingRecords.productName}) = ${productName}`,
+          sql`TRIM(${incomingRecords.specification}) = ${specification}`,
+          sql`TRIM(${incomingRecords.division}) = ${division}`,
           eq(incomingRecords.tenantId, tenantId)
         ));
 
@@ -885,9 +948,9 @@ export class DatabaseStorage implements IStorage {
         .select({ sum: sql<number>`coalesce(sum(${outgoingRecords.quantity}), 0)` })
         .from(outgoingRecords)
         .where(and(
-          eq(outgoingRecords.productName, productName),
-          eq(outgoingRecords.specification, specification),
-          eq(outgoingRecords.division, division),
+          sql`TRIM(${outgoingRecords.productName}) = ${productName}`,
+          sql`TRIM(${outgoingRecords.specification}) = ${specification}`,
+          sql`TRIM(${outgoingRecords.division}) = ${division}`,
           eq(outgoingRecords.tenantId, tenantId)
         ));
 
@@ -896,9 +959,9 @@ export class DatabaseStorage implements IStorage {
         .select({ sum: sql<number>`coalesce(sum(${materialUsageRecords.quantity}), 0)` })
         .from(materialUsageRecords)
         .where(and(
-          eq(materialUsageRecords.productName, productName),
-          eq(materialUsageRecords.specification, specification),
-          eq(materialUsageRecords.division, division),
+          sql`TRIM(${materialUsageRecords.productName}) = ${productName}`,
+          sql`TRIM(${materialUsageRecords.specification}) = ${specification}`,
+          sql`TRIM(${materialUsageRecords.division}) = ${division}`,
           eq(materialUsageRecords.tenantId, tenantId)
         ));
 

@@ -365,6 +365,10 @@ export async function registerRoutes(
     try {
       const item = await storage.createInventoryItem({
         ...parseResult.data,
+        productName: parseResult.data.productName.trim(),
+        specification: parseResult.data.specification.trim(),
+        division: (parseResult.data.division || "SKT").trim(),
+        category: parseResult.data.category.trim(),
         tenantId,
         createdBy: req.session!.userId!
       });
@@ -384,7 +388,13 @@ export async function registerRoutes(
     }
 
     const tenantId = req.session!.tenantId!;
-    const item = await storage.updateInventoryItem(id, req.body, tenantId);
+    const updates = { ...req.body };
+    if (updates.productName) updates.productName = updates.productName.trim();
+    if (updates.specification) updates.specification = updates.specification.trim();
+    if (updates.division) updates.division = updates.division.trim();
+    if (updates.category) updates.category = updates.category.trim();
+
+    const item = await storage.updateInventoryItem(id, updates, tenantId);
 
     if (!item) {
       return res.status(404).json({ error: "Item not found" });
@@ -467,11 +477,19 @@ export async function registerRoutes(
       const tenantId = req.session!.tenantId!;
 
       // Check stock availability
+      const productName = parseResult.data.productName.trim();
+      const specification = parseResult.data.specification.trim();
+      const division = (parseResult.data.division || "SKT").trim();
+      const category = parseResult.data.category.trim();
+      const teamCategory = parseResult.data.teamCategory.trim();
+      const projectName = parseResult.data.projectName.trim();
+      const recipient = parseResult.data.recipient.trim();
+
       const inventoryItemsList = await storage.getInventoryItems(tenantId);
       const targetItem = inventoryItemsList.find(item =>
-        item.productName === parseResult.data.productName &&
-        item.specification === parseResult.data.specification &&
-        item.division === (parseResult.data.division || "SKT")
+        item.productName === productName &&
+        item.specification === specification &&
+        item.division === division
       );
 
       if (!targetItem) {
@@ -486,14 +504,21 @@ export async function registerRoutes(
 
       const record = await storage.createOutgoingRecord({
         ...parseResult.data,
+        productName,
+        specification,
+        division,
+        category,
+        teamCategory,
+        projectName,
+        recipient,
         tenantId,
         createdBy: req.session!.userId!
       });
 
       await syncInventoryItem(
-        parseResult.data.productName,
-        parseResult.data.specification,
-        parseResult.data.division || "SKT", // Fallback if missing, but client sends strict value
+        productName,
+        specification,
+        division,
         tenantId
       );
 
@@ -501,6 +526,57 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[OUTGOING] POST Error:", error);
       res.status(500).json({ error: "출고 등록 중 오류가 발생했습니다: " + error.message });
+    }
+  });
+
+  app.post("/api/outgoing/bulk", requireAuth, requireTenant, async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: "Items must be an array" });
+      }
+
+      const tenantId = req.session!.tenantId!;
+      const userId = req.session!.userId!;
+
+      // Pre-validate items
+      const recordsToCreate = [];
+      for (const item of items) {
+        const parseResult = apiInsertOutgoingRecordSchema.safeParse(item);
+        if (!parseResult.success) {
+          return res.status(400).json({ error: `데이터 검증 실패: ${parseResult.error.message}` });
+        }
+        const productName = parseResult.data.productName.trim();
+        const specification = parseResult.data.specification.trim();
+        const division = (parseResult.data.division || "SKT").trim();
+
+        recordsToCreate.push({
+          ...parseResult.data,
+          productName,
+          specification,
+          division,
+          category: parseResult.data.category.trim(),
+          teamCategory: parseResult.data.teamCategory.trim(),
+          projectName: parseResult.data.projectName.trim(),
+          recipient: parseResult.data.recipient.trim(),
+          tenantId,
+          createdBy: userId
+        });
+      }
+
+      const createdRecords = await storage.bulkCreateOutgoingRecords(recordsToCreate);
+
+      // Sync inventory items
+      const uniqueItems = new Set(createdRecords.map(r => `${r.productName}|${r.specification}|${r.division}`));
+      await Promise.all(Array.from(uniqueItems).map(async (key) => {
+        const [productName, specification, division] = key.split('|');
+        await syncInventoryItem(productName, specification, division, tenantId);
+      }));
+
+      res.status(201).json(createdRecords);
+    } catch (error: any) {
+      console.error("[OUTGOING BULK] Error:", error);
+      res.status(400).json({ error: error.message });
     }
   });
 
@@ -512,7 +588,17 @@ export async function registerRoutes(
 
     const tenantId = req.session!.tenantId!;
     const oldRecord = await storage.getOutgoingRecord(id, tenantId);
-    const record = await storage.updateOutgoingRecord(id, req.body, tenantId);
+
+    const updates = { ...req.body };
+    if (updates.productName) updates.productName = updates.productName.trim();
+    if (updates.specification) updates.specification = updates.specification.trim();
+    if (updates.division) updates.division = updates.division.trim();
+    if (updates.category) updates.category = updates.category.trim();
+    if (updates.teamCategory) updates.teamCategory = updates.teamCategory.trim();
+    if (updates.projectName) updates.projectName = updates.projectName.trim();
+    if (updates.recipient) updates.recipient = updates.recipient.trim();
+
+    const record = await storage.updateOutgoingRecord(id, updates, tenantId);
 
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
@@ -615,16 +701,27 @@ export async function registerRoutes(
         });
       }
 
+      const productName = parseResult.data.productName.trim();
+      const specification = parseResult.data.specification.trim();
+      const division = (parseResult.data.division || "SKT").trim();
+
       const record = await storage.createMaterialUsageRecord({
         ...parseResult.data,
+        productName,
+        specification,
+        division,
+        category: parseResult.data.category.trim(),
+        teamCategory: parseResult.data.teamCategory.trim(),
+        projectName: parseResult.data.projectName.trim(),
+        recipient: parseResult.data.recipient.trim(),
         tenantId,
         createdBy: req.session!.userId!
       });
 
       await syncInventoryItem(
-        parseResult.data.productName,
-        parseResult.data.specification,
-        parseResult.data.division || "SKT",
+        productName,
+        specification,
+        division,
         tenantId
       );
 
@@ -643,7 +740,17 @@ export async function registerRoutes(
 
     const tenantId = req.session!.tenantId!;
     const oldRecord = await storage.getMaterialUsageRecord(id, tenantId);
-    const record = await storage.updateMaterialUsageRecord(id, req.body, tenantId);
+
+    const updates = { ...req.body };
+    if (updates.productName) updates.productName = updates.productName.trim();
+    if (updates.specification) updates.specification = updates.specification.trim();
+    if (updates.division) updates.division = updates.division.trim();
+    if (updates.category) updates.category = updates.category.trim();
+    if (updates.teamCategory) updates.teamCategory = updates.teamCategory.trim();
+    if (updates.projectName) updates.projectName = updates.projectName.trim();
+    if (updates.recipient) updates.recipient = updates.recipient.trim();
+
+    const record = await storage.updateMaterialUsageRecord(id, updates, tenantId);
 
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
@@ -732,41 +839,53 @@ export async function registerRoutes(
       }
 
       const tenantId = req.session!.tenantId!;
-      const record = await storage.createIncomingRecord({
-        ...parseResult.data,
-        tenantId,
-        createdBy: req.session!.userId!
-      });
+
+      const productName = parseResult.data.productName.trim();
+      const specification = (parseResult.data.specification || "").trim();
+      const division = (parseResult.data.division || "SKT").trim();
 
       // Ensure inventory item exists
       const inventoryItemsList = await storage.getInventoryItems(tenantId);
       const matchingItem = inventoryItemsList.find(
-        item => item.productName === parseResult.data.productName &&
-          item.specification === (parseResult.data.specification || "") &&
-          item.division === parseResult.data.division
+        item => item.productName === productName &&
+          item.specification === specification &&
+          item.division === division
       );
 
       if (!matchingItem) {
         const unitPrice = parseResult.data.unitPrice ?? 0;
         await storage.createInventoryItem({
           tenantId,
-          division: parseResult.data.division || "SKT",
-          category: parseResult.data.division || "SKT",
-          productName: parseResult.data.productName,
-          specification: parseResult.data.specification ?? "",
+          division,
+          category: division,
+          productName,
+          specification,
           carriedOver: 0,
           incoming: 0,
           outgoing: 0,
           remaining: 0,
           unitPrice: unitPrice,
           totalAmount: 0,
+          createdBy: req.session!.userId!
         });
       }
 
+      const record = await storage.createIncomingRecord({
+        ...parseResult.data,
+        productName,
+        specification,
+        division,
+        category: parseResult.data.category.trim(),
+        supplier: parseResult.data.supplier.trim(),
+        projectName: parseResult.data.projectName.trim(),
+        tenantId,
+        createdBy: req.session!.userId!
+      });
+
       await syncInventoryItem(
-        parseResult.data.productName,
-        parseResult.data.specification || "",
-        parseResult.data.division || "SKT",
+        productName,
+        specification,
+        division,
         tenantId
       );
 
@@ -818,7 +937,16 @@ export async function registerRoutes(
 
     const tenantId = req.session!.tenantId!;
     const oldRecord = await storage.getIncomingRecord(id, tenantId);
-    const record = await storage.updateIncomingRecord(id, req.body, tenantId);
+
+    const updates = { ...req.body };
+    if (updates.productName) updates.productName = updates.productName.trim();
+    if (updates.specification) updates.specification = updates.specification.trim();
+    if (updates.division) updates.division = updates.division.trim();
+    if (updates.category) updates.category = updates.category.trim();
+    if (updates.supplier) updates.supplier = updates.supplier.trim();
+    if (updates.projectName) updates.projectName = updates.projectName.trim();
+
+    const record = await storage.updateIncomingRecord(id, updates, tenantId);
 
     if (!record) {
       return res.status(404).json({ error: "Record not found" });
