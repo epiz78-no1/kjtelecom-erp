@@ -74,11 +74,11 @@ export function IncomingBulkUploadDialog({
         const rowErrors: string[] = [];
 
         // 필수 필드 검증
-        if (!row["입고일"]) rowErrors.push(`${index + 2}행: 입고일이 필요합니다`);
-        if (!row["사업"] && !row["구분"]) rowErrors.push(`${index + 2}행: 사업(구분)이 필요합니다`);
-        if (!row["구매처"]) rowErrors.push(`${index + 2}행: 구매처가 필요합니다`);
-        if (!row["공사명"]) rowErrors.push(`${index + 2}행: 공사명이 필요합니다`);
-        if (!row["품명"]) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
+        if (!row["입고일"]?.trim()) rowErrors.push(`${index + 2}행: 입고일이 필요합니다`);
+        if (!row["사업"]?.trim() && !row["구분"]?.trim()) rowErrors.push(`${index + 2}행: 사업(구분)이 필요합니다`);
+        if (!row["구매처"]?.trim()) rowErrors.push(`${index + 2}행: 구매처가 필요합니다`);
+        if (!row["공사명"]?.trim()) rowErrors.push(`${index + 2}행: 공사명이 필요합니다`);
+        if (!row["품명"]?.trim()) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
 
         // 숫자 필드 검증
         const numericFields = ["수량"];
