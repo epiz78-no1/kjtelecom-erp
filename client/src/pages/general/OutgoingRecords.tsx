@@ -373,23 +373,15 @@ export default function OutgoingRecords() {
 
   const handleBulkUpload = async (items: any[]) => {
     try {
-      await apiRequest("POST", "/api/outgoing/bulk", { items });
+      const data = await apiRequest("POST", "/api/outgoing/bulk", { items, mode: 'add' }); // Always append for outgoing
       queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
-
       toast({ title: `${items.length}건의 출고내역이 등록되었습니다` });
       setBulkUploadOpen(false);
     } catch (error: any) {
-      toast({
-        title: "일괄등록 실패",
-        description: error.message || "서버 오류가 발생했습니다.",
-        variant: "destructive"
-      });
+      toast({ title: "일괄 등록 실패", description: error.message, variant: "destructive" });
     }
   };
-
-
 
   const handleExportExcel = () => {
     const dataToExport = filteredRecords.map(record => ({
@@ -446,7 +438,7 @@ export default function OutgoingRecords() {
                       <Plus className="h-4 w-4 mr-2" />
                       직접 등록
                     </DropdownMenuItem>
-                    {isAdmin && (
+                    {isTenantOwner && (
                       <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
                         <Upload className="h-4 w-4 mr-2" />
                         일괄 등록

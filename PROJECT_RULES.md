@@ -174,3 +174,65 @@
 - **task.md & walkthrough.md (순환 관리)**:
   - **역할**: 현재 진행 중인 세션의 세부 작업 목록(Checklist)과 작업 상세 보고서(Report)입니다.
   - **관리**: 하나의 작업 세션이 종료되고 그 결과가 `ROADMAP.md`에 반영되면, 다음 작업을 위해 내용을 리셋하거나 새로 작성하여 항상 "현재 작업"에 집중할 수 있도록 합니다.
+
+---
+
+## 12. 일괄 등록 기능 표준 (Bulk Upload Standard)
+
+**핵심 원칙**: 모든 일괄 등록(Bulk Upload) 기능은 **반드시** 덮어쓰기/이어쓰기 모드를 제공해야 합니다.
+
+### 필수 구현 사항
+
+#### 1. 모드 선택 기능
+- **덮어쓰기 (overwrite)** - 기본값
+  - 기존 데이터를 새 데이터로 완전히 교체
+  - 동일한 키(예: 품명+규격+사업)를 가진 기존 데이터 삭제 후 새 데이터 삽입
+  
+- **이어쓰기 (add)**
+  - 기존 수량에 새 수량을 합산
+  - 동일한 키를 가진 데이터가 있으면 수량만 증가
+
+#### 2. UI 구성 (Frontend)
+```tsx
+// State
+const [mode, setMode] = useState<"overwrite" | "add">("overwrite");
+
+// UI (파일 업로드 영역 아래에 배치)
+<RadioGroup value={mode} onValueChange={(v) => setMode(v as "overwrite" | "add")}>
+  <div className="flex items-center space-x-2">
+    <RadioGroupItem value="overwrite" id="mode-overwrite" />
+    <Label>덮어쓰기 (기본) - 기존 데이터 교체</Label>
+  </div>
+  <div className="flex items-center space-x-2">
+    <RadioGroupItem value="add" id="mode-add" />
+    <Label>이어쓰기 (추가) - 기존 수량에 합산</Label>
+  </div>
+</RadioGroup>
+
+// onUpload 호출 시 mode 전달
+onUpload(parsedData, mode);
+```
+
+#### 3. API 인터페이스
+```typescript
+// Frontend → Backend
+await apiRequest("POST", "/api/xxx/bulk", { 
+  items: parsedData,
+  mode: mode  // 'overwrite' | 'add'
+});
+
+// Backend
+app.post("/api/xxx/bulk", requireAuth, requireTenant, async (req, res) => {
+  const { items, mode } = req.body;
+  // mode에 따라 다른 로직 수행
+});
+```
+
+#### 4. 적용 대상
+- ✅ 일반자재 재고현황 일괄 등록
+- ✅ 입고 내역 일괄 등록
+- ✅ 출고 내역 일괄 등록
+- ✅ 광케이블 입고 일괄 등록
+- 🔮 향후 추가될 모든 일괄 등록 기능
+
+**예외**: 로그성 데이터 등 덮어쓰기가 불가능한 경우에만 예외를 허용하며, 코드 주석으로 이유를 명시해야 합니다.

@@ -518,6 +518,7 @@ export class DatabaseStorage implements IStorage {
         division: outgoingRecords.division,
         category: outgoingRecords.category,
         teamCategory: outgoingRecords.teamCategory,
+        projectName: outgoingRecords.projectName,
         productName: outgoingRecords.productName,
         specification: outgoingRecords.specification,
         attributes: outgoingRecords.attributes,

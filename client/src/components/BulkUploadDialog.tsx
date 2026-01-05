@@ -133,7 +133,7 @@ export function BulkUploadDialog({
                             category: division,
                             productName: row["품명"],
                             specification: row["규격"],
-                            carriedOver: 0, // Not typically in template, but if needed: parseNum(row["이월재"])
+                            carriedOver: remaining + outgoing, // Fix: 초기 재고를 모두 이월 재고로 설정하여 보존
                             incoming: 0,
                             outgoing: outgoing,
                             remaining: remaining,

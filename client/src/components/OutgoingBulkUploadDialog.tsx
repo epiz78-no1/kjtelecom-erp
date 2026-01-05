@@ -49,6 +49,7 @@ export function OutgoingBulkUploadDialog({
     const [parsedData, setParsedData] = useState<ParsedOutgoingRow[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string>("");
+    const [mode, setMode] = useState<"overwrite" | "add">("overwrite");
 
     const handleDownloadTemplate = async () => {
         try {
@@ -87,8 +88,29 @@ export function OutgoingBulkUploadDialog({
         }
 
         // 날짜 형식 검증
-        if (row["출고일"] && !/^\d{4}-\d{2}-\d{2}$/.test(row["출고일"])) {
-            rowErrors.push(`${index + 2}행: 출고일은 YYYY-MM-DD 형식이어야 합니다`);
+        // 날짜 형식 검증 및 정규화
+        if (row["출고일"]) {
+            const dateStr = row["출고일"].trim();
+            // 포맷 매칭: YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD (월/일은 한자리수 가능)
+            // 구분자가 -, ., / 중 하나이고, 년도는 4자리, 월/일은 1~2자리
+            const datePattern = /^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/;
+
+            if (!datePattern.test(dateStr)) {
+                rowErrors.push(`${index + 2}행: 출고일 형식이 올바르지 않습니다 (YYYY-MM-DD 또는 YYYY.MM.DD)`);
+            } else {
+                const match = dateStr.match(datePattern);
+                if (match) {
+                    const year = parseInt(match[1]);
+                    const month = parseInt(match[2]);
+                    const day = parseInt(match[3]);
+
+                    // 날짜 유효성 체크
+                    const dateObj = new Date(year, month - 1, day);
+                    if (dateObj.getFullYear() !== year || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) {
+                        rowErrors.push(`${index + 2}행: 유효하지 않은 날짜입니다`);
+                    }
+                }
+            }
         }
 
         return { valid: rowErrors.length === 0, errors: rowErrors };
@@ -103,6 +125,7 @@ export function OutgoingBulkUploadDialog({
             header: true,
             skipEmptyLines: true,
             encoding: "UTF-8",
+            transformHeader: (h) => h.trim(), // Trim whitespace from headers
             complete: (results) => {
                 const allErrors: string[] = [];
                 const validRows: ParsedOutgoingRow[] = [];
@@ -113,8 +136,20 @@ export function OutgoingBulkUploadDialog({
                     if (!validation.valid) {
                         allErrors.push(...validation.errors);
                     } else {
+                        // 날짜 정규화 (YYYY-MM-DD)
+                        const normalizeDate = (dateStr: string) => {
+                            const match = dateStr.trim().match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/);
+                            if (match) {
+                                const y = match[1];
+                                const m = match[2].padStart(2, '0');
+                                const d = match[3].padStart(2, '0');
+                                return `${y}-${m}-${d}`;
+                            }
+                            return dateStr;
+                        };
+
                         validRows.push({
-                            date: row["출고일"],
+                            date: normalizeDate(row["출고일"]),
                             division: "SKT", // Default to SKT
                             category: row["사업"] || row["구분"],
                             teamCategory: row["수령팀"],

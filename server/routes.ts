@@ -531,7 +531,7 @@ export async function registerRoutes(
 
   app.post("/api/outgoing/bulk", requireAuth, requireTenant, async (req, res) => {
     try {
-      const { items } = req.body;
+      const { items, mode } = req.body; // mode is accepted but not used (outgoing is always append)
       if (!Array.isArray(items)) {
         return res.status(400).json({ error: "Items must be an array" });
       }
@@ -540,15 +540,22 @@ export async function registerRoutes(
       const userId = req.session!.userId!;
 
       // Pre-validate items
+      console.log("[OUTGOING BULK] Received items count:", items.length);
+
       const recordsToCreate = [];
       for (const item of items) {
+        console.log("[OUTGOING BULK] Processing item:", JSON.stringify(item));
         const parseResult = apiInsertOutgoingRecordSchema.safeParse(item);
         if (!parseResult.success) {
+          console.error("[OUTGOING BULK] Validation failed for item:", item, parseResult.error);
           return res.status(400).json({ error: `데이터 검증 실패: ${parseResult.error.message}` });
         }
         const productName = parseResult.data.productName.trim();
         const specification = parseResult.data.specification.trim();
         const division = (parseResult.data.division || "SKT").trim();
+        const projectName = parseResult.data.projectName.trim();
+
+        console.log(`[OUTGOING BULK] Parsed ProjectName: '${projectName}'`);
 
         recordsToCreate.push({
           ...parseResult.data,
@@ -557,7 +564,7 @@ export async function registerRoutes(
           division,
           category: parseResult.data.category.trim(),
           teamCategory: parseResult.data.teamCategory.trim(),
-          projectName: parseResult.data.projectName.trim(),
+          projectName: projectName,
           recipient: parseResult.data.recipient.trim(),
           tenantId,
           createdBy: userId
@@ -897,7 +904,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/incoming/bulk", requireAuth, requireTenant, async (req, res) => {
-    const { items } = req.body;
+    const { items, mode } = req.body; // mode is accepted but not used (incoming is always append)
     if (!Array.isArray(items)) {
       return res.status(400).json({ error: "Items must be an array" });
     }

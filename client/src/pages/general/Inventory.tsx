@@ -323,7 +323,7 @@ export default function Inventory() {
                     <Plus className="h-4 w-4 mr-2" />
                     직접 등록
                   </DropdownMenuItem>
-                  {isAdmin && (
+                  {isTenantOwner && (
                     <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
                       <Upload className="h-4 w-4 mr-2" />
                       일괄 등록

@@ -203,8 +203,8 @@ export default function IncomingRecords() {
   });
 
   const bulkUploadMutation = useMutation({
-    mutationFn: async (items: any[]) => {
-      const response = await apiRequest("POST", "/api/incoming/bulk", { items });
+    mutationFn: async ({ items, mode }: { items: any[], mode: 'overwrite' | 'add' }) => {
+      const response = await apiRequest("POST", "/api/incoming/bulk", { items, mode });
       return await response.json();
     },
     onSuccess: (data: any[]) => {
@@ -368,7 +368,7 @@ export default function IncomingRecords() {
   };
 
   const handleBulkUpload = (items: any[]) => {
-    bulkUploadMutation.mutate(items);
+    bulkUploadMutation.mutate({ items, mode: 'add' }); // Always append for incoming
   };
 
 
@@ -429,7 +429,7 @@ export default function IncomingRecords() {
                       <Plus className="h-4 w-4 mr-2" />
                       직접 등록
                     </DropdownMenuItem>
-                    {isAdmin && (
+                    {isTenantOwner && (
                       <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
                         <Upload className="h-4 w-4 mr-2" />
                         일괄 등록
