@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import { Upload, Download, AlertCircle, Trash2 } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import Papa from "papaparse";
 import {
     Dialog,
@@ -24,7 +26,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface BulkUploadDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onUpload: (items: any[]) => void;
+    onUpload: (items: any[], mode: 'overwrite' | 'add') => void;
 }
 
 interface ParsedRow {
@@ -51,6 +53,7 @@ export function BulkUploadDialog({
     const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string>("");
+    const [mode, setMode] = useState<"overwrite" | "add">("overwrite");
 
     const handleDownloadTemplate = async () => {
         try {
@@ -231,7 +234,7 @@ export function BulkUploadDialog({
             return;
         }
 
-        onUpload(parsedData);
+        onUpload(parsedData, mode);
         handleClose();
     };
 
@@ -315,6 +318,28 @@ export function BulkUploadDialog({
                                 </Button>
                             </label>
                         </div>
+                    </div>
+
+                    <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                        <Label className="text-sm font-medium">중복 데이터 처리 방식</Label>
+                        <RadioGroup
+                            value={mode}
+                            onValueChange={(v) => setMode(v as "overwrite" | "add")}
+                            className="flex flex-col space-y-1"
+                        >
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="overwrite" id="mode-overwrite" />
+                                <Label htmlFor="mode-overwrite" className="font-normal cursor-pointer">
+                                    덮어쓰기 (기본) - 엑셀 파일의 수량으로 변경
+                                </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="add" id="mode-add" />
+                                <Label htmlFor="mode-add" className="font-normal cursor-pointer">
+                                    이어쓰기 (추가) - 기존 수량에 더하기
+                                </Label>
+                            </div>
+                        </RadioGroup>
                     </div>
 
                     {errors.length > 0 && (

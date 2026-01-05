@@ -750,7 +750,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async syncInventoryItems(items: InsertInventoryItem[], tenantId: string): Promise<InventoryItem[]> {
+  async syncInventoryItems(items: InsertInventoryItem[], tenantId: string, mode: 'overwrite' | 'add' = 'overwrite'): Promise<InventoryItem[]> {
     return withTenant(tenantId, async (tx) => {
       const results: InventoryItem[] = [];
       for (const item of items) {
@@ -767,9 +767,22 @@ export class DatabaseStorage implements IStorage {
           );
 
         if (existing) {
+          let updatedValues = { ...item };
+
+          if (mode === 'add') {
+            // For 'add' mode, we accumulate quantities
+            updatedValues.outgoing = (existing.outgoing || 0) + (item.outgoing || 0);
+            updatedValues.remaining = (existing.remaining || 0) + (item.remaining || 0);
+            updatedValues.incoming = (existing.incoming || 0) + (item.incoming || 0);
+            updatedValues.usage = (existing.usage || 0) + (item.usage || 0);
+            updatedValues.carriedOver = (existing.carriedOver || 0) + (item.carriedOver || 0);
+            updatedValues.totalAmount = (existing.totalAmount || 0) + (item.totalAmount || 0);
+            // unitPrice takes the new value (or could be averaged, but taking new is safer/simpler)
+          }
+
           const [updated] = await tx
             .update(inventoryItems)
-            .set(item)
+            .set(updatedValues)
             .where(eq(inventoryItems.id, existing.id))
             .returning();
           results.push(updated);

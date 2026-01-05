@@ -408,7 +408,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/inventory/bulk", requireAuth, requireTenant, async (req, res) => {
-    const { items } = req.body;
+    const { items, mode } = req.body;
     if (!Array.isArray(items)) {
       return res.status(400).json({ error: "Items must be an array" });
     }
@@ -416,7 +416,7 @@ export async function registerRoutes(
     const tenantId = req.session!.tenantId!;
     try {
       // Use sync instead of clear+create to avoid Foreign Key violations
-      const createdItems = await storage.syncInventoryItems(items.map((i: any) => ({ ...i, tenantId })), tenantId);
+      const createdItems = await storage.syncInventoryItems(items.map((i: any) => ({ ...i, tenantId })), tenantId, mode);
       res.status(201).json(createdItems);
     } catch (error: any) {
       console.error("Bulk inventory upload error:", error);

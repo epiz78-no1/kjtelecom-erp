@@ -159,16 +159,16 @@ export default function Inventory() {
   });
 
   const bulkUploadMutation = useMutation({
-    mutationFn: async (items: any[]) => {
-      const response = await apiRequest("POST", "/api/inventory/bulk", { items });
+    mutationFn: async ({ items, mode }: { items: any[], mode: 'overwrite' | 'add' }) => {
+      const response = await apiRequest("POST", "/api/inventory/bulk", { items, mode });
       return await response.json(); // Response 객체를 JSON으로 파싱
     },
-    onSuccess: (data: any, variables: any[]) => {
+    onSuccess: (data: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       refetch(); // 즉시 데이터 새로고침
 
       const uploadedCount = Array.isArray(data) ? data.length : 0;
-      const requestedCount = variables?.length || 0;
+      const requestedCount = variables.items?.length || 0;
 
       toast({
         title: "재고가 일괄 등록되었습니다",
@@ -252,8 +252,8 @@ export default function Inventory() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
-  const handleBulkUpload = (items: any[]) => {
-    bulkUploadMutation.mutate(items);
+  const handleBulkUpload = (items: any[], mode: 'overwrite' | 'add') => {
+    bulkUploadMutation.mutate({ items, mode });
   };
 
 
