@@ -110,8 +110,8 @@ export default function TeamOutgoing() {
   const filteredStock = divisionFiltered.filter((item) => {
     const matchesTeam = selectedTeam === "all" || item.teamCategory === selectedTeam;
     const matchesSearch =
-      item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.teamCategory.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTeam && matchesSearch;
   });
 

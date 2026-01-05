@@ -101,6 +101,7 @@ export interface IStorage {
 
   createOpticalCableLog(log: InsertOpticalCableLog, tenantId: string): Promise<OpticalCable>;
   getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]>;
+  deleteOpticalCableLog(id: string, tenantId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -837,6 +838,35 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async updateOpticalCableLog(id: string, updates: Partial<InsertOpticalCableLog> & { attributes?: string }, tenantId: string): Promise<OpticalCableLog | undefined> {
+    return await db.transaction(async (tx) => {
+      // 1. Get current log
+      const [log] = await tx.select().from(opticalCableLogs)
+        .where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)));
+
+      if (!log) return undefined;
+
+      // 2. If changing teamId for an 'assign' log, check if it's the current active assignment
+      if (log.logType === 'assign' && updates.teamId && updates.teamId !== log.teamId) {
+        const [cable] = await tx.select().from(opticalCables).where(eq(opticalCables.id, log.cableId));
+        // Only allow team change if the cable is currently assigned to the old team
+        if (cable && cable.currentTeamId === log.teamId && cable.status === 'assigned') {
+          await tx.update(opticalCables)
+            .set({ currentTeamId: updates.teamId })
+            .where(eq(opticalCables.id, log.cableId));
+        }
+      }
+
+      // 3. Update Log
+      const [updatedLog] = await tx.update(opticalCableLogs)
+        .set({ ...updates, attributes: updates.attributes ?? log.attributes })
+        .where(eq(opticalCableLogs.id, id))
+        .returning();
+
+      return updatedLog;
+    });
+  }
+
   async getOpticalCable(id: string, tenantId: string): Promise<OpticalCable | undefined> {
     const [result] = await withTenant(tenantId, (tx) => {
       return tx.select().from(opticalCables)
@@ -943,28 +973,36 @@ export class DatabaseStorage implements IStorage {
   // createOpticalCableLog has been moved to the bottom with transaction support
 
 
-  async getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]> {
+  async getOpticalCableLogs(cableId: string, tenantId: string): Promise<any[]> {
     return await withTenant(tenantId, (tx) => {
-      return tx.select().from(opticalCableLogs)
+      return tx.select({
+        ...getTableColumns(opticalCableLogs),
+        createdByName: users.name
+      })
+        .from(opticalCableLogs)
+        .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
         .where(and(eq(opticalCableLogs.cableId, cableId), eq(opticalCableLogs.tenantId, tenantId)))
         .orderBy(desc(opticalCableLogs.createdAt));
     });
   }
 
-  async getAllOpticalCableLogs(tenantId: string): Promise<(OpticalCableLog & { cable: OpticalCable | null })[]> {
+  async getAllOpticalCableLogs(tenantId: string): Promise<any[]> {
     // Join with opticalCables to get cable details (drumNo, spec, etc)
     const results = await db.select({
       log: opticalCableLogs,
-      cable: opticalCables
+      cable: opticalCables,
+      createdByName: users.name
     })
       .from(opticalCableLogs)
       .leftJoin(opticalCables, eq(opticalCableLogs.cableId, opticalCables.id))
+      .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
       .where(eq(opticalCableLogs.tenantId, tenantId))
       .orderBy(desc(opticalCableLogs.createdAt));
 
-    return results.map(({ log, cable }) => ({
+    return results.map(({ log, cable, createdByName }) => ({
       ...log,
-      cable: cable
+      cable: cable,
+      createdByName: createdByName
     }));
   }
 
@@ -1029,6 +1067,55 @@ export class DatabaseStorage implements IStorage {
       });
 
       return updatedCable;
+    });
+  }
+
+  async deleteOpticalCableLog(id: string, tenantId: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      // 1. Get log to be deleted
+      const [log] = await tx.select().from(opticalCableLogs).where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)));
+      if (!log) return false;
+
+      // 2. Get associated cable
+      const [cable] = await tx.select().from(opticalCables).where(eq(opticalCables.id, log.cableId));
+      if (!cable) throw new Error("Cable not found");
+
+      let updates: Partial<typeof opticalCables.$inferInsert> = { updatedAt: new Date() };
+
+      // 3. Rollback logic based on log type
+      if (log.logType === 'assign') {
+        // 출고 취소 -> 반납됨(창고로 복귀) 상태로 변경이 아니라, 아예 출고가 없던 상태로 복구
+        updates.status = 'in_stock';
+        updates.currentTeamId = null;
+      } else if (log.logType === 'usage') {
+        // 사용 취소 -> 사용량 차감 복구, 잔량 복구
+        const restoredRemaining = (cable.remainingLength || 0) + (log.usedLength || 0);
+        const restoredUsed = (cable.usedLength || 0) - (log.usedLength || 0);
+
+        updates.usedLength = restoredUsed;
+        updates.remainingLength = restoredRemaining;
+        // 잔량이 생기면 다시 assigned 상태로 (팀 보유 중이었을 테니)
+        updates.status = restoredRemaining > 0 ? 'assigned' : 'used_up';
+      } else if (log.logType === 'return') {
+        // 반납 취소 -> 다시 assigned 상태로, 팀도 복구해야 함.
+        if (log.teamId) {
+          updates.status = 'assigned';
+          updates.currentTeamId = log.teamId;
+        }
+      } else if (log.logType === 'waste') {
+        // 폐기 취소 -> 일단 in_stock으로 복구 (창고 폐기 가정)
+        updates.status = 'in_stock';
+        updates.currentTeamId = null;
+      }
+
+      // Update Cable
+      await tx.update(opticalCables)
+        .set(updates)
+        .where(eq(opticalCables.id, cable.id));
+
+      // 4. Delete log
+      const result = await tx.delete(opticalCableLogs).where(eq(opticalCableLogs.id, id)).returning();
+      return result.length > 0;
     });
   }
 }

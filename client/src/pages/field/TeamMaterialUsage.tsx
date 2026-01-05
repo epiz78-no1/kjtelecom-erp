@@ -360,11 +360,11 @@ export default function TeamMaterialUsage() {
 
   const filteredRecords = permissionFiltered.filter(
     (record) =>
-      record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.specification.toLowerCase().includes(searchQuery.toLowerCase())
+      (record.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.recipient || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.specification || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
@@ -796,16 +796,16 @@ export default function TeamMaterialUsage() {
 
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">
-                    {record.teamCategory || teams.find(t => t.id === record.teamId)?.name || '-'}
+                    {record.teamCategory || teams.find(t => t.id === record.teamId)?.name || ''}
                   </TableCell>
-                  <TableCell className="text-center align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
+                  <TableCell className="text-left align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
                   <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
                   <TableCell className="text-center align-middle font-bold">
                     {Number(record.quantity).toLocaleString()}
                   </TableCell>
 
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient || '-'}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient || ''}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{(record as any).createdByName || "-"}</TableCell>
                   <TableCell className="text-center align-middle max-w-[150px] truncate" title={record.remark || ""}>{record.remark}</TableCell>
                   <TableCell className="text-center align-middle">

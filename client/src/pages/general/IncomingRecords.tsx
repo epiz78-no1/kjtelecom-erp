@@ -209,9 +209,9 @@ export default function IncomingRecords() {
 
   const filteredRecords = divisionFiltered.filter(
     (record) =>
-      record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.supplier.toLowerCase().includes(searchQuery.toLowerCase())
+      (record.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.supplier || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
@@ -567,7 +567,7 @@ export default function IncomingRecords() {
                   <TableCell className="text-center align-middle max-w-[100px]">
                     <div className="truncate" title={record.supplier}>{record.supplier}</div>
                   </TableCell>
-                  <TableCell className="text-center align-middle max-w-[200px]">
+                  <TableCell className="text-left align-middle max-w-[200px]">
                     <div className="truncate" title={record.projectName}>{record.projectName}</div>
                   </TableCell>
                   <TableCell className="text-center align-middle max-w-[150px]">
@@ -577,8 +577,8 @@ export default function IncomingRecords() {
                     <div className="truncate" title={record.specification}>{record.specification}</div>
                   </TableCell>
                   <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
-                  <TableCell className="text-left align-middle max-w-[150px]">
-                    <div className="truncate" title={record.remark || ""}>{record.remark || "-"}</div>
+                  <TableCell className="text-center align-middle max-w-[150px]">
+                    <div className="truncate" title={record.remark || ""}>{record.remark || ""}</div>
                   </TableCell>
                   <TableCell className="text-center align-middle max-w-[100px]">
                     <div className="truncate" title={(record as any).createdByName || ""}>
@@ -594,10 +594,11 @@ export default function IncomingRecords() {
                             <a
                               href={attrs.attachment.data}
                               download={attrs.attachment.name}
-                              className="text-blue-600 hover:underline text-xs"
+                              className="inline-flex items-center justify-center text-primary hover:text-primary/80"
+                              title={attrs.attachment.name}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              다운로드
+                              <Download className="h-4 w-4" />
                             </a>
                           );
                         }

@@ -532,12 +532,14 @@ export const apiInsertOpticalCableLogSchema = z.object({
   cableId: z.string(),
   teamId: z.string().optional(),
   logType: z.enum(['assign', 'usage', 'return', 'waste']),
+  projectCode: z.string().optional(),
   projectNameUsage: z.string().optional(),
   sectionName: z.string().optional(),
   installLength: z.number().optional(),
   wasteLength: z.number().optional(),
   usageDate: z.string(),
   workerName: z.string().optional(),
+  attributes: z.string().optional(),
 });
 export type InsertOpticalCableLog = z.infer<typeof insertOpticalCableLogSchema>;
 export type OpticalCableLog = typeof opticalCableLogs.$inferSelect;

@@ -201,7 +201,7 @@ export default function Dashboard() {
                   </TableRow>
                 ) : (
                   categoryList.map((cat) => (
-                    <TableRow key={cat.name} data-testid={`row-category-${cat.name}`} className="h-6 [&_td]:py-0">
+                    <TableRow key={cat.name} data-testid={`row-category-${cat.name}`} className="h-10">
                       <TableCell className="font-medium">{cat.name}</TableCell>
                       <TableCell className="text-right">{cat.count}개</TableCell>
                       <TableCell className="text-right">{cat.quantity.toLocaleString()}</TableCell>
@@ -210,7 +210,7 @@ export default function Dashboard() {
                   ))
                 )}
                 {categoryList.length > 0 && (
-                  <TableRow className="bg-muted/50 font-semibold h-6 [&_td]:py-0">
+                  <TableRow className="bg-muted/50 font-semibold h-10">
                     <TableCell>합계</TableCell>
                     <TableCell className="text-right">{filteredInventory.length}개</TableCell>
                     <TableCell className="text-right">{totalRemaining.toLocaleString()}</TableCell>

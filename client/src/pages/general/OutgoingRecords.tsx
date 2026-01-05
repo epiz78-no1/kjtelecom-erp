@@ -215,11 +215,11 @@ export default function OutgoingRecords() {
 
   const filteredRecords = permissionFiltered.filter(
     (record) =>
-      record.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.teamCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.specification.toLowerCase().includes(searchQuery.toLowerCase())
+      (record.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.recipient || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.specification || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
 
@@ -589,7 +589,7 @@ export default function OutgoingRecords() {
                   <TableCell className="text-center align-middle max-w-[80px]">
                     <div className="truncate" title={record.category}>{record.category}</div>
                   </TableCell>
-                  <TableCell className="text-center align-middle max-w-[200px]">
+                  <TableCell className="text-left align-middle max-w-[200px]">
                     <div className="truncate" title={record.projectName}>{record.projectName}</div>
                   </TableCell>
                   <TableCell className="text-center align-middle max-w-[150px]">

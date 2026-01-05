@@ -182,7 +182,7 @@ export default function OpticalDashboard() {
                                     </TableRow>
                                 ) : (
                                     specList.map((item) => (
-                                        <TableRow key={item.spec} className="h-6 [&_td]:py-0">
+                                        <TableRow key={item.spec} className="h-10">
                                             <TableCell className="font-medium">{item.spec}</TableCell>
                                             <TableCell className="text-right">{item.count}개</TableCell>
                                             <TableCell className="text-right">{item.length.toLocaleString()}m</TableCell>

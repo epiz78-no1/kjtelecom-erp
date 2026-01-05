@@ -198,7 +198,7 @@ export default function Inventory() {
 
   const filteredInventory = searchQuery
     ? categoryFiltered.filter((item) =>
-      item.productName.toLowerCase().includes(searchQuery.toLowerCase())
+      (item.productName || "").toLowerCase().includes(searchQuery.toLowerCase())
     )
     : categoryFiltered;
 

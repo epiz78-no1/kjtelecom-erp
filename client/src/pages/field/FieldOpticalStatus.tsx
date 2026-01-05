@@ -72,9 +72,9 @@ export default function FieldOpticalStatus() {
     const filteredStock = divisionFiltered.filter((item) => {
         const matchesTeam = selectedTeam === "all" || item.teamCategory === selectedTeam;
         const matchesSearch =
-            item.drumNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.spec?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.teamCategory?.toLowerCase().includes(searchQuery.toLowerCase());
+            (item.drumNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.spec || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase());
         return matchesTeam && matchesSearch;
     });
 

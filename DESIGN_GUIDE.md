@@ -38,12 +38,22 @@
   - Row Height: `h-8` (Compact)
   - Cell Padding: `[&_td]:py-1`
   - Alignment:
-    - Text: Left or Center (`text-center` for standard fixed width cols)
-    - Number: Right or Center
-    - Enum/Badge: Center
+    - **TableHead (헤더)**: 모든 헤더는 가운데 정렬 (`text-center`)
+    - **TableCell (데이터)**:
+      - 공사명 컬럼: 왼쪽 정렬 (`text-left`)
+      - 숫자 컬럼: 오른쪽 정렬 (`text-right`)
+      - 나머지 모든 텍스트 컬럼: 가운데 정렬 (`text-center`)
+    - Enum/Badge: 가운데 정렬
   - **입력자 컬럼 (CreatedBy)**:
     - 필수 표시: 입/출고/사용 내역 테이블
-    - 포맷: 값이 없으면 `-` 표시
+    - 포맷: 값이 없으면 공란으로 표시
+  - **빈 값 표시 규칙**:
+    - 모든 테이블 셀에서 값이 없을 경우 `-` 대신 **공란(빈 문자열)**으로 표시
+    - 예: `{value || '-'}` 대신 `{value || ''}` 사용
+  - **대시보드 요약 테이블 (Dashboard Summary Table)**:
+    - Row Height: `h-10` (Comfortable)
+    - Cell Padding: 기본 패딩 유지 (`py-0` 제거)
+    - 이는 대시보드에서 가독성을 높이기 위함입니다.
 
 ---
 

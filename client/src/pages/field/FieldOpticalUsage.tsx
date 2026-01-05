@@ -126,10 +126,10 @@ export default function FieldOpticalUsage() {
         return allLogs.filter(log => {
             const matchesCategory = selectedCategory === "all" || log.cable.division === selectedCategory;
             const matchesSearch = searchQuery === "" ||
-                log.cable.drumNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                log.cable.spec?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (log as any).projectNameUsage?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (log as any).sectionName?.toLowerCase().includes(searchQuery.toLowerCase());
+                (log.cable.drumNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (log.cable.spec || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                ((log as any).projectNameUsage || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                ((log as any).sectionName || "").toLowerCase().includes(searchQuery.toLowerCase());
             return matchesCategory && matchesSearch;
         });
     }, [allLogs, selectedCategory, searchQuery]);
@@ -169,20 +169,20 @@ export default function FieldOpticalUsage() {
 
     const handleExportExcel = () => {
         const dataToExport = filteredLogs.map(log => {
-            const teamName = teams.find(t => t.id === log.teamId)?.name || '-';
+            const teamName = teams.find(t => t.id === log.teamId)?.name || '';
             return {
                 "사용일": log.usageDate || new Date(log.createdAt).toISOString().split('T')[0],
                 "사업": log.cable.division,
                 "팀": teamName,
-                "공사명": (log as any).projectNameUsage || log.cable.projectName || '-',
-                "구간명": (log as any).sectionName || '-',
+                "공사명": (log as any).projectNameUsage || log.cable.projectName || '',
+                "구간명": (log as any).sectionName || '',
                 "제조번호": log.cable.drumNo,
                 "규격": log.cable.spec,
                 "설치(m)": log.installLength || 0,
                 "폐기(m)": log.wasteLength || 0,
                 "합계(m)": (log.installLength || 0) + (log.wasteLength || 0),
-                "작업자": (log as any).workerName || '-',
-                "입력자": (log as any).createdByName || '-'
+                "작업자": (log as any).workerName || '',
+                "입력자": (log as any).createdByName || ''
             };
         });
 
@@ -301,7 +301,7 @@ export default function FieldOpticalUsage() {
                                 </TableRow>
                             ) : (
                                 filteredLogs.map((log) => {
-                                    const teamName = teams.find(t => t.id === log.teamId)?.name || '-';
+                                    const teamName = teams.find(t => t.id === log.teamId)?.name || '';
                                     return (
                                         <TableRow key={log.id} className="h-6 [&_td]:py-0">
                                             <TableCell className="text-center align-middle">
@@ -317,11 +317,11 @@ export default function FieldOpticalUsage() {
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{log.cable.division}</TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{teamName}</TableCell>
-                                            <TableCell className="text-center align-middle max-w-[150px] truncate">
-                                                {(log as any).projectNameUsage || log.cable.projectName || '-'}
+                                            <TableCell className="text-left align-middle max-w-[150px] truncate">
+                                                {(log as any).projectNameUsage || log.cable.projectName || ''}
                                             </TableCell>
                                             <TableCell className="text-center align-middle max-w-[120px] truncate">
-                                                {(log as any).sectionName || '-'}
+                                                {(log as any).sectionName || ''}
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap font-medium">
                                                 {log.cable.drumNo}
@@ -334,10 +334,10 @@ export default function FieldOpticalUsage() {
                                                 {(log.wasteLength || 0).toLocaleString()}
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">
-                                                {(log as any).workerName || '-'}
+                                                {(log as any).workerName || ''}
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">
-                                                {(log as any).createdByName || '-'}
+                                                {(log as any).createdByName || ''}
                                             </TableCell>
                                             <TableCell className="text-center align-middle">
                                                 {(canManage || isFieldTeam) && (

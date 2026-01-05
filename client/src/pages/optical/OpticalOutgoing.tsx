@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowUpFromLine, Search, Plus, MoreHorizontal, Pencil } from "lucide-react";
+import { Loader2, ArrowUpFromLine, Search, Plus, MoreHorizontal, Pencil, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     TableHeader,
@@ -28,6 +28,7 @@ import {
 import { format } from "date-fns";
 import { useAppContext } from "@/contexts/AppContext";
 import OpticalAssignmentDialog from "@/components/OpticalAssignmentDialog";
+import { OpticalLogEditDialog } from "@/components/OpticalLogEditDialog";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 
 export default function OpticalOutgoing() {
@@ -37,6 +38,7 @@ export default function OpticalOutgoing() {
     const queryClient = useQueryClient();
     const { teams, tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
+    const [editingLog, setEditingLog] = useState<OpticalCableLog | null>(null);
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
@@ -90,6 +92,21 @@ export default function OpticalOutgoing() {
         },
         onError: () => {
             toast({ title: "삭제 실패", variant: "destructive" });
+        },
+    });
+
+    const updateLogMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: any }) => {
+            const res = await apiRequest("PATCH", `/api/optical-cables/logs/${id}`, data);
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
+            toast({ title: "내역이 수정되었습니다" });
+            setEditingLog(null);
+        },
+        onError: (error: Error) => {
+            toast({ title: "수정 실패", description: error.message, variant: "destructive" });
         },
     });
 
@@ -326,31 +343,31 @@ export default function OpticalOutgoing() {
                                                 ) : null}
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.division || 'SKT'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.category || '-'}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.category || ''}</TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">
                                                 {log.usageDate
                                                     ? format(new Date(log.usageDate), 'yyyy-MM-dd')
                                                     : format(new Date(log.createdAt), 'yyyy-MM-dd')}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectCode || '-'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectNameUsage || log.cable?.projectName || '-'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufacturer || '-'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufactureYear || '-'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.spec || '-'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.coreCount || '-'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap font-medium">{log.cable?.drumNo || '-'}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.location || '-'}</TableCell>
-                                            <TableCell className="text-right align-middle whitespace-nowrap">
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectCode || ''}</TableCell>
+                                            <TableCell className="text-left align-middle whitespace-nowrap">{(log as any).projectNameUsage || log.cable?.projectName || ''}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufacturer || ''}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufactureYear || ''}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.spec || ''}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.coreCount || ''}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap font-medium">{log.cable?.drumNo || ''}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.location || ''}</TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">
                                                 {(log.afterRemaining || 0).toLocaleString()}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).createdByName || teamName || '-'}</TableCell>
-                                            <TableCell className="text-left align-middle">
+                                            <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).workerName || ''}</TableCell>
+                                            <TableCell className="text-center align-middle">
                                                 {(() => {
                                                     try {
                                                         const attrs = JSON.parse((log as any).attributes || "{}");
-                                                        return attrs.remark || "-";
+                                                        return attrs.remark || "";
                                                     } catch {
-                                                        return "-";
+                                                        return "";
                                                     }
                                                 })()}
                                             </TableCell>
@@ -366,10 +383,11 @@ export default function OpticalOutgoing() {
                                                                 <a
                                                                     href={attrs.attachment.data}
                                                                     download={attrs.attachment.name}
-                                                                    className="text-blue-600 hover:underline text-xs"
+                                                                    className="inline-flex items-center justify-center text-primary hover:text-primary/80"
+                                                                    title={attrs.attachment.name}
                                                                     onClick={(e) => e.stopPropagation()}
                                                                 >
-                                                                    다운로드
+                                                                    <Download className="h-4 w-4" />
                                                                 </a>
                                                             );
                                                         }
@@ -389,6 +407,12 @@ export default function OpticalOutgoing() {
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>출고 관리</DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => setEditingLog(log)}
+                                                        >
+                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                            수정
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             className="text-destructive"
                                                             onClick={() => {
@@ -412,6 +436,13 @@ export default function OpticalOutgoing() {
                     </table>
                 </div>
             </div>
+
+            <OpticalLogEditDialog
+                open={!!editingLog}
+                onOpenChange={(open) => !open && setEditingLog(null)}
+                log={editingLog}
+                onSubmit={async (id, data) => updateLogMutation.mutateAsync({ id, data })}
+            />
         </div>
     );
 }

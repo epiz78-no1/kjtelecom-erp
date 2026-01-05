@@ -1012,6 +1012,26 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/optical-cables/:id", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const parseResult = apiInsertOpticalCableSchema.partial().safeParse(req.body);
+
+    if (!parseResult.success) {
+      return res.status(400).json({ error: parseResult.error.message });
+    }
+
+    const tenantId = req.session!.tenantId!;
+    try {
+      const cable = await storage.updateOpticalCable(id, parseResult.data, tenantId);
+      if (!cable) {
+        return res.status(404).json({ error: "Cable not found" });
+      }
+      res.json(cable);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
 
 
   app.post("/api/optical-cables/bulk", requireAuth, requireTenant, async (req, res) => {
@@ -1084,6 +1104,34 @@ export async function registerRoutes(
     const tenantId = req.session!.tenantId!;
     const logs = await storage.getOpticalCableLogs(id, tenantId);
     res.json(logs);
+  });
+
+  app.patch("/api/optical-cables/logs/:id", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const tenantId = req.session!.tenantId!;
+    try {
+      const log = await storage.updateOpticalCableLog(id, req.body, tenantId);
+      if (!log) {
+        return res.status(404).json({ error: "Log not found" });
+      }
+      res.json(log);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/optical-cables/logs/:id", requireAuth, requireTenant, async (req, res) => {
+    const { id } = req.params;
+    const tenantId = req.session!.tenantId!;
+    try {
+      const success = await storage.deleteOpticalCableLog(id, tenantId);
+      if (!success) {
+        return res.status(404).json({ error: "Log not found" });
+      }
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   return httpServer;

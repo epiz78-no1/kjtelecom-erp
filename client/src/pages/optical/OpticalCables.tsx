@@ -145,8 +145,8 @@ export default function OpticalCables() {
 
     // Filter
     const filteredCables = cables.filter(cable => {
-        const matchesSearch = cable.drumNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            cable.spec.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = (cable.drumNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (cable.spec || "").toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = categoryFilter === "all" || cable.category === categoryFilter;
         return matchesSearch && matchesCategory;
     });

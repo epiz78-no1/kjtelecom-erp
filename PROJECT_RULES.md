@@ -81,7 +81,39 @@
     createdBy: req.session.userId, // 자동 주입
   });
   ```
-- **Frontend 표시**: `design_guide.md` 참조.
+- **Frontend 표시**: 
+  - 테이블 셀에서 빈 값은 `-` 대신 **공란(빈 문자열)**으로 표시합니다.
+  - 예: `{value || '-'}` 대신 `{value || ''}` 사용
+  - **텍스트 정렬 규칙**:
+    - TableHead (헤더): 모든 헤더는 가운데 정렬 (`text-center`)
+    - TableCell (데이터):
+      - 공사명 컬럼: 왼쪽 정렬 (`text-left`)
+      - 숫자 컬럼: 오른쪽 정렬 (`text-right`)
+      - 나머지 모든 텍스트 컬럼: 가운데 정렬 (`text-center`)
+  - **첨부파일 UI 표준**:
+    - **업로드 UI**:
+      - 점선 박스 스타일: `border-2 border-dashed border-primary/30`
+      - 호버 효과: `hover:border-primary/50 hover:bg-primary/5`
+      - 텍스트: "파일 선택 또는 드래그"
+      - 아이콘: `Upload` (lucide-react)
+      - 선택된 파일 표시: 회색 배경 박스 (`bg-muted/50`), 파일명, 삭제 버튼
+
+    - **다운로드 UI (테이블 내)**:
+      - 텍스트 없이 아이콘만 표시
+      - 아이콘: `Download` (lucide-react), 크기 `h-4 w-4`
+      - 스타일: `inline-flex items-center justify-center text-primary hover:text-primary/80`
+      - 툴팁: `title` 속성에 파일명 표시
+
+  ## 커뮤니케이션 규칙
+  1. **언어**: 모든 답변, 주석, 커밋 메시지, 문서 작성 시 **반드시 한국어**를 사용합니다.
+  2. **이해하기 쉬운 설명**: 기술적인 내용도 사용자가 이해하기 쉽게 한국어로 풀어서 설명합니다.
+      <Upload className="h-5 w-5 text-primary" />
+      <span className="text-sm font-medium text-primary">
+        {file ? file.name : "파일 선택 또는 드래그"}
+      </span>
+    </label>
+    ```
+  - 자세한 내용은 `DESIGN_GUIDE.md` 참조.
 
 ---
 
@@ -122,3 +154,23 @@
   2. Git 커밋: `git commit -m "chore: bump version to vX.Y.Z"`
   3. Git 태그 생성: `git tag vX.Y.Z`
   4. 태그 푸시: `git push origin vX.Y.Z` (이 시점의 코드가 릴리즈 버전이 됨)
+
+## 9. 데이터 갱신 및 UI 동기화 (Data Refresh & UI Sync)
+- **쿼리 무효화 필수**: 데이터 생성(Create), 수정(Update), 삭제(Delete) Mutation 성공 시(`onSuccess`), 반드시 관련 `queryKey`를 `invalidateQueries` 하여 UI가 즉시 최신 상태를 반영하도록 합니다. 예: 로그 생성 시 로그 목록 쿼리 무효화.
+
+## 10. UI/UX 표준 (UI/UX Standards)
+- **첨부파일 업로드 UI**:
+  - `Input[type="file"]`을 직접 노출하지 않고, 점선 테두리(`border-dashed`) 박스를 사용하여 드래그 앤 드롭 영역임을 명시합니다.
+  - 파일 선택 전: "파일 선택 또는 드래그" 문구와 업로드 아이콘(`Upload`, lucide-react) 표시.
+  - 파일 선택 후: 회색 박스(`bg-muted/50`) 내에 파일명(`📎 filename`)과 삭제 버튼(`Trash2`, lucide-react, red color)을 표시합니다.
+- **데이터 식별 UI (Data Identification)**:
+  - 드롭다운(ComboBox, Select) 및 선택된 값에는 대상의 핵심 식별 정보(예: `[사업] 제조번호`)를 반드시 포함합니다.
+  - 예: 단순히 `2013`만 표시하지 않고 `[SKT] 2013` 형태로 표시하여 중복이나 혼동을 방지합니다.
+
+## 11. 문서 관리 전략 (Documentation Strategy)
+- **ROADMAP.md (누적 관리)**:
+  - **역할**: 프로젝트의 거시적 진행 상황(Phase)과 버전별 주요 변경 이력(History)을 누적 기록하는 중앙 관리 대장입니다.
+  - **관리**: 주요 마일스톤 달성이나 버전 업데이트 시 내용을 추가하며, 이전 기록을 삭제하지 않고 계속 보존합니다.
+- **task.md & walkthrough.md (순환 관리)**:
+  - **역할**: 현재 진행 중인 세션의 세부 작업 목록(Checklist)과 작업 상세 보고서(Report)입니다.
+  - **관리**: 하나의 작업 세션이 종료되고 그 결과가 `ROADMAP.md`에 반영되면, 다음 작업을 위해 내용을 리셋하거나 새로 작성하여 항상 "현재 작업"에 집중할 수 있도록 합니다.

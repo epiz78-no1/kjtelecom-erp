@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import type { OpticalCableLog } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import OpticalAssignmentDialog from "./OpticalAssignmentDialog";
+import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { format } from "date-fns";
-import { ko } from "date-fns/locale";
+import { useAppContext } from "@/contexts/AppContext";
 
 interface OpticalCableHistoryDialogProps {
     cableId: string | null;
@@ -26,6 +28,13 @@ interface OpticalCableHistoryDialogProps {
 }
 
 export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo }: OpticalCableHistoryDialogProps) {
+    const { teams } = useAppContext();
+
+    const { data: cable } = useQuery<OpticalCable>({
+        queryKey: [`/api/optical-cables/${cableId}`],
+        enabled: !!cableId && open,
+    });
+
     const { data: logs = [], isLoading } = useQuery<OpticalCableLog[]>({
         queryKey: [`/api/optical-cables/${cableId}/logs`],
         enabled: !!cableId && open,
@@ -42,11 +51,25 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
         }
     };
 
+    const getTeamName = (teamId?: string | null) => {
+        if (!teamId) return '-';
+        const team = teams.find(t => t.id === teamId);
+        return team ? team.name : 'Unknown Team';
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[800px]">
-                <DialogHeader>
-                    <DialogTitle>이력 조회 - {drumNo}</DialogTitle>
+            <DialogContent className="sm:max-w-[1100px] max-h-[85vh]">
+                <DialogHeader className="flex flex-row items-center justify-between">
+                    <DialogTitle className="text-xl">이력 조회 - 제조번호 {drumNo}</DialogTitle>
+                    {cable?.status === 'in_stock' && (
+                        <div className="mr-8">
+                            <OpticalAssignmentDialog
+                                initialCableId={cableId}
+                                trigger={<Button size="sm">출고 등록</Button>}
+                            />
+                        </div>
+                    )}
                 </DialogHeader>
 
                 {isLoading ? (
@@ -54,47 +77,51 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : (
-                    <div className="max-h-[60vh] overflow-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>일자</TableHead>
-                                    <TableHead>사업</TableHead>
-                                    <TableHead>관련 팀</TableHead>
-                                    <TableHead>내용/구간</TableHead>
-                                    <TableHead className="text-right">사용(m)</TableHead>
-                                    <TableHead className="text-right">잔량(m)</TableHead>
-                                    <TableHead>작업자</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {logs.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
-                                            이력이 없습니다.
-                                        </TableCell>
+                    <div className="flex-1 overflow-visible">
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead className="w-[110px] text-center">일자</TableHead>
+                                        <TableHead className="w-[90px] text-center">구분</TableHead>
+                                        <TableHead className="w-[130px] text-center">공사번호</TableHead>
+                                        <TableHead className="w-[200px] text-center">공사명</TableHead>
+                                        <TableHead className="w-[100px] text-center">사용(m)</TableHead>
+                                        <TableHead className="w-[100px] text-center">잔량(m)</TableHead>
+                                        <TableHead className="w-[90px] text-center">수령자</TableHead>
+                                        <TableHead className="w-[90px] text-center">입력자</TableHead>
                                     </TableRow>
-                                ) : (
-                                    logs.map((log) => (
-                                        <TableRow key={log.id}>
-                                            <TableCell>{log.usageDate ? format(new Date(log.usageDate), 'yyyy-MM-dd') : format(new Date(log.createdAt), 'yyyy-MM-dd')}</TableCell>
-                                            <TableCell className="font-medium">{getLogTypeLabel(log.logType)}</TableCell>
-                                            <TableCell>{log.teamId ? `Team ${log.teamId}` : '-'}</TableCell>
-                                            <TableCell className="max-w-[200px] truncate" title={log.sectionName || ''}>
-                                                {log.sectionName || '-'}
+                                </TableHeader>
+                                <TableBody>
+                                    {logs.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                                이력이 없습니다.
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                {log.usedLength > 0 ? log.usedLength.toLocaleString() : '-'}
-                                            </TableCell>
-                                            <TableCell className="text-right font-bold">
-                                                {(log.afterRemaining || 0).toLocaleString()}
-                                            </TableCell>
-                                            <TableCell>{log.workerName || '-'}</TableCell>
                                         </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
+                                    ) : (
+                                        logs.map((log) => (
+                                            <TableRow key={log.id} className="h-10">
+                                                <TableCell className="text-center">{log.usageDate ? format(new Date(log.usageDate), 'yyyy-MM-dd') : format(new Date(log.createdAt), 'yyyy-MM-dd')}</TableCell>
+                                                <TableCell className="text-center font-medium">{getLogTypeLabel(log.logType)}</TableCell>
+                                                <TableCell className="text-center">{log.projectCode || ''}</TableCell>
+                                                <TableCell className="text-left truncate" title={log.projectNameUsage || ''}>
+                                                    {log.projectNameUsage || ''}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {log.usedLength > 0 ? log.usedLength.toLocaleString() : ''}
+                                                </TableCell>
+                                                <TableCell className="text-center font-bold">
+                                                    {(log.afterRemaining || 0).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell className="text-center">{log.workerName || ''}</TableCell>
+                                                <TableCell className="text-center text-muted-foreground">{(log as any).createdByName || ''}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </div>
                 )}
             </DialogContent>
