@@ -777,6 +777,39 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/incoming/bulk", requireAuth, requireTenant, async (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: "Items must be an array" });
+    }
+
+    const tenantId = req.session!.tenantId!;
+    try {
+      const recordsToCreate = items.map((item: any) => ({
+        ...item,
+        tenantId,
+        createdBy: req.session!.userId!
+      }));
+
+      const createdRecords = await storage.createIncomingRecordsBulk(recordsToCreate, tenantId);
+
+      // Unique items to sync
+      const uniqueItems = new Set(createdRecords.map(r =>
+        `${r.productName}|${r.specification || ""}|${r.division}`
+      ));
+
+      for (const key of Array.from(uniqueItems)) {
+        const [p, s, d] = key.split('|');
+        await syncInventoryItem(p, s || "", d, tenantId);
+      }
+
+      res.status(201).json(createdRecords);
+    } catch (error: any) {
+      console.error("Bulk incoming upload error:", error);
+      res.status(500).json({ error: "일괄 입고 등록 중 오류가 발생했습니다: " + error.message });
+    }
+  });
+
   app.patch("/api/incoming/:id", requireAuth, requireTenant, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {

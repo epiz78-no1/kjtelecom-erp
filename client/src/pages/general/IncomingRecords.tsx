@@ -202,6 +202,22 @@ export default function IncomingRecords() {
     }
   });
 
+  const bulkUploadMutation = useMutation({
+    mutationFn: async (items: any[]) => {
+      const response = await apiRequest("POST", "/api/incoming/bulk", { items });
+      return await response.json();
+    },
+    onSuccess: (data: any[]) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/incoming-records"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: `${data.length}건의 입고내역이 일괄 등록되었습니다` });
+      setBulkUploadOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "일괄등록 실패", description: error.message, variant: "destructive" });
+    }
+  });
+
 
   const divisionFiltered = selectedDivision === "all"
     ? records
@@ -351,16 +367,8 @@ export default function IncomingRecords() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
-  const handleBulkUpload = async (items: any[]) => {
-    try {
-      for (const item of items) {
-        await createMutation.mutateAsync(item);
-      }
-      toast({ title: `${items.length}건의 입고내역이 등록되었습니다` });
-      setBulkUploadOpen(false);
-    } catch (error) {
-      toast({ title: "일괄등록 실패", variant: "destructive" });
-    }
+  const handleBulkUpload = (items: any[]) => {
+    bulkUploadMutation.mutate(items);
   };
 
 

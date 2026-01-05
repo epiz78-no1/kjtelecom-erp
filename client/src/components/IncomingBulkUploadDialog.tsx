@@ -36,6 +36,7 @@ interface ParsedIncomingRow {
     productName: string;
     specification: string;
     quantity: number;
+    unitPrice: number;
     remark?: string;
 }
 
@@ -124,6 +125,7 @@ export function IncomingBulkUploadDialog({
                             productName: row["품명"],
                             specification: row["규격"] || "",
                             quantity: parseInt((row["수량"] || "0").replace(/,/g, "")) || 0,
+                            unitPrice: parseInt((row["단가"] || "0").replace(/,/g, "")) || 0,
                             remark: row["비고"] || "",
                         });
                     }

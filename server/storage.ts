@@ -46,7 +46,8 @@ export interface IStorage {
   bulkDeleteInventoryItems(ids: number[], tenantId: string): Promise<number>;
   clearInventoryItems(tenantId: string): Promise<void>;
   bulkCreateInventoryItems(items: InsertInventoryItem[]): Promise<InventoryItem[]>;
-  syncInventoryItems(items: InsertInventoryItem[], tenantId: string): Promise<InventoryItem[]>;
+  syncInventoryItems(items: InsertInventoryItem[], tenantId: string, mode?: 'overwrite' | 'add'): Promise<InventoryItem[]>;
+  createIncomingRecordsBulk(records: InsertIncomingRecord[], tenantId: string): Promise<IncomingRecord[]>;
 
   getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]>;
   getOutgoingRecord(id: number, tenantId: string): Promise<OutgoingRecord | undefined>;
@@ -681,6 +682,75 @@ export class DatabaseStorage implements IStorage {
       const totalUsed = usage.reduce((sum: number, r: any) => sum + r.quantity, 0);
 
       return totalReceived - totalUsed;
+    });
+  }
+
+  async createIncomingRecordsBulk(records: InsertIncomingRecord[], tenantId: string): Promise<IncomingRecord[]> {
+    return withTenant(tenantId, async (tx) => {
+      // 1. Get all inventory items to check existence
+      const allItems = await tx.select().from(inventoryItems).where(eq(inventoryItems.tenantId, tenantId));
+      const itemMap = new Map<string, InventoryItem>();
+
+      allItems.forEach((item: any) => {
+        const key = `${item.productName.trim()}|${item.specification.trim()}|${item.division.trim()}`;
+        itemMap.set(key, item);
+      });
+
+      const recordsToInsert: any[] = [];
+      const now = new Date();
+
+      for (const record of records) {
+        const division = (record.division || "SKT").trim();
+        const productName = (record.productName || "").trim();
+        const specification = (record.specification || "").trim();
+        const key = `${productName}|${specification}|${division}`;
+        let itemId: number;
+
+        if (itemMap.has(key)) {
+          itemId = itemMap.get(key)!.id;
+        } else {
+          // Create new inventory item
+          const [newItem] = await tx.insert(inventoryItems).values({
+            tenantId,
+            division,
+            category: (record.category || division).trim(), // Fallback
+            productName,
+            specification,
+            unitPrice: record.unitPrice || 0,
+            carriedOver: 0,
+            incoming: 0,
+            outgoing: 0,
+            remaining: 0,
+            totalAmount: 0 // Will be calc'd later
+          }).returning();
+
+          itemMap.set(key, newItem);
+          itemId = newItem.id;
+        }
+
+        recordsToInsert.push({
+          ...record,
+          division,
+          category: (record.category || division).trim(),
+          productName,
+          specification,
+          supplier: (record.supplier || "").trim(),
+          projectName: (record.projectName || "").trim(),
+          tenantId,
+          inventoryItemId: itemId,
+          unitPrice: record.unitPrice || 0, // Ensure unitPrice exists even if undefined in record
+          createdBy: record.createdBy
+          // If createdBy is missing in record, it might fail notNull constraint?
+          // Schema createdBy is optional?
+          // Check schema: createdBy: varchar("created_by").references(() => users.id).
+          // It is nullable by default.
+        });
+      }
+
+      if (recordsToInsert.length === 0) return [];
+
+      const result = await tx.insert(incomingRecords).values(recordsToInsert).returning();
+      return result;
     });
   }
 
