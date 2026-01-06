@@ -285,7 +285,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
         <div className="px-4 py-2 text-xs text-muted-foreground text-center">
-          v1.2.1 (DB Type Safe)
+          v{import.meta.env.APP_VERSION} (DB Type Safe)
         </div>
       </SidebarFooter>
     </Sidebar >

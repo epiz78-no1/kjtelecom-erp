@@ -1,11 +1,11 @@
-import { Plus, Calendar, Search, Loader2, Pencil, Trash2, Upload, Download, MoreHorizontal } from "lucide-react";
+import { exportToExcel } from "@/lib/excel";
 import { useState } from "react";
+import { Plus, Search, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
 import type { OutgoingRecord, InventoryItem } from "@shared/schema";
 import {
@@ -17,14 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -34,19 +26,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,176 +34,119 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { OutgoingBulkUploadDialog } from "@/components/OutgoingBulkUploadDialog";
+import { OutgoingDialog } from "@/components/OutgoingDialog";
 import { useAppContext } from "@/contexts/AppContext";
-import { InventoryItemSelector } from "@/components/InventoryItemSelector";
 import { useColumnResize } from "@/hooks/useColumnResize";
-
-const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
 
 export default function OutgoingRecords() {
   const { toast } = useToast();
-  const { user, checkPermission, tenants, currentTenant } = useAppContext();
-  const isAdmin = tenants.find(t => t.id === currentTenant)?.role === 'admin' || tenants.find(t => t.id === currentTenant)?.role === 'owner';
+  const { checkPermission, tenants, currentTenant } = useAppContext();
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Permissions
-  const canWrite = checkPermission("outgoing", "write");
-  const isOwnOnly = !canWrite && checkPermission("outgoing", "own_only");
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<OutgoingRecord | null>(null);
-  const [deleteRecord, setDeleteRecord] = useState<OutgoingRecord | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [deleteRecord, setDeleteRecord] = useState<OutgoingRecord | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<OutgoingRecord | null>(null);
 
   const { widths, startResizing } = useColumnResize({
     checkbox: 40,
     date: 100,
-    division: 80,
     category: 60,
     teamCategory: 100,
-    projectName: 200,
-    productName: 120,
-    specification: 120,
-    itemCategory: 100,
-    itemDivision: 80,
+    projectName: 220,
+    productName: 160,
+    specification: 200,
     quantity: 80,
     recipient: 100,
     remark: 150,
     createdBy: 80,
-    attachment: 60,
-    attributes: 150,
-    actions: 60,
+    actions: 50
   });
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
-    division: "SKT",
-    category: "",
-    teamCategory: "외선팀",
-    teamId: undefined as string | undefined,
-    projectName: "",
-    productName: "",
-    specification: "",
-    quantity: "",
-    recipient: user?.name || "",
-    inventoryItemId: undefined as number | undefined,
-    remark: "",
-    attachment: null as { name: string; data: string } | null,
-  });
+
+  const canWrite = checkPermission("outgoing", "write");
 
   const { data: records = [], isLoading } = useQuery<OutgoingRecord[]>({
     queryKey: ["/api/outgoing"],
+    queryFn: async () => {
+      const res = await fetch("/api/outgoing");
+      if (!res.ok) throw new Error("Failed to fetch records");
+      return res.json();
+    }
   });
 
   const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
   });
 
-  // Fetch members for recipient selection
-  const { data: members = [] } = useQuery<any[]>({
-    queryKey: ["/api/admin/members"],
-    retry: false, // Don't retry if user doesn't have admin access
-  });
-
-  // Fetch teams for recipient selection
   const { data: teams = [] } = useQuery<any[]>({
     queryKey: ["/api/teams"],
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: Omit<OutgoingRecord, "id" | "tenantId">) => {
-      return apiRequest("POST", "/api/outgoing", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
-      toast({ title: "출고가 등록되었습니다" });
-    },
-    onError: (error: any) => {
-      const errorMessage = error?.message || "등록 실패";
-      toast({
-        title: "등록 실패",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    },
+  const { data: members = [] } = useQuery<any[]>({
+    queryKey: ["/api/members/basic"],
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: Omit<OutgoingRecord, "tenantId">) => {
-      return apiRequest("PATCH", `/api/outgoing/${id}`, data);
-    },
+    mutationFn: async ({ id, ...data }: any) => apiRequest("PATCH", `/api/outgoing/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "출고가 수정되었습니다" });
-    },
-    onError: (error: any) => {
-      const errorMessage = error?.message || "수정 실패";
-      toast({
-        title: "수정 실패",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    },
+    }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/outgoing/${id}`);
-    },
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/outgoing/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "출고가 삭제되었습니다" });
       setDeleteRecord(null);
-    },
-    onError: () => {
-      toast({ title: "삭제 실패", variant: "destructive" });
-    },
+    }
   });
 
   const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
-      return apiRequest("POST", "/api/outgoing/bulk-delete", { ids });
-    },
+    mutationFn: async (ids: number[]) => apiRequest("POST", "/api/outgoing/bulk-delete", { ids }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: `${selectedIds.size}건이 삭제되었습니다` });
       setSelectedIds(new Set());
       setBulkDeleteOpen(false);
-    },
-    onError: () => {
-      toast({ title: "삭제 실패", variant: "destructive" });
-    },
+    }
   });
 
-  // Filter based on permissions
-  const permissionFiltered = isOwnOnly
-    ? records.filter(r => r.recipient === user?.name)
-    : records;
+  const bulkUploadMutation = useMutation({
+    mutationFn: async ({ items, mode }: { items: any[], mode: 'overwrite' | 'add' }) => {
+      const response = await apiRequest("POST", "/api/outgoing/bulk", { items, mode });
+      return await response.json();
+    },
+    onSuccess: (data: any[]) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: `${data.length}건의 출고내역이 일괄 등록되었습니다` });
+      setBulkUploadOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "일괄등록 실패", description: error.message, variant: "destructive" });
+    }
+  });
 
-  const filteredRecords = permissionFiltered.filter(
+  const filteredRecords = records.filter(
     (record) =>
       (record.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (record.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.recipient || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (record.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.specification || "").toLowerCase().includes(searchQuery.toLowerCase())
+      (record.recipient || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
 
+  const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
   const allSelected = filteredRecords.length > 0 && filteredRecords.every(r => selectedIds.has(r.id));
-  const someSelected = filteredRecords.some(r => selectedIds.has(r.id));
 
   const toggleSelectAll = () => {
     if (allSelected) {
@@ -246,124 +168,112 @@ export default function OutgoingRecords() {
 
   const openAddDialog = () => {
     setEditingRecord(null);
-    setFormData({
-      date: new Date().toISOString().split("T")[0],
-      division: "SKT",
-      category: "",
-      teamCategory: "외선팀",
-      teamId: undefined,
-      projectName: "",
-      productName: "",
-      specification: "",
-      quantity: "",
-      recipient: user?.name || "",
-      inventoryItemId: undefined,
-      remark: "",
-      attachment: null
-    });
-    setSelectedDate(new Date());
     setDialogOpen(true);
   };
 
   const openEditDialog = (record: OutgoingRecord) => {
     setEditingRecord(record);
-
-    let attachment = null;
-    try {
-      const attrs = record.attributes ? JSON.parse(record.attributes) : {};
-      if (attrs.attachment) {
-        attachment = attrs.attachment;
-      }
-    } catch (e) {
-      console.error("Failed to parse attributes for attachment:", e);
-    }
-
-    setFormData({
-      date: record.date,
-      division: record.division,
-      category: record.category || "",
-      teamCategory: record.teamCategory,
-      teamId: record.teamId || undefined,
-      projectName: record.projectName,
-      productName: record.productName,
-      specification: record.specification,
-      quantity: record.quantity.toString(),
-      recipient: record.recipient,
-      inventoryItemId: record.inventoryItemId || undefined,
-      remark: record.remark || "",
-      attachment: attachment
-    });
-    setSelectedDate(new Date(record.date));
     setDialogOpen(true);
   };
 
-  const closeDialog = () => {
-    setDialogOpen(false);
-    setEditingRecord(null);
-    setFormData({
-      date: new Date().toISOString().split("T")[0],
-      division: "SKT",
-      category: "",
-      teamCategory: "외선팀",
-      teamId: undefined,
-      projectName: "",
-      productName: "",
-      specification: "",
-      quantity: "",
-      recipient: user?.name || "",
-      inventoryItemId: undefined,
-      remark: "",
-      attachment: null
-    });
-    setSelectedDate(new Date());
-  };
+  const handleDialogSubmit = async (data: {
+    date: Date;
+    division: string;
+    teamCategory: string;
+    projectName: string;
+    recipient: string;
+    attachment: { name: string; data: string } | null;
+    items: Array<{
+      id: string;
+      productName: string;
+      specification: string;
+      quantity: string;
+      inventoryItemId?: number;
+      remark: string;
+    }>;
+  }) => {
+    const validItems = data.items.filter(item => item.productName && item.quantity);
 
-  const handleSubmit = async () => {
-    if (!selectedDate || !formData.teamCategory || !formData.productName || !formData.quantity || !formData.recipient) {
-      toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
+    if (validItems.length === 0) {
+      toast({ title: "품목 누락", description: "최소 하나의 유효한 품목을 입력해주세요.", variant: "destructive" });
       return;
     }
 
-    let attributesObj: any = {};
-    if (formData.attachment) {
-      attributesObj.attachment = formData.attachment;
-    }
-    const attributes = JSON.stringify(attributesObj);
-
-    const data = {
-      date: format(selectedDate, "yyyy-MM-dd"),
-      division: formData.division,
-      category: formData.category,
-      teamCategory: formData.teamCategory,
-      teamId: formData.teamId,
-      projectName: formData.projectName,
-      productName: formData.productName,
-      specification: formData.specification,
-      quantity: parseInt(formData.quantity) || 0,
-      recipient: formData.recipient,
-      type: "general",
-      attributes: attributes,
-      remark: formData.remark,
-      inventoryItemId: formData.inventoryItemId
-    };
-
-    closeDialog();
-    toast({ title: "등록중입니다", description: "잠시만 기다려주세요." });
-
-    try {
-      if (editingRecord) {
-        await updateMutation.mutateAsync({ ...data, id: editingRecord.id } as Omit<OutgoingRecord, "tenantId">);
-      } else {
-        await createMutation.mutateAsync(data as Omit<OutgoingRecord, "id" | "tenantId">);
+    // 수정 모드
+    if (editingRecord) {
+      const item = validItems[0];
+      let attributesObj: any = {};
+      if (data.attachment) {
+        attributesObj.attachment = data.attachment;
       }
-    } catch (error) {
-      // Error handled elsewhere
-    }
-  };
 
-  const confirmDelete = () => {
-    if (deleteRecord) {
-      deleteMutation.mutate(deleteRecord.id);
+      const payload = {
+        date: format(data.date, "yyyy-MM-dd"),
+        division: data.division,
+        teamCategory: data.teamCategory,
+        projectName: data.projectName,
+        recipient: data.recipient,
+        productName: item.productName,
+        specification: item.specification,
+        quantity: parseInt(item.quantity) || 0,
+        attributes: JSON.stringify(attributesObj),
+        remark: item.remark,
+        inventoryItemId: item.inventoryItemId,
+      };
+
+      setDialogOpen(false);
+      toast({ title: "수정중입니다", description: "잠시만 기다려주세요." });
+
+      try {
+        await updateMutation.mutateAsync({ ...payload, id: editingRecord.id } as any);
+      } catch (error) {
+        // Error handled by mutation
+      }
+      return;
+    }
+
+    // 등록 모드 - 다중 저장
+    try {
+      setDialogOpen(false);
+      toast({ title: "등록중입니다", description: `${validItems.length}건의 출고 등록을 진행합니다.` });
+
+      let successCount = 0;
+
+      for (let i = 0; i < validItems.length; i++) {
+        const item = validItems[i];
+        const attributesObj: any = {};
+        if (i === 0 && data.attachment) {
+          attributesObj.attachment = data.attachment;
+        }
+
+        const payload = {
+          date: format(data.date, "yyyy-MM-dd"),
+          division: data.division,
+          teamCategory: data.teamCategory,
+          projectName: data.projectName,
+          recipient: data.recipient,
+          productName: item.productName,
+          specification: item.specification,
+          quantity: parseInt(item.quantity) || 0,
+          attributes: JSON.stringify(attributesObj),
+          remark: item.remark,
+          inventoryItemId: item.inventoryItemId,
+        };
+
+        await apiRequest("POST", "/api/outgoing", payload);
+        successCount++;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: "등록 완료", description: `${successCount}건의 출고 내역이 저장되었습니다.` });
+
+    } catch (error: any) {
+      toast({
+        title: "등록 실패",
+        description: error.message || "오류가 발생했습니다",
+        variant: "destructive"
+      });
     }
   };
 
@@ -371,27 +281,21 @@ export default function OutgoingRecords() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
-  const handleBulkUpload = async (items: any[]) => {
-    try {
-      const data = await apiRequest("POST", "/api/outgoing/bulk", { items, mode: 'add' }); // Always append for outgoing
-      queryClient.invalidateQueries({ queryKey: ["/api/outgoing"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
-      toast({ title: `${items.length}건의 출고내역이 등록되었습니다` });
-      setBulkUploadOpen(false);
-    } catch (error: any) {
-      toast({ title: "일괄 등록 실패", description: error.message, variant: "destructive" });
-    }
+  const handleBulkUpload = (items: any[]) => {
+    bulkUploadMutation.mutate({ items, mode: 'add' });
   };
 
   const handleExportExcel = () => {
     const dataToExport = filteredRecords.map(record => ({
       "출고일": record.date,
       "사업": record.category,
+      "수령팀": record.teamCategory,
       "공사명": record.projectName,
       "품명": record.productName,
       "규격": record.specification,
       "수량": record.quantity,
-      "수령인": record.recipient
+      "수령인": record.recipient,
+      "비고": record.remark || "-"
     }));
 
     exportToExcel(dataToExport, "출고내역");
@@ -416,7 +320,6 @@ export default function OutgoingRecords() {
           <div className="flex flex-wrap items-center gap-2">
             {canWrite && (
               <>
-
                 <Button
                   variant="outline"
                   size="sm"
@@ -428,7 +331,7 @@ export default function OutgoingRecords() {
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button data-testid="button-add-outgoing-menu">
+                    <Button data-testid="button-add-outgoing">
                       <Plus className="h-4 w-4 mr-2" />
                       출고 등록
                     </Button>
@@ -456,7 +359,7 @@ export default function OutgoingRecords() {
             <div className="relative max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="품명, 공사명, 수령인 검색..."
+                placeholder="품명, 공사명, 팀, 수령인 검색..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -503,12 +406,18 @@ export default function OutgoingRecords() {
                     onMouseDown={(e) => startResizing("date", e)}
                   />
                 </TableHead>
-
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
                   사업
                   <div
                     className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
                     onMouseDown={(e) => startResizing("category", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.teamCategory }}>
+                  수령팀
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("teamCategory", e)}
                   />
                 </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
@@ -560,12 +469,8 @@ export default function OutgoingRecords() {
                     onMouseDown={(e) => startResizing("createdBy", e)}
                   />
                 </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.attachment }}>
+                <TableHead className="font-semibold text-center align-middle bg-background w-[80px]">
                   첨부
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("attachment", e)}
-                  />
                 </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
               </TableRow>
@@ -583,9 +488,11 @@ export default function OutgoingRecords() {
                     ) : null}
                   </TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
-
                   <TableCell className="text-center align-middle max-w-[80px]">
-                    <div className="truncate" title={record.category}>{record.category}</div>
+                    <div className="truncate" title={record.division}>{record.division}</div>
+                  </TableCell>
+                  <TableCell className="text-center align-middle max-w-[100px]">
+                    <div className="truncate" title={record.teamCategory}>{record.teamCategory}</div>
                   </TableCell>
                   <TableCell className="text-left align-middle max-w-[200px]">
                     <div className="truncate" title={record.projectName}>{record.projectName}</div>
@@ -601,7 +508,7 @@ export default function OutgoingRecords() {
                     <div className="truncate" title={record.recipient}>{record.recipient}</div>
                   </TableCell>
                   <TableCell className="text-center align-middle max-w-[150px]">
-                    <div className="truncate" title={record.remark || ""}>{record.remark}</div>
+                    <div className="truncate" title={record.remark || ""}>{record.remark || ""}</div>
                   </TableCell>
                   <TableCell className="text-center align-middle max-w-[100px]">
                     <div className="truncate" title={(record as any).createdByName || ""}>
@@ -611,7 +518,7 @@ export default function OutgoingRecords() {
                   <TableCell className="text-center align-middle">
                     {(() => {
                       try {
-                        const attrs = record.attributes ? JSON.parse(record.attributes) : {};
+                        const attrs = JSON.parse(record.attributes || "{}");
                         if (attrs.attachment) {
                           return (
                             <a
@@ -619,15 +526,14 @@ export default function OutgoingRecords() {
                               download={attrs.attachment.name}
                               className="inline-flex items-center justify-center text-primary hover:text-primary/80"
                               title={attrs.attachment.name}
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <Download className="h-4 w-4" />
                             </a>
                           );
                         }
-                      } catch (e) {
-                        return null;
-                      }
-                      return null;
+                      } catch (e) { }
+                      return "-";
                     })()}
                   </TableCell>
                   <TableCell className="text-center align-middle">
@@ -660,7 +566,7 @@ export default function OutgoingRecords() {
               ))}
               {filteredRecords.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                     검색 결과가 없습니다
                   </TableCell>
                 </TableRow>
@@ -670,228 +576,24 @@ export default function OutgoingRecords() {
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>{editingRecord ? "출고 수정" : "출고 등록"}</DialogTitle>
-            <DialogDescription>
-              {editingRecord ? "출고 내역을 수정합니다." : "새로운 자재 출고 내역을 등록합니다."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label>출고일 *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="justify-start text-left font-normal px-3"
-                      data-testid="button-outgoing-date"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "yyyy-MM-dd") : "날짜 선택"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="grid gap-2">
-                <Label>수령 팀 *</Label>
-                <Select
-                  value={formData.teamCategory}
-                  onValueChange={(value) => {
-                    const team = teams.find((t: any) => t.name === value);
-                    setFormData({
-                      ...formData,
-                      teamCategory: value,
-                      teamId: team?.id,
-                      recipient: "" // Reset recipient using new team
-                    });
-                  }}
-                >
-                  <SelectTrigger data-testid="select-outgoing-team">
-                    <SelectValue placeholder="팀 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams.map((team: any) => (
-                      <SelectItem key={team.id} value={team.name}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                    {teams.length === 0 && (
-                      <SelectItem value="설치팀" disabled>팀 데이터 없음</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>수령인 *</Label>
-                <Select
-                  value={formData.recipient}
-                  onValueChange={(value) => setFormData({ ...formData, recipient: value })}
-                  disabled={!formData.teamCategory}
-                >
-                  <SelectTrigger data-testid="select-outgoing-recipient">
-                    <SelectValue placeholder={formData.teamCategory ? "수령인 선택" : "팀을 먼저 선택하세요"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {members
-                      .filter((m: any) => {
-                        if (!formData.teamCategory) return false;
-                        const selectedTeam = teams.find((t: any) => t.name === formData.teamCategory);
-                        return selectedTeam && m.teamId === selectedTeam.id;
-                      })
-                      .map((member: any) => (
-                        <SelectItem key={member.id} value={member.name}>
-                          {member.name} ({member.username})
-                        </SelectItem>
-                      ))}
-                    {members.filter((m: any) => {
-                      if (!formData.teamCategory) return false;
-                      const selectedTeam = teams.find((t: any) => t.name === formData.teamCategory);
-                      return selectedTeam && m.teamId === selectedTeam.id;
-                    }).length === 0 && (
-                        <SelectItem value="none" disabled>팀원 없음</SelectItem>
-                      )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+      {/* Dialogs */}
+      <OutgoingDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSubmit={handleDialogSubmit}
+        editingRecord={editingRecord}
+        inventoryItems={inventoryItems}
+        teams={teams}
+        members={members}
+      />
 
-            <div className="grid gap-2">
-              <Label>공사명 *</Label>
-              <Input
-                value={formData.projectName}
-                onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                placeholder="예: 효자동 2가 함체교체"
-                data-testid="input-outgoing-project"
-              />
-            </div>
+      <OutgoingBulkUploadDialog
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onUpload={handleBulkUpload}
+      />
 
-
-
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">품목 선택</Label>
-              <div className="col-span-3">
-                <InventoryItemSelector
-                  value={formData.inventoryItemId}
-                  onChange={(id, item) => {
-                    setFormData({
-                      ...formData,
-                      inventoryItemId: id,
-                      productName: item.productName,
-                      specification: item.specification,
-                      division: item.division,
-                      category: item.category,
-                    });
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">수량 *</Label>
-              <div className="col-span-3">
-                <Input
-                  type="number"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  placeholder="수량 입력"
-                  data-testid="input-outgoing-quantity"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">비고</Label>
-              <div className="col-span-3">
-                <Input
-                  value={formData.remark}
-                  onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                  placeholder="참고 사항 입력"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">첨부파일</Label>
-              <div className="col-span-3 space-y-2">
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="outgoing-file-upload"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          if (event.target?.result) {
-                            setFormData({
-                              ...formData,
-                              attachment: {
-                                name: file.name,
-                                data: event.target.result as string
-                              }
-                            });
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  <label
-                    htmlFor="outgoing-file-upload"
-                    className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                  >
-                    <Upload className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium text-primary">
-                      {formData.attachment ? formData.attachment.name : "파일 선택 또는 드래그"}
-                    </span>
-                  </label>
-                </div>
-                {formData.attachment && (
-                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                    <span className="text-sm text-muted-foreground truncate">
-                      📎 {formData.attachment.name}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setFormData({ ...formData, attachment: null })}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              취소
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-              data-testid="button-submit-outgoing"
-            >
-              {(createMutation.isPending || updateMutation.isPending) ? "처리 중..." : editingRecord ? "수정" : "등록"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!deleteRecord} onOpenChange={(open) => !open && setDeleteRecord(null)}>
+      <AlertDialog open={!!deleteRecord} onOpenChange={() => setDeleteRecord(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>출고 내역 삭제</AlertDialogTitle>
@@ -901,7 +603,9 @@ export default function OutgoingRecords() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>삭제</AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteRecord && deleteMutation.mutate(deleteRecord.id)}>
+              삭제
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -911,21 +615,17 @@ export default function OutgoingRecords() {
           <AlertDialogHeader>
             <AlertDialogTitle>선택 항목 삭제</AlertDialogTitle>
             <AlertDialogDescription>
-              선택한 {selectedIds.size}개의 출고 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              선택한 {selectedIds.size}건의 출고 내역을 삭제하시겠습니다? 이 작업은 되돌릴 수 없습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete}>삭제</AlertDialogAction>
+            <AlertDialogAction onClick={confirmBulkDelete}>
+              삭제
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <OutgoingBulkUploadDialog
-        open={bulkUploadOpen}
-        onOpenChange={setBulkUploadOpen}
-        onUpload={handleBulkUpload}
-      />
-    </div >
+    </div>
   );
 }

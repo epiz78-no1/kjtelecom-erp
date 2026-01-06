@@ -527,11 +527,11 @@ export class DatabaseStorage implements IStorage {
         remark: outgoingRecords.remark,
         inventoryItemId: outgoingRecords.inventoryItemId,
         createdBy: outgoingRecords.createdBy,
-        createdByName: users.name,
       })
         .from(outgoingRecords)
         .leftJoin(users, eq(outgoingRecords.createdBy, users.id))
         .where(eq(outgoingRecords.tenantId, tenantId))
+        .orderBy(desc(outgoingRecords.date), desc(outgoingRecords.createdAt), asc(outgoingRecords.id))
     );
   }
 
@@ -656,6 +656,7 @@ export class DatabaseStorage implements IStorage {
         category: materialUsageRecords.category,
         productName: materialUsageRecords.productName,
         specification: materialUsageRecords.specification,
+        projectName: materialUsageRecords.projectName,
         attributes: materialUsageRecords.attributes,
         quantity: materialUsageRecords.quantity,
         recipient: materialUsageRecords.recipient,
@@ -669,6 +670,7 @@ export class DatabaseStorage implements IStorage {
         .from(materialUsageRecords)
         .leftJoin(users, eq(materialUsageRecords.createdBy, users.id))
         .where(eq(materialUsageRecords.tenantId, tenantId))
+        .orderBy(desc(materialUsageRecords.date), desc(materialUsageRecords.createdAt), asc(materialUsageRecords.id))
     );
   }
 
@@ -841,6 +843,7 @@ export class DatabaseStorage implements IStorage {
         .from(incomingRecords)
         .leftJoin(users, eq(incomingRecords.createdBy, users.id))
         .where(eq(incomingRecords.tenantId, tenantId))
+        .orderBy(desc(incomingRecords.date), desc(incomingRecords.createdAt), asc(incomingRecords.id))
     );
   }
 
@@ -1129,7 +1132,7 @@ export class DatabaseStorage implements IStorage {
         .from(opticalCableLogs)
         .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
         .where(and(eq(opticalCableLogs.cableId, cableId), eq(opticalCableLogs.tenantId, tenantId)))
-        .orderBy(desc(opticalCableLogs.createdAt));
+        .orderBy(desc(opticalCableLogs.usageDate), asc(opticalCableLogs.createdAt));
     });
   }
 
@@ -1144,7 +1147,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(opticalCables, eq(opticalCableLogs.cableId, opticalCables.id))
       .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
       .where(eq(opticalCableLogs.tenantId, tenantId))
-      .orderBy(desc(opticalCableLogs.createdAt));
+      .orderBy(desc(opticalCableLogs.usageDate), asc(opticalCableLogs.createdAt));
 
     return results.map(({ log, cable, createdByName }) => ({
       ...log,

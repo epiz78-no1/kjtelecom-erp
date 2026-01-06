@@ -240,3 +240,108 @@ app.post("/api/xxx/bulk", requireAuth, requireTenant, async (req, res) => {
 - 🔮 향후 추가될 모든 일괄 등록 기능
 
 **예외**: 로그성 데이터 등 덮어쓰기가 불가능한 경우에만 예외를 허용하며, 코드 주석으로 이유를 명시해야 합니다.
+
+---
+
+## 13. Division/Category 필드 사용 규칙
+
+**핵심 원칙**: 사업 구분은 `division` 필드를 사용하고, `category`는 하위 분류에만 사용합니다.
+
+### 필드 정의
+
+#### division (사업)
+- **용도**: SKT, SKB 등의 사업 구분
+- **타입**: `text` (DB), `string` (TypeScript)
+- **필수**: 대부분의 테이블에서 필수 (`notNull().default("SKT")`)
+- **사용 위치**: 
+  - `inventoryItems.division`
+  - `incomingRecords.division`
+  - `outgoingRecords.division`
+  - `materialUsageRecords.division`
+
+#### category (카테고리)
+- **용도**: 하위 분류 (예: 광케이블 시스템에서 "광케이블/철거/구매" 등)
+- **타입**: `text` (DB), `string` (TypeScript)
+- **사용 제한**: 
+  - ❌ SKT/SKB 값 저장 금지
+  - ✅ 실제 카테고리 값만 저장
+- **사용 위치**:
+  - `opticalCables.category` (광케이블/철거/구매)
+  - 일반 자재에서는 사용하지 않음
+
+### 코딩 규칙
+
+#### 1. UI 라벨
+```tsx
+// ✅ 올바른 사용
+<Label>사업 *</Label>
+<Select value={formData.division}>
+  <SelectItem value="SKT">SKT</SelectItem>
+  <SelectItem value="SKB">SKB</SelectItem>
+</Select>
+
+// ❌ 잘못된 사용
+<Label>사업 *</Label>
+<Select value={formData.category}>  // category를 사업으로 사용 금지
+```
+
+#### 2. API 요청
+```typescript
+// ✅ 올바른 사용
+const payload = {
+  division: data.division,  // 사업
+  // category는 필요한 경우에만 포함
+};
+
+// ❌ 잘못된 사용
+const payload = {
+  division: data.division,
+  category: data.category,  // category에 SKT/SKB 저장 금지
+};
+```
+
+#### 3. 필터링
+```typescript
+// ✅ 올바른 사용 - division으로 필터링
+const filtered = items.filter(item => item.division === selectedDivision);
+
+// ❌ 잘못된 사용 - category로 사업 필터링
+const filtered = items.filter(item => item.category === selectedDivision);
+```
+
+### 마이그레이션 가이드
+
+기존 코드에서 `category`를 사업 구분으로 사용하고 있다면:
+
+1. **State 변수명 변경**:
+   ```typescript
+   // Before
+   const [formData, setFormData] = useState({
+     category: "SKT",  // ❌
+   });
+   
+   // After
+   const [formData, setFormData] = useState({
+     division: "SKT",  // ✅
+   });
+   ```
+
+2. **API 페이로드 수정**:
+   ```typescript
+   // Before
+   category: data.category,  // ❌
+   
+   // After
+   division: data.division,  // ✅
+   ```
+
+3. **DB 데이터 정리** (필요시):
+   - `category` 컬럼에 SKT/SKB 값이 있다면 `division`으로 이동
+   - `category`는 실제 카테고리 값만 유지
+
+### 예외 사항
+
+**광케이블 시스템**에서는 `category`를 "구분" 필드로 사용:
+- 값: "광케이블", "철거", "구매"
+- 이 경우 `division`은 여전히 사업 구분(SKT/SKB)으로 사용
+

@@ -30,6 +30,8 @@ interface InventoryItem {
 interface InventoryItemSelectorProps {
     value: number | undefined;
     onChange: (value: number, item: InventoryItem) => void;
+    division?: string;  // 사업 필터 (SKT, SKB 등)
+    excludeItems?: number[]; // 제외할 아이템 ID 목록
     disabled?: boolean;
     className?: string;
 }
@@ -37,6 +39,8 @@ interface InventoryItemSelectorProps {
 export function InventoryItemSelector({
     value,
     onChange,
+    division,
+    excludeItems = [],
     disabled,
     className,
 }: InventoryItemSelectorProps) {
@@ -48,11 +52,19 @@ export function InventoryItemSelector({
         staleTime: 1000 * 60 * 5, // 5 minutes cache
     });
 
-    // Filter items based on search term manually if needed, 
-    // but Command component handles local filtering well.
-    // We just need to make sure we display product + spec + division.
+    // Filter items based on search term, division, and excluded items
+    const filteredItems = items.filter(item => {
+        const matchesSearch =
+            item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.specification.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const selectedItem = items.find((item) => item.id === value);
+        const matchesDivision = division ? item.division === division : true;
+
+        const isExcluded = excludeItems.includes(item.id);
+
+        return matchesSearch && matchesDivision && !isExcluded;
+    });
+    const selectedItem = filteredItems.find((item) => item.id === value);
 
     return (
         <Popover open={open} onOpenChange={setOpen} modal={true}>
@@ -90,7 +102,7 @@ export function InventoryItemSelector({
                     <CommandList style={{ maxHeight: '250px', overflowY: 'auto' }}>
                         <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
                         <CommandGroup heading="재고 목록">
-                            {!isLoading && items.map((item) => (
+                            {!isLoading && filteredItems.map((item) => (
                                 <CommandItem
                                     key={item.id}
                                     value={`${item.productName} ${item.specification} ${item.category} ${item.division}`} // Searchable string

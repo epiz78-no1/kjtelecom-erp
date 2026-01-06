@@ -337,7 +337,7 @@ export default function TeamMaterialUsage() {
   const handleExportExcel = () => {
     const dataToExport = filteredRecords.map(record => ({
       "사용일": record.date,
-      "사업": record.category,
+      "사업": record.division,
       "팀": record.teamCategory,
       "공사명": record.projectName,
       "품명": record.productName,
@@ -774,8 +774,8 @@ export default function TeamMaterialUsage() {
                 <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
 
                 <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용자</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입력자</TableHead>
                 <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">비고</TableHead>
+                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입력자</TableHead>
                 <TableHead className="font-semibold w-[50px] text-center align-middle bg-background">첨부</TableHead>
                 <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
               </TableRow>
@@ -794,7 +794,7 @@ export default function TeamMaterialUsage() {
                   </TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
 
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.category}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{record.division}</TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">
                     {record.teamCategory || teams.find(t => t.id === record.teamId)?.name || ''}
                   </TableCell>
@@ -806,8 +806,8 @@ export default function TeamMaterialUsage() {
                   </TableCell>
 
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient || ''}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{(record as any).createdByName || "-"}</TableCell>
                   <TableCell className="text-center align-middle max-w-[150px] truncate" title={record.remark || ""}>{record.remark}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{(record as any).createdByName || "-"}</TableCell>
                   <TableCell className="text-center align-middle">
                     {(() => {
                       try {

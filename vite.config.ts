@@ -3,7 +3,14 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+import { readFileSync } from "fs";
+
+const packageJson = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "package.json"), "utf-8"));
+
 export default defineConfig({
+  define: {
+    "import.meta.env.APP_VERSION": JSON.stringify(packageJson.version),
+  },
   plugins: [
     react(),
     runtimeErrorOverlay(),

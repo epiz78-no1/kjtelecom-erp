@@ -222,6 +222,7 @@ export const outgoingRecords = pgTable("outgoing_records", {
   recipient: text("recipient").notNull(),
   remark: text("remark"),
   createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertOutgoingRecordSchema = createInsertSchema(outgoingRecords).omit({ id: true });
@@ -231,7 +232,6 @@ export const apiInsertOutgoingRecordSchema = z.object({
   divisionId: z.string().optional(),
   date: z.string(),
   division: z.string().optional(),
-  category: z.string(),
   teamCategory: z.string(),
   projectName: z.string(),
   productName: z.string(),
@@ -265,6 +265,7 @@ export const materialUsageRecords = pgTable("material_usage_records", {
   recipient: text("recipient").notNull(),
   remark: text("remark"),
   createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertMaterialUsageRecordSchema = createInsertSchema(materialUsageRecords).omit({ id: true });
@@ -274,7 +275,7 @@ export const apiInsertMaterialUsageRecordSchema = z.object({
   divisionId: z.string().optional(),
   date: z.string(),
   division: z.string().optional(),
-  category: z.string(),
+  category: z.string().optional(),
   teamCategory: z.string(),
   projectName: z.string(),
   productName: z.string(),
@@ -308,6 +309,7 @@ export const incomingRecords = pgTable("incoming_records", {
   unitPrice: integer("unit_price").notNull().default(0),
   remark: text("remark"),
   createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertIncomingRecordSchema = createInsertSchema(incomingRecords).omit({ id: true });
@@ -316,7 +318,7 @@ export const apiInsertIncomingRecordSchema = z.object({
   divisionId: z.string().optional(),
   date: z.string(),
   division: z.string().optional(),
-  category: z.string(),
+  category: z.string().optional(),
   supplier: z.string(),
   projectName: z.string(),
   productName: z.string(),

@@ -31,6 +31,38 @@ export async function registerRoutes(
     }
   });
 
+  // Debug endpoint to check project names in material usage records
+  app.get("/api/debug/check-project-names", async (req, res) => {
+    try {
+      const { desc } = await import("drizzle-orm");
+      const records = await db
+        .select({
+          id: materialUsageRecords.id,
+          date: materialUsageRecords.date,
+          productName: materialUsageRecords.productName,
+          projectName: materialUsageRecords.projectName,
+          recipient: materialUsageRecords.recipient,
+        })
+        .from(materialUsageRecords)
+        .orderBy(desc(materialUsageRecords.id))
+        .limit(10);
+
+      const emptyCount = records.filter(r => !r.projectName || r.projectName.trim() === "").length;
+
+      res.json({
+        total: records.length,
+        emptyProjectNames: emptyCount,
+        records: records.map(r => ({
+          ...r,
+          projectNameEmpty: !r.projectName || r.projectName.trim() === ""
+        }))
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+
   app.get("/api/debug/db-schema", requireAuth, requireAdmin, async (req, res) => {
     try {
       // Query specific table schema information
@@ -516,7 +548,7 @@ export async function registerRoutes(
       const productName = parseResult.data.productName.trim();
       const specification = parseResult.data.specification.trim();
       const division = (parseResult.data.division || "SKT").trim();
-      const category = parseResult.data.category.trim();
+      const category = "";
       const teamCategory = parseResult.data.teamCategory.trim();
       const projectName = parseResult.data.projectName.trim();
       const recipient = parseResult.data.recipient.trim();
@@ -578,6 +610,9 @@ export async function registerRoutes(
       // Pre-validate items
       console.log("[OUTGOING BULK] Received items count:", items.length);
 
+      console.log("[OUTGOING BULK] Received items count:", items.length);
+      const sharedCreatedAt = new Date();
+
       const recordsToCreate = [];
       for (const item of items) {
         console.log("[OUTGOING BULK] Processing item:", JSON.stringify(item));
@@ -598,12 +633,13 @@ export async function registerRoutes(
           productName,
           specification,
           division,
-          category: parseResult.data.category.trim(),
+          category: "",
           teamCategory: parseResult.data.teamCategory.trim(),
           projectName: projectName,
           recipient: parseResult.data.recipient.trim(),
           tenantId,
-          createdBy: userId
+          createdBy: userId,
+          createdAt: sharedCreatedAt
         });
       }
 
@@ -747,19 +783,25 @@ export async function registerRoutes(
       const productName = parseResult.data.productName.trim();
       const specification = parseResult.data.specification.trim();
       const division = (parseResult.data.division || "SKT").trim();
+      const projectName = parseResult.data.projectName.trim();
+
+      console.log(`[USAGE] 공사명 저장 확인 - 요청: "${parseResult.data.projectName}" → 처리: "${projectName}"`);
 
       const record = await storage.createMaterialUsageRecord({
         ...parseResult.data,
         productName,
         specification,
         division,
-        category: parseResult.data.category.trim(),
+        category: (parseResult.data.category || "").trim(),
         teamCategory: parseResult.data.teamCategory.trim(),
-        projectName: parseResult.data.projectName.trim(),
+        projectName,
         recipient: parseResult.data.recipient.trim(),
         tenantId,
         createdBy: req.session!.userId!
       });
+
+      console.log(`[USAGE] 저장 완료 - ID: ${record.id}, 공사명: "${record.projectName}"`);
+
 
       await syncInventoryItem(
         productName,
@@ -918,7 +960,7 @@ export async function registerRoutes(
         productName,
         specification,
         division,
-        category: parseResult.data.category.trim(),
+        category: (parseResult.data.category || "").trim(),
         supplier: parseResult.data.supplier.trim(),
         projectName: parseResult.data.projectName.trim(),
         tenantId,
@@ -947,10 +989,12 @@ export async function registerRoutes(
 
     const tenantId = req.session!.tenantId!;
     try {
+      const sharedCreatedAt = new Date();
       const recordsToCreate = items.map((item: any) => ({
         ...item,
         tenantId,
-        createdBy: req.session!.userId!
+        createdBy: req.session!.userId!,
+        createdAt: sharedCreatedAt
       }));
 
       const createdRecords = await storage.createIncomingRecordsBulk(recordsToCreate, tenantId);
