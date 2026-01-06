@@ -527,6 +527,7 @@ export class DatabaseStorage implements IStorage {
         remark: outgoingRecords.remark,
         inventoryItemId: outgoingRecords.inventoryItemId,
         createdBy: outgoingRecords.createdBy,
+        createdByName: users.name,
       })
         .from(outgoingRecords)
         .leftJoin(users, eq(outgoingRecords.createdBy, users.id))
