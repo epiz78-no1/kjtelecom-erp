@@ -119,8 +119,8 @@ export default function TeamMaterialUsage() {
     drumNumber: "",
     inventoryItemId: undefined as number | undefined,
     remark: "",
-    attachment: null as { name: string, data: string, size?: number, type?: string } | null,
     // 다중 품목 지원
+    attachments: [] as { name: string, data: string, size?: number, type?: string }[],
     items: [{
       id: Date.now().toString(),
       category: "",
@@ -435,7 +435,7 @@ export default function TeamMaterialUsage() {
       drumNumber: "",
       inventoryItemId: undefined,
       remark: "",
-      attachment: null,
+      attachments: [],
       items: [{
         id: Date.now().toString(),
         category: "",
@@ -470,7 +470,7 @@ export default function TeamMaterialUsage() {
       drumNumber: "",
       inventoryItemId: record.inventoryItemId || undefined,
       remark: record.remark || "",
-      attachment: null,
+      attachments: [],
       items: [{
         id: Date.now().toString(),
         category: record.category || "",
@@ -485,8 +485,10 @@ export default function TeamMaterialUsage() {
     try {
       if (record.attributes) {
         const attrs = JSON.parse(record.attributes);
-        if (attrs.attachment) {
-          setFormData(prev => ({ ...prev, attachment: attrs.attachment }));
+        if (attrs.attachments && Array.isArray(attrs.attachments)) {
+          setFormData(prev => ({ ...prev, attachments: attrs.attachments }));
+        } else if (attrs.attachment) {
+          setFormData(prev => ({ ...prev, attachments: [attrs.attachment] }));
         }
       }
     } catch (e) {
@@ -513,7 +515,7 @@ export default function TeamMaterialUsage() {
       drumNumber: "",
       inventoryItemId: undefined,
       remark: "",
-      attachment: null,
+      attachments: [],
       items: [{
         id: Date.now().toString(),
         category: "",
@@ -546,14 +548,12 @@ export default function TeamMaterialUsage() {
       const item = validItems[0];
       const attributesObj: any = {};
 
-      // 수정 시 첨부파일 변경이 있으면 처리 (formData.attachment가 null이면 기존 유지? 로직 확인 필요하지만 일단 기존대로)
-      if (formData.attachment) {
-        attributesObj.attachment = formData.attachment;
+      // 수정 시 첨부파일 변경이 있으면 처리
+      if (formData.attachments && formData.attachments.length > 0) {
+        attributesObj.attachments = formData.attachments;
+        attributesObj.attachment = formData.attachments[0]; // Legacy support
       } else if (editingRecord.attributes) {
-        // 기존 첨부파일 유지하려면 로직이 복잡해질 수 있음. 
-        // 기존 로직: setFormData 시 attachment를 null로 초기화하고, 속성 파싱해서 넣었음.
-        // 여기선 formData.attachment가 있으면 덮어쓰고, 없으면 안 보냄 (또는 null).
-        // 기존 처리를 따름.
+        // 기존 첨부파일 로직: formData에 없으면 비운다 (왜냐하면 수정 화면 진입 시 로드하므로)
       }
 
       const data = {
@@ -594,8 +594,9 @@ export default function TeamMaterialUsage() {
         const item = validItems[i];
         const attributesObj: any = {};
         // 첫 번째 아이템에만 첨부파일 포함
-        if (i === 0 && formData.attachment) {
-          attributesObj.attachment = formData.attachment;
+        if (i === 0 && formData.attachments && formData.attachments.length > 0) {
+          attributesObj.attachments = formData.attachments;
+          attributesObj.attachment = formData.attachments[0];
         }
 
         const data = {
@@ -1092,6 +1093,7 @@ export default function TeamMaterialUsage() {
               ))}
             </div>
 
+            {/* 첨부파일 */}
             <div className="grid grid-cols-4 items-start gap-4">
               <Label className="text-right pt-2">첨부파일</Label>
               <div className="col-span-3">
@@ -1099,76 +1101,113 @@ export default function TeamMaterialUsage() {
                   <Input
                     id="usage-file-upload"
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept="image/*,application/pdf,.xlsx,.xls"
+                    multiple
                     className="hidden"
                     onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+
+                      const currentCount = formData.attachments.length;
+                      if (currentCount + files.length > 4) {
+                        toast({
+                          title: "파일 개수 초과",
+                          description: `최대 4개까지 첨부할 수 있습니다. (현재 ${currentCount}개)`,
+                          variant: "destructive"
+                        });
+                        e.target.value = '';
+                        return;
+                      }
+
+                      const newAttachments = [...formData.attachments];
+
+                      for (const file of files) {
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast({
+                            title: "용량 초과",
+                            description: `${file.name} 파일이 10MB를 초과합니다.`,
+                            variant: "destructive"
+                          });
+                          continue;
+                        }
+
                         try {
-                          // 이미지 압축 적용
-                          const compressed = await compressImage(file, {
-                            maxWidth: 1920,
-                            maxHeight: 1920,
-                            quality: 0.8,
-                            maxSizeMB: 5
-                          });
+                          let processedFile: { name: string; data: string };
 
-                          setFormData({
-                            ...formData,
-                            attachment: compressed
-                          });
-
-                          // 압축 결과 알림
                           if (file.type.startsWith('image/')) {
+                            // 이미지 압축 적용
+                            const compressed = await compressImage(file, {
+                              maxWidth: 1920,
+                              maxHeight: 1920,
+                              quality: 0.8,
+                              maxSizeMB: 5
+                            });
+                            processedFile = compressed;
+
                             const originalSize = formatFileSize(file.size);
                             const compressedSize = formatFileSize(compressed.size);
                             toast({
                               title: "이미지 압축 완료",
                               description: `${originalSize} → ${compressedSize}`,
                             });
+                          } else {
+                            // Excel, PDF 등은 Base64로 변환
+                            const base64 = await new Promise<string>((resolve, reject) => {
+                              const reader = new FileReader();
+                              reader.onload = () => resolve(reader.result as string);
+                              reader.onerror = reject;
+                              reader.readAsDataURL(file);
+                            });
+                            processedFile = { name: file.name, data: base64 };
                           }
+
+                          newAttachments.push(processedFile);
                         } catch (error: any) {
                           toast({
                             title: "파일 업로드 실패",
                             description: error.message || "파일을 처리할 수 없습니다",
                             variant: "destructive"
                           });
-                          // 입력 초기화
-                          e.target.value = '';
                         }
                       }
+
+                      setFormData({ ...formData, attachments: newAttachments });
+                      e.target.value = ''; // Reset
                     }}
                   />
-                  <label
-                    htmlFor="usage-file-upload"
-                    className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                  >
-                    <Upload className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium text-primary">
-                      {formData.attachment ? formData.attachment.name : (
-                        <>
-                          <span className="md:hidden">📷 사진 촬영 또는 앨범 선택</span>
-                          <span className="hidden md:inline">파일 선택 또는 드래그</span>
-                        </>
-                      )}
-                    </span>
-                  </label>
-                </div>
-                {formData.attachment && (
-                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md mt-2">
-                    <span className="text-sm text-muted-foreground truncate">
-                      📎 {formData.attachment.name}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setFormData({ ...formData, attachment: null })}
+                  {formData.attachments.length < 4 && (
+                    <label
+                      htmlFor="usage-file-upload"
+                      className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
+                      <Upload className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-medium text-primary">
+                        파일 선택 ({formData.attachments.length}/4) - 이미지, PDF, 엑셀
+                      </span>
+                    </label>
+                  )}
+                </div>
+
+                <div className="space-y-2 mt-2">
+                  {formData.attachments.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                      <span className="text-sm text-muted-foreground truncate flex-1">
+                        📎 {file.name}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          const newAttachments = formData.attachments.filter((_, i) => i !== index);
+                          setFormData({ ...formData, attachments: newAttachments });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div >

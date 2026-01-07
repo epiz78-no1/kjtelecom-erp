@@ -345,3 +345,56 @@ const filtered = items.filter(item => item.category === selectedDivision);
 - 값: "광케이블", "철거", "구매"
 - 이 경우 `division`은 여전히 사업 구분(SKT/SKB)으로 사용
 
+---
+
+## 14. 시스템 아키텍처 및 배포 환경 (System Architecture & Deployment)
+
+### 시스템 구성도 (System Architecture)
+
+```mermaid
+graph TD
+    subgraph Local [Local Environment]
+        LocalApp[Local Application] -- uses --> EnvLocal[.env]
+        EnvLocal -- defines --> DB_URL_Local[DATABASE_URL]
+        LocalApp -- connects to --> DevDB
+        
+        CheckScript[scripts/pre-deploy-check.sh] -- verified by --> EnvLocal
+        CheckScript -- compares schema --> DevDB
+        CheckScript -- compares schema --> ProdDB
+    end
+
+    subgraph Dev [Development Deployment (Vercel-Preview/Dev)]
+        DevApp[Dev Application] -- uses --> EnvDev[Vercel Env]
+        EnvDev -- defines --> DB_URL_Dev[DATABASE_URL]
+        DevApp -- connects to --> DevDB[Supabase DEV DB]
+    end
+
+    subgraph Prod [Production Deployment (Vercel-Prod)]
+        ProdApp[Production Application] -- uses --> EnvProd[Vercel Env]
+        EnvProd -- defines --> DB_URL_Prod[DATABASE_URL]
+        ProdApp -- connects to --> ProdDB[Supabase PROD DB]
+    end
+
+    style DevDB fill:#e1f5fe,stroke:#01579b
+    style ProdDB fill:#ffebee,stroke:#b71c1c
+    style CheckScript fill:#fff9c4,stroke:#fbc02d
+```
+
+### 데이터베이스 환경 분리 전략
+- **Local / Development**: 동일한 **Supabase DEV 데이터베이스**를 공유하여 사용합니다. 이는 개발 속도를 높이고 스키마 변경 사항을 즉시 확인하기 위함입니다.
+- **Production**: 독립된 **Supabase PROD 데이터베이스**를 사용합니다. 운영 데이터의 안전성을 보장하기 위해 개발 환경과 완벽히 격리됩니다.
+
+### 주요 환경 변수 (Environment Variables)
+
+| 변수명 | 설명 | 설정 위치 (.env / Vercel) |
+| :--- | :--- | :--- |
+| **`DATABASE_URL`** | **현재 실행 중인 환경**이 연결할 데이터베이스 주소입니다.<br>- 로컬/Dev 환경: DEV DB 주소<br>- Prod 환경: PROD DB 주소 | .env (Local)<br>Vercel Project Settings (Dev/Prod) |
+| **`DATABASE_URL_PROD`** | **스키마 검증용** 운영 데이터베이스 주소입니다.<br>애플리케이션 런타임에는 사용되지 않으며, 오직 배포 전 스크립트(`pre-deploy-check.sh`)에서 개발 DB와 운영 DB의 스키마 일치를 확인하기 위해 사용됩니다. | .env (Local only) |
+| **`APP_VERSION`** | 애플리케이션 버전 (예: `v1.2.2`). `package.json`에서 자동 주입됩니다. | Vercel Project Settings (선택사항) |
+
+### 배포 전 검증 절차 (Pre-deployment Verification)
+1. 로컬 환경의 `.env` 파일에 `DATABASE_URL`(Dev)과 `DATABASE_URL_PROD`(Prod)가 모두 설정되어 있어야 합니다.
+2. `scripts/pre-deploy-check.sh` 스크립트는 이 두 데이터베이스에 접속하여 테이블 스키마(hash)를 비교합니다.
+3. 스키마가 일치하지 않으면 배포가 중단됩니다. 이 경우, 운영 DB에 마이그레이션을 적용(`drizzle-kit push` 등)하여 스키마를 동기화한 후 재시도해야 합니다.
+
+

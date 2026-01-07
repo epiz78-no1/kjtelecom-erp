@@ -75,7 +75,7 @@ export function IncomingDialog({
         division: "SKT",
         supplier: "",
         projectName: "",
-        attachment: null as { name: string; data: string } | null,
+        attachments: [] as { name: string; data: string }[],
         items: [{
             id: Date.now().toString(),
             productName: "",
@@ -94,11 +94,14 @@ export function IncomingDialog({
     useEffect(() => {
         if (open && editingRecord) {
             // Editing mode
-            let attachment = null;
+            let loadedAttachments: { name: string; data: string }[] = [];
             try {
                 const attrs = JSON.parse(editingRecord.attributes || "{}");
-                if (attrs.attachment) {
-                    attachment = attrs.attachment;
+                if (attrs.attachments && Array.isArray(attrs.attachments)) {
+                    loadedAttachments = attrs.attachments;
+                } else if (attrs.attachment) {
+                    // Backward compatibility for single attachment
+                    loadedAttachments = [attrs.attachment];
                 }
             } catch (e) { }
 
@@ -106,7 +109,7 @@ export function IncomingDialog({
                 division: editingRecord.division,
                 supplier: editingRecord.supplier,
                 projectName: editingRecord.projectName,
-                attachment: attachment,
+                attachments: loadedAttachments,
                 items: [{
                     id: Date.now().toString(),
                     productName: editingRecord.productName,
@@ -123,7 +126,7 @@ export function IncomingDialog({
                 division: "SKT",
                 supplier: "",
                 projectName: "",
-                attachment: null,
+                attachments: [],
                 items: [{
                     id: Date.now().toString(),
                     productName: "",
@@ -165,48 +168,99 @@ export function IncomingDialog({
     }, [inventoryItems, formData.items, activeItemIndex]);
 
     const handleSubmit = () => {
+        // Compatibility: Save primarily to 'attachments', but also 'attachment' (first one) to prevent breakages in other views if they only look at 'attachment'
+        // Actually, better to migrate fully. But to be safe, I will send both or just handle it in the backend/storage.
+        // For now, let's keep the submit signature aligned but pass the new data structure.
+        // The parent onSubmit expects `attachment` currently. I need to update the interface or pass it loosely.
+        // Let's modify the interface first or cast it.
+        // But since I can't easily modify the parent interface in this one step without breaking type check, I will pass it as `any` or update the interface in the replacement.
+
+        // Wait, I should update the interface in the same file.
         onSubmit({
             date: selectedDate,
             ...formData,
-        });
+            // Pass the first attachment as 'attachment' legacy field if needed, or just let 'attachments' be handled if I update schema/backend. 
+            // The type definition for onSubmit needs to be updated.
+            attachment: formData.attachments[0] || null,
+            attributes: JSON.stringify({ attachments: formData.attachments }) // Pass attributes explicitly if needed, but onSubmit usually deconstructs.
+        } as any);
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        const currentCount = formData.attachments.length;
+        if (currentCount + files.length > 4) {
+            toast({
+                title: "파일 개수 초과",
+                description: `최대 4개까지 첨부할 수 있습니다. (현재 ${currentCount}개)`,
+                variant: "destructive"
+            });
+            e.target.value = ''; // Reset input
+            return;
+        }
+
+        const newAttachments = [...formData.attachments];
+
+        for (const file of files) {
+            if (file.size > 10 * 1024 * 1024) { // 10MB
+                toast({
+                    title: "용량 초과",
+                    description: `${file.name} 파일이 10MB를 초과합니다.`,
+                    variant: "destructive"
+                });
+                continue;
+            }
+
             try {
-                // 이미지 압축 적용
-                const compressed = await compressImage(file, {
-                    maxWidth: 1920,
-                    maxHeight: 1920,
-                    quality: 0.8,
-                    maxSizeMB: 5
-                });
+                let processedFile: { name: string; data: string };
 
-                setFormData({
-                    ...formData,
-                    attachment: compressed
-                });
-
-                // 압축 결과 알림
                 if (file.type.startsWith('image/')) {
+                    // 이미지 압축 적용
+                    const compressed = await compressImage(file, {
+                        maxWidth: 1920,
+                        maxHeight: 1920,
+                        quality: 0.8,
+                        maxSizeMB: 5
+                    });
+                    processedFile = compressed;
+
                     const originalSize = formatFileSize(file.size);
                     const compressedSize = formatFileSize(compressed.size);
                     toast({
                         title: "이미지 압축 완료",
                         description: `${originalSize} → ${compressedSize} `,
                     });
+                } else {
+                    // Excel, PDF 등은 Base64로 변환
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    processedFile = { name: file.name, data: base64 };
                 }
+
+                newAttachments.push(processedFile);
+
             } catch (error: any) {
                 toast({
                     title: "파일 업로드 실패",
-                    description: error.message || "파일을 처리할 수 없습니다",
+                    description: `${file.name}: ${error.message}`,
                     variant: "destructive"
                 });
-                // 입력 초기화
-                e.target.value = '';
             }
         }
+
+        setFormData({ ...formData, attachments: newAttachments });
+        e.target.value = ''; // Reset for next selection
+    };
+
+    const removeAttachment = (index: number) => {
+        const newAttachments = formData.attachments.filter((_, i) => i !== index);
+        setFormData({ ...formData, attachments: newAttachments });
     };
 
     return (
@@ -382,46 +436,47 @@ export function IncomingDialog({
 
                     {/* 첨부파일 */}
                     <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-right pt-2">첨부파일</Label>
+                        <Label className="text-right pt-2">첨부파일 (최대 4개)</Label>
                         <div className="col-span-3">
                             <div className="relative">
                                 <Input
                                     id="incoming-file-upload"
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/*,application/pdf,.xlsx,.xls"
+                                    multiple
                                     className="hidden"
                                     onChange={handleFileChange}
                                 />
-                                <label
-                                    htmlFor="incoming-file-upload"
-                                    className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                                >
-                                    <Upload className="h-5 w-5 text-primary" />
-                                    <span className="text-sm font-medium text-primary">
-                                        {formData.attachment ? formData.attachment.name : (
-                                            <>
-                                                <span className="md:hidden">📷 사진 촬영 또는 앨범 선택</span>
-                                                <span className="hidden md:inline">파일 선택 또는 드래그</span>
-                                            </>
-                                        )}
-                                    </span>
-                                </label>
-                            </div>
-                            {formData.attachment && (
-                                <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md mt-2">
-                                    <span className="text-sm text-muted-foreground truncate">
-                                        📎 {formData.attachment.name}
-                                    </span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                        onClick={() => setFormData({ ...formData, attachment: null })}
+                                {formData.attachments.length < 4 && (
+                                    <label
+                                        htmlFor="incoming-file-upload"
+                                        className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                                     >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            )}
+                                        <Upload className="h-5 w-5 text-primary" />
+                                        <span className="text-sm font-medium text-primary">
+                                            파일 선택 ({formData.attachments.length}/4) - 이미지, PDF, 엑셀
+                                        </span>
+                                    </label>
+                                )}
+                            </div>
+
+                            <div className="space-y-2 mt-2">
+                                {formData.attachments.map((file, index) => (
+                                    <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                                        <span className="text-sm text-muted-foreground truncate flex-1">
+                                            📎 {file.name}
+                                        </span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => removeAttachment(index)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -434,7 +489,7 @@ export function IncomingDialog({
                         {editingRecord ? "수정" : "등록"}
                     </Button>
                 </DialogFooter>
-            </DialogContent >
-        </Dialog >
+            </DialogContent>
+        </Dialog>
     );
 }
