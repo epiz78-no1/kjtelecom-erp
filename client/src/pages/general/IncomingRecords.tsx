@@ -39,6 +39,44 @@ import { IncomingBulkUploadDialog } from "@/components/IncomingBulkUploadDialog"
 import { IncomingDialog } from "@/components/IncomingDialog";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
+import { Loader } from "lucide-react";
+
+const handleDownload = async (recordId: number, fileName: string) => {
+  try {
+    const fullRecord = await queryClient.fetchQuery<IncomingRecord>({
+      queryKey: [`/api/incoming/${recordId}`],
+      staleTime: 0
+    });
+
+    if (fullRecord && fullRecord.attributes) {
+      const attrs = JSON.parse(fullRecord.attributes);
+      // Check for single attachment
+      if (attrs.attachment && attrs.attachment.data) {
+        const link = document.createElement('a');
+        link.href = attrs.attachment.data;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      // Check for multiple attachments array (if applicable in future view)
+      else if (attrs.attachments && Array.isArray(attrs.attachments)) {
+        const target = attrs.attachments.find((a: any) => a.name === fileName);
+        if (target && target.data) {
+          const link = document.createElement('a');
+          link.href = target.data;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Failed to download file", error);
+    alert("파일 다운로드에 실패했습니다.");
+  }
+};
 
 export default function IncomingRecords() {
   const { toast } = useToast();
@@ -497,15 +535,18 @@ export default function IncomingRecords() {
                         const attrs = JSON.parse(record.attributes || "{}");
                         if (attrs.attachment) {
                           return (
-                            <a
-                              href={attrs.attachment.data}
-                              download={attrs.attachment.name}
-                              className="inline-flex items-center justify-center text-primary hover:text-primary/80"
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(record.id, attrs.attachment.name);
+                              }}
                               title={attrs.attachment.name}
-                              onClick={(e) => e.stopPropagation()}
                             >
                               <Download className="h-4 w-4" />
-                            </a>
+                            </Button>
                           );
                         }
                       } catch (e) { }

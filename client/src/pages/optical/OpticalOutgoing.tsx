@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,30 @@ import { useAppContext } from "@/contexts/AppContext";
 import OpticalAssignmentDialog from "@/components/OpticalAssignmentDialog";
 import { OpticalLogEditDialog } from "@/components/OpticalLogEditDialog";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
+
+const handleDownload = async (logId: string, fileName: string) => {
+    try {
+        const fullLog = await queryClient.fetchQuery<OpticalCableLog>({
+            queryKey: [`/api/optical-cables/logs/${logId}`],
+            staleTime: 0
+        });
+
+        if (fullLog && fullLog.attributes) {
+            const attrs = JSON.parse(fullLog.attributes);
+            if (attrs.attachment && attrs.attachment.data) {
+                const link = document.createElement('a');
+                link.href = attrs.attachment.data;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to download file", error);
+        alert("파일 다운로드에 실패했습니다.");
+    }
+};
 
 export default function OpticalOutgoing() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -380,15 +404,18 @@ export default function OpticalOutgoing() {
                                                         const attrs = JSON.parse((log as any).attributes || "{}");
                                                         if (attrs.attachment) {
                                                             return (
-                                                                <a
-                                                                    href={attrs.attachment.data}
-                                                                    download={attrs.attachment.name}
-                                                                    className="inline-flex items-center justify-center text-primary hover:text-primary/80"
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDownload(log.id, attrs.attachment.name);
+                                                                    }}
                                                                     title={attrs.attachment.name}
-                                                                    onClick={(e) => e.stopPropagation()}
                                                                 >
                                                                     <Download className="h-4 w-4" />
-                                                                </a>
+                                                                </Button>
                                                             );
                                                         }
                                                         return "-";

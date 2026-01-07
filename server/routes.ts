@@ -1229,8 +1229,15 @@ export async function registerRoutes(
 
   app.get("/api/optical-cables/logs", requireAuth, requireTenant, async (req, res) => {
     const tenantId = req.session!.tenantId!;
-    const logs = await storage.getAllOpticalCableLogs(tenantId);
-    res.json(logs);
+    const result = await storage.getAllOpticalCableLogs(tenantId);
+    res.json(result);
+  });
+
+  app.get("/api/optical-cables/logs/:id", requireAuth, requireTenant, async (req, res) => {
+    const tenantId = req.session!.tenantId!;
+    const log = await storage.getOpticalCableLog(req.params.id, tenantId);
+    if (!log) return res.status(404).json({ error: "Log not found" });
+    res.json(log);
   });
 
   app.get("/api/optical-cables/:id", requireAuth, requireTenant, async (req, res) => {

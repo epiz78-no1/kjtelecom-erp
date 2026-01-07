@@ -103,6 +103,7 @@ export interface IStorage {
 
   createOpticalCableLog(log: InsertOpticalCableLog, tenantId: string): Promise<OpticalCable>;
   getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]>;
+  getOpticalCableLog(id: string, tenantId: string): Promise<OpticalCableLog | undefined>;
   deleteOpticalCableLog(id: string, tenantId: string): Promise<boolean>;
 }
 
@@ -521,7 +522,7 @@ export class DatabaseStorage implements IStorage {
         projectName: outgoingRecords.projectName,
         productName: outgoingRecords.productName,
         specification: outgoingRecords.specification,
-        attributes: outgoingRecords.attributes,
+        attributes: sql<string>`regexp_replace(${outgoingRecords.attributes}, '"data":"[^"]*"', '"data":null', 'g')`,
         quantity: outgoingRecords.quantity,
         recipient: outgoingRecords.recipient,
         remark: outgoingRecords.remark,
@@ -658,7 +659,7 @@ export class DatabaseStorage implements IStorage {
         productName: materialUsageRecords.productName,
         specification: materialUsageRecords.specification,
         projectName: materialUsageRecords.projectName,
-        attributes: materialUsageRecords.attributes,
+        attributes: sql<string>`regexp_replace(${materialUsageRecords.attributes}, '"data":"[^"]*"', '"data":null', 'g')`,
         quantity: materialUsageRecords.quantity,
         recipient: materialUsageRecords.recipient,
         remark: materialUsageRecords.remark,
@@ -833,7 +834,7 @@ export class DatabaseStorage implements IStorage {
         projectName: incomingRecords.projectName,
         productName: incomingRecords.productName,
         specification: incomingRecords.specification,
-        attributes: incomingRecords.attributes,
+        attributes: sql<string>`regexp_replace(${incomingRecords.attributes}, '"data":"[^"]*"', '"data":null', 'g')`,
         quantity: incomingRecords.quantity,
         unitPrice: incomingRecords.unitPrice,
         remark: incomingRecords.remark,
@@ -1128,6 +1129,7 @@ export class DatabaseStorage implements IStorage {
     return await withTenant(tenantId, (tx) => {
       return tx.select({
         ...getTableColumns(opticalCableLogs),
+        attributes: sql<string>`regexp_replace(${opticalCableLogs.attributes}, '"data":"[^"]*"', '"data":null', 'g')`,
         createdByName: users.name
       })
         .from(opticalCableLogs)
@@ -1137,10 +1139,23 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getOpticalCableLog(id: string, tenantId: string): Promise<OpticalCableLog | undefined> {
+    return await withTenant(tenantId, async (tx) => {
+      const [log] = await tx
+        .select()
+        .from(opticalCableLogs)
+        .where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)));
+      return log;
+    });
+  }
+
   async getAllOpticalCableLogs(tenantId: string): Promise<any[]> {
     // Join with opticalCables to get cable details (drumNo, spec, etc)
     const results = await db.select({
-      log: opticalCableLogs,
+      log: {
+        ...getTableColumns(opticalCableLogs),
+        attributes: sql<string>`regexp_replace(${opticalCableLogs.attributes}, '"data":"[^"]*"', '"data":null', 'g')`,
+      },
       cable: opticalCables,
       createdByName: users.name
     })

@@ -66,6 +66,41 @@ import { useAppContext } from "@/contexts/AppContext";
 
 const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
 
+
+const handleDownload = async (recordId: number, fileName: string) => {
+  try {
+    const fullRecord = await queryClient.fetchQuery<MaterialUsageRecord>({
+      queryKey: [`/api/material-usage/${recordId}`],
+      staleTime: 0
+    });
+
+    if (fullRecord && fullRecord.attributes) {
+      const attrs = JSON.parse(fullRecord.attributes);
+      if (attrs.attachment && attrs.attachment.data) {
+        const link = document.createElement('a');
+        link.href = attrs.attachment.data;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (attrs.attachments && Array.isArray(attrs.attachments)) {
+        const target = attrs.attachments.find((a: any) => a.name === fileName);
+        if (target && target.data) {
+          const link = document.createElement('a');
+          link.href = target.data;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Failed to download file", error);
+    alert("파일 다운로드에 실패했습니다.");
+  }
+};
+
 export default function TeamMaterialUsage() {
   const { toast } = useToast();
   const { user, tenants, currentTenant, checkPermission, divisions, teams } = useAppContext();
@@ -450,13 +485,14 @@ export default function TeamMaterialUsage() {
     setDialogOpen(true);
   };
 
-  const openEditDialog = (record: MaterialUsageRecord) => {
+  const openEditDialog = async (record: MaterialUsageRecord) => {
     setEditingRecord(record);
     // Find team robustly
     const teamName = (record.teamCategory || "").trim();
     const foundTeam = teams.find(t => t.id === record.teamId || t.name === teamName);
 
-    setFormData({
+    // Initial form data from list (attachments might be empty/nullified)
+    const initialFormData = {
       division: record.division,
       category: record.category || "",
       teamCategory: foundTeam ? foundTeam.name : teamName,
@@ -480,11 +516,20 @@ export default function TeamMaterialUsage() {
         inventoryItemId: record.inventoryItemId || undefined,
         remark: record.remark || ""
       }]
-    });
+    };
+
+    setFormData(initialFormData);
+    setDialogOpen(true);
 
     try {
-      if (record.attributes) {
-        const attrs = JSON.parse(record.attributes);
+      // Fetch full record to get complete attributes (attachments)
+      const fullRecord = await queryClient.fetchQuery<MaterialUsageRecord>({
+        queryKey: [`/api/material-usage/${record.id}`],
+        staleTime: 0
+      });
+
+      if (fullRecord && fullRecord.attributes) {
+        const attrs = JSON.parse(fullRecord.attributes);
         if (attrs.attachments && Array.isArray(attrs.attachments)) {
           setFormData(prev => ({ ...prev, attachments: attrs.attachments }));
         } else if (attrs.attachment) {
@@ -492,10 +537,22 @@ export default function TeamMaterialUsage() {
         }
       }
     } catch (e) {
-      console.error("Failed to parse attributes needed for attachment", e);
+      console.error("Failed to fetch full record details", e);
+      // Fallback to existing attributes if fetch fails (though they might be nullified)
+      try {
+        if (record.attributes) {
+          const attrs = JSON.parse(record.attributes);
+          if (attrs.attachments && Array.isArray(attrs.attachments)) {
+            setFormData(prev => ({ ...prev, attachments: attrs.attachments }));
+          } else if (attrs.attachment) {
+            setFormData(prev => ({ ...prev, attachments: [attrs.attachment] }));
+          }
+        }
+      } catch (parseError) {
+        console.error("Failed to parse fallback attributes", parseError);
+      }
     }
     setSelectedDate(new Date(record.date));
-    setDialogOpen(true);
   };
 
   const closeDialog = () => {
@@ -820,16 +877,13 @@ export default function TeamMaterialUsage() {
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0"
-                              onClick={() => {
-                                const link = document.createElement("a");
-                                link.href = attrs.attachment.data;
-                                link.download = attrs.attachment.name;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(record.id, attrs.attachment.name);
                               }}
+                              title={attrs.attachment.name}
                             >
-                              <Download className="h-4 w-4 text-blue-500" />
+                              <Download className="h-4 w-4" />
                             </Button>
                           );
                         }

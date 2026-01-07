@@ -39,6 +39,7 @@ import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { useToast } from "@/hooks/use-toast";
 import { InventoryItemSelector } from "@/components/InventoryItemSelector";
 import type { OutgoingRecord, InventoryItem } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
 
 interface OutgoingDialogProps {
     open: boolean;
@@ -96,33 +97,71 @@ export function OutgoingDialog({
     // Reset form when dialog opens/closes or editing record changes
     useEffect(() => {
         if (open && editingRecord) {
-            // Editing mode
-            let loadedAttachments: { name: string; data: string }[] = [];
+            // Editing mode: Set initial data from props
+            const initializeForm = (record: OutgoingRecord, attachments: { name: string; data: string }[] = []) => {
+                setFormData({
+                    division: record.division,
+                    teamCategory: record.teamCategory || "",
+                    projectName: record.projectName,
+                    recipient: record.recipient,
+                    attachments: attachments,
+                    items: [{
+                        id: Date.now().toString(),
+                        productName: record.productName,
+                        specification: record.specification,
+                        quantity: record.quantity.toString(),
+                        inventoryItemId: record.inventoryItemId || undefined,
+                        remark: record.remark || "",
+                    }]
+                });
+                setSelectedDate(new Date(record.date));
+            };
+
+            // 1. Initial render with existing data
+            let initialAttachments: { name: string; data: string }[] = [];
             try {
                 const attrs = JSON.parse(editingRecord.attributes || "{}");
                 if (attrs.attachments && Array.isArray(attrs.attachments)) {
-                    loadedAttachments = attrs.attachments;
+                    initialAttachments = attrs.attachments;
                 } else if (attrs.attachment) {
-                    loadedAttachments = [attrs.attachment];
+                    initialAttachments = [attrs.attachment];
                 }
             } catch (e) { }
 
-            setFormData({
-                division: editingRecord.division,
-                teamCategory: editingRecord.teamCategory || "",
-                projectName: editingRecord.projectName,
-                recipient: editingRecord.recipient,
-                attachments: loadedAttachments,
-                items: [{
-                    id: Date.now().toString(),
-                    productName: editingRecord.productName,
-                    specification: editingRecord.specification,
-                    quantity: editingRecord.quantity.toString(),
-                    inventoryItemId: editingRecord.inventoryItemId || undefined,
-                    remark: editingRecord.remark || "",
-                }]
-            });
-            setSelectedDate(new Date(editingRecord.date));
+            initializeForm(editingRecord, initialAttachments);
+
+            // 2. Fetch full record for complete data (especially attachments)
+            const fetchFullDetails = async () => {
+                try {
+                    const fullRecord = await queryClient.fetchQuery<OutgoingRecord>({
+                        queryKey: [`/api/outgoing/${editingRecord.id}`],
+                        staleTime: 0
+                    });
+
+                    if (fullRecord && fullRecord.attributes) {
+                        try {
+                            const attrs = JSON.parse(fullRecord.attributes);
+                            let loadedAttachments: { name: string; data: string }[] = [];
+                            if (attrs.attachments && Array.isArray(attrs.attachments)) {
+                                loadedAttachments = attrs.attachments;
+                            } else if (attrs.attachment) {
+                                loadedAttachments = [attrs.attachment];
+                            }
+
+                            // Update attachments in state
+                            if (loadedAttachments.length > 0) {
+                                setFormData(prev => ({ ...prev, attachments: loadedAttachments }));
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse attributes from full record", e);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch full outgoing record", error);
+                }
+            };
+
+            fetchFullDetails();
         } else if (open) {
             // New record mode
             setFormData({
