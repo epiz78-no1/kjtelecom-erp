@@ -35,7 +35,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { OutgoingBulkUploadDialog } from "@/components/OutgoingBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { validateOutgoingRow, transformOutgoingRow, outgoingColumns } from "@/lib/bulk-configs/outgoing";
 import { OutgoingDialog } from "@/components/OutgoingDialog";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
@@ -594,9 +595,16 @@ export default function OutgoingRecords() {
         members={members}
       />
 
-      <OutgoingBulkUploadDialog
+      <GenericBulkUploadDialog
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
+        title="출고내역 일괄등록"
+        description="CSV 파일을 업로드하여 여러 출고 내역을 한번에 등록할 수 있습니다"
+        templateUrl="/api/templates/outgoing"
+        templateFileName="outgoing_template.csv"
+        validateRow={validateOutgoingRow}
+        transformRow={transformOutgoingRow}
+        columns={outgoingColumns}
         onUpload={handleBulkUpload}
       />
 

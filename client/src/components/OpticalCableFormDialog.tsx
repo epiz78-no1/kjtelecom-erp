@@ -90,7 +90,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                 drumNo: editingItem.drumNo,
                 location: editingItem.location || "",
                 remark: editingItem.remark || "",
-                totalLength: editingItem.totalLength,
+                totalLength: editingItem.totalLength ? Number(editingItem.totalLength) : "",
                 unitPrice: editingItem.unitPrice || 0,
                 totalAmount: editingItem.totalAmount || 0,
                 projectCode: editingItem.projectCode || "",

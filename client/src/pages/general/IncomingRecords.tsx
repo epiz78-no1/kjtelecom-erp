@@ -35,7 +35,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { IncomingBulkUploadDialog } from "@/components/IncomingBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { validateIncomingRow, transformIncomingRow, incomingColumns } from "@/lib/bulk-configs/incoming";
 import { IncomingDialog } from "@/components/IncomingDialog";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
@@ -102,6 +103,9 @@ export default function IncomingRecords() {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "입고가 삭제되었습니다" });
       setDeleteRecord(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "입고 삭제 실패", description: error.message, variant: "destructive" });
     }
   });
 
@@ -113,6 +117,9 @@ export default function IncomingRecords() {
       toast({ title: `${selectedIds.size}건이 삭제되었습니다` });
       setSelectedIds(new Set());
       setBulkDeleteOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "일괄 삭제 실패", description: error.message, variant: "destructive" });
     }
   });
 
@@ -568,9 +575,16 @@ export default function IncomingRecords() {
         inventoryItems={inventoryItems}
       />
 
-      <IncomingBulkUploadDialog
+      <GenericBulkUploadDialog
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
+        title="입고내역 일괄등록"
+        description="CSV 파일을 업로드하여 여러 입고 내역을 한번에 등록할 수 있습니다"
+        templateUrl="/api/templates/incoming"
+        templateFileName="incoming_template.csv"
+        validateRow={validateIncomingRow}
+        transformRow={transformIncomingRow}
+        columns={incomingColumns}
         onUpload={handleBulkUpload}
       />
 

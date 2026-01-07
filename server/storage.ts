@@ -893,15 +893,20 @@ export class DatabaseStorage implements IStorage {
     return withTenant(tenantId, async (tx) => {
       const results: InventoryItem[] = [];
       for (const item of items) {
+        // Normalize values for comparison
+        const normalizedProductName = (item.productName || "").trim();
+        const normalizedSpecification = (item.specification || "").trim();
+        const normalizedDivision = (item.division || "SKT").trim();
+
         const [existing] = await tx
           .select()
           .from(inventoryItems)
           .where(
             and(
               eq(inventoryItems.tenantId, tenantId),
-              eq(inventoryItems.productName, item.productName),
-              eq(inventoryItems.specification, item.specification),
-              eq(inventoryItems.division, item.division || "SKT"),
+              sql`TRIM(${inventoryItems.productName}) = ${normalizedProductName}`,
+              sql`TRIM(${inventoryItems.specification}) = ${normalizedSpecification}`,
+              sql`TRIM(${inventoryItems.division}) = ${normalizedDivision}`
             )
           );
 
@@ -915,9 +920,11 @@ export class DatabaseStorage implements IStorage {
             updatedValues.incoming = (existing.incoming || 0) + (item.incoming || 0);
             updatedValues.usage = (existing.usage || 0) + (item.usage || 0);
             updatedValues.carriedOver = (existing.carriedOver || 0) + (item.carriedOver || 0);
-            updatedValues.totalAmount = (existing.totalAmount || 0) + (item.totalAmount || 0);
-            // unitPrice takes the new value (or could be averaged, but taking new is safer/simpler)
           }
+
+          // Calculate totalAmount based on total stock (remaining + outgoing) × unitPrice
+          const totalStock = (updatedValues.remaining || 0) + (updatedValues.outgoing || 0);
+          updatedValues.totalAmount = totalStock * (updatedValues.unitPrice || 0);
 
           const [updated] = await tx
             .update(inventoryItems)
@@ -926,9 +933,13 @@ export class DatabaseStorage implements IStorage {
             .returning();
           results.push(updated);
         } else {
+          // Calculate totalAmount for new items
+          const totalStock = (item.remaining || 0) + (item.outgoing || 0);
+          const totalAmount = totalStock * (item.unitPrice || 0);
+
           const [created] = await tx
             .insert(inventoryItems)
-            .values({ ...item, tenantId })
+            .values({ ...item, tenantId, totalAmount })
             .returning();
           results.push(created);
         }

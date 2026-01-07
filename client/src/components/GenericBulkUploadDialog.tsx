@@ -1,13 +1,10 @@
 import { useState, useCallback } from "react";
 import { Upload, Download, AlertCircle, Trash2 } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import Papa from "papaparse";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -22,48 +19,82 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-interface BulkUploadDialogProps {
+export interface BulkUploadColumn<T> {
+    header: string;
+    width?: string;
+    align?: 'left' | 'center' | 'right';
+    render: (item: T) => React.ReactNode;
+}
+
+export interface GenericBulkUploadDialogProps<T> {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onUpload: (items: any[], mode: 'overwrite' | 'add') => void;
+    title: string;
+    description: string;
+
+    // 템플릿 다운로드 관련
+    templateUrl?: string;
+    templateFileName?: string;
+    onDownloadTemplate?: () => void; // 커스텀 다운로드 핸들러 (Optical 등 API 없는 경우)
+
+    // 데이터 처리 관련
+    validateRow: (row: any, index: number) => { valid: boolean; errors: string[] };
+    transformRow: (row: any, index: number) => T; // 파싱된 row를 T 타입으로 변환
+
+    // 테이블 컬럼 정의
+    columns: BulkUploadColumn<T>[];
+
+    // 모드 선택 (덮어쓰기/이어쓰기)
+    enableModeSelection?: boolean;
+
+    // 업로드 핸들러
+    onUpload: (items: T[], mode?: 'overwrite' | 'add') => void;
+
+    // 스타일
+    maxWidth?: string; // e.g. "max-w-5xl"
 }
 
-interface ParsedRow {
-    division: string;
-    category: string;
-    productName: string;
-    specification: string;
-    carriedOver: number;
-    incoming: number;
-    outgoing: number;
-    remaining: number;
-    unitPrice: number;
-    totalAmount: number;
-    usage?: number;
-}
-
-export function BulkUploadDialog({
+export function GenericBulkUploadDialog<T>({
     open,
     onOpenChange,
+    title,
+    description,
+    templateUrl,
+    templateFileName = "template.csv",
+    onDownloadTemplate,
+    validateRow,
+    transformRow,
+    columns,
+    enableModeSelection = false,
     onUpload,
-}: BulkUploadDialogProps) {
+    maxWidth = "max-w-5xl"
+}: GenericBulkUploadDialogProps<T>) {
     const { toast } = useToast();
     const [isDragging, setIsDragging] = useState(false);
-    const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
+    const [parsedData, setParsedData] = useState<T[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string>("");
     const [mode, setMode] = useState<"overwrite" | "add">("overwrite");
 
     const handleDownloadTemplate = async () => {
+        if (onDownloadTemplate) {
+            onDownloadTemplate();
+            return;
+        }
+
+        if (!templateUrl) return;
+
         try {
-            const res = await fetch("/api/templates/inventory");
+            const res = await fetch(templateUrl);
             if (!res.ok) throw new Error("Download failed");
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "inventory_template.csv";
+            a.download = templateFileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -72,20 +103,6 @@ export function BulkUploadDialog({
         } catch (error) {
             toast({ title: "다운로드 실패", variant: "destructive" });
         }
-    };
-
-    const validateRow = (row: any, index: number): { valid: boolean; errors: string[] } => {
-        const rowErrors: string[] = [];
-
-        // Helper to get value case-insensitively or with fuzzy matching if needed
-        const getValue = (key: string) => row[key] || row[key.trim()];
-
-        // 필수 필드 검증
-        if (!getValue("사업") && !getValue("구분")) rowErrors.push(`${index + 2}행: 사업(구분)이 필요합니다`);
-        if (!getValue("품명")) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
-        if (!getValue("규격")) rowErrors.push(`${index + 2}행: 규격이 필요합니다`);
-
-        return { valid: rowErrors.length === 0, errors: rowErrors };
     };
 
     const parseCSV = (file: File) => {
@@ -97,10 +114,10 @@ export function BulkUploadDialog({
             header: true,
             skipEmptyLines: true,
             encoding: "UTF-8",
-            transformHeader: (h) => h.trim(), // Trim whitespace from headers
+            transformHeader: (h) => h.trim().replace(/^\ufeff/, ''), // Trim whitespace and remove BOM
             complete: (results) => {
                 const allErrors: string[] = [];
-                const validRows: ParsedRow[] = [];
+                const validRows: T[] = [];
 
                 results.data.forEach((row: any, index: number) => {
                     const validation = validateRow(row, index);
@@ -108,42 +125,14 @@ export function BulkUploadDialog({
                     if (!validation.valid) {
                         allErrors.push(...validation.errors);
                     } else {
-                        // Safe number parsing - converts decimals to integers
-                        const parseNum = (val: any) => {
-                            if (!val) return 0;
-                            const str = String(val).replace(/,/g, "").trim();
-                            const num = Number(str);
-                            return isNaN(num) ? 0 : Math.round(num); // 소수점을 정수로 반올림
-                        };
-
-
-                        const outgoing = parseNum(row["현장팀보유재고"]);
-                        const remaining = parseNum(row["사무실보유재고"]);
-                        const unitPrice = parseNum(row["단가"]);
-                        const totalAmount = parseNum(row["금액"]);
-
-                        // 금액이 비어있거나 0이면 자동 계산: 단가 × (현장팀 + 사무실)
-                        const calculatedAmount = totalAmount > 0 ? totalAmount : unitPrice * (outgoing + remaining);
-
-                        // 사업(구분) 필드 처리
-                        const division = row["사업"] || row["구분"] || "SKT";
-
-                        validRows.push({
-                            division: division,
-                            category: division,
-                            productName: row["품명"],
-                            specification: row["규격"],
-                            carriedOver: remaining + outgoing, // Fix: 초기 재고를 모두 이월 재고로 설정하여 보존
-                            incoming: 0,
-                            outgoing: outgoing,
-                            remaining: remaining,
-                            unitPrice: unitPrice,
-                            totalAmount: calculatedAmount,
-                            usage: 0 // New field
-                        });
+                        try {
+                            const transformed = transformRow(row, index);
+                            validRows.push(transformed);
+                        } catch (e: any) {
+                            allErrors.push(`${index + 2}행 변환 중 오류: ${e.message}`);
+                        }
                     }
                 });
-
 
                 if (allErrors.length > 0) {
                     setErrors(allErrors);
@@ -234,7 +223,7 @@ export function BulkUploadDialog({
             return;
         }
 
-        onUpload(parsedData, mode);
+        onUpload(parsedData, enableModeSelection ? mode : undefined);
         handleClose();
     };
 
@@ -251,12 +240,10 @@ export function BulkUploadDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className={`${maxWidth} max-h-[90vh] overflow-y-auto`}>
                 <DialogHeader>
-                    <DialogTitle>재고 일괄등록</DialogTitle>
-                    <DialogDescription>
-                        CSV 파일을 업로드하여 여러 재고 항목을 한번에 등록할 수 있습니다
-                    </DialogDescription>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
@@ -310,9 +297,9 @@ export function BulkUploadDialog({
                                 accept=".csv"
                                 onChange={handleFileChange}
                                 className="hidden"
-                                id="csv-upload"
+                                id={`csv-upload-${title.replace(/\s/g, '-')}`}
                             />
-                            <label htmlFor="csv-upload">
+                            <label htmlFor={`csv-upload-${title.replace(/\s/g, '-')}`}>
                                 <Button variant="secondary" size="sm" asChild className="h-8">
                                     <span>파일 선택</span>
                                 </Button>
@@ -320,27 +307,29 @@ export function BulkUploadDialog({
                         </div>
                     </div>
 
-                    <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-                        <Label className="text-sm font-medium">중복 데이터 처리 방식</Label>
-                        <RadioGroup
-                            value={mode}
-                            onValueChange={(v) => setMode(v as "overwrite" | "add")}
-                            className="flex flex-col space-y-1"
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="overwrite" id="mode-overwrite" />
-                                <Label htmlFor="mode-overwrite" className="font-normal cursor-pointer">
-                                    덮어쓰기 (기본) - 엑셀 파일의 수량으로 변경
-                                </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="add" id="mode-add" />
-                                <Label htmlFor="mode-add" className="font-normal cursor-pointer">
-                                    이어쓰기 (추가) - 기존 수량에 더하기
-                                </Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
+                    {enableModeSelection && (
+                        <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                            <Label className="text-sm font-medium">중복 데이터 처리 방식</Label>
+                            <RadioGroup
+                                value={mode}
+                                onValueChange={(v) => setMode(v as "overwrite" | "add")}
+                                className="flex flex-col space-y-1"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="overwrite" id="mode-overwrite" />
+                                    <Label htmlFor="mode-overwrite" className="font-normal cursor-pointer">
+                                        덮어쓰기 (기본) - 엑셀 파일의 수량으로 변경
+                                    </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="add" id="mode-add" />
+                                    <Label htmlFor="mode-add" className="font-normal cursor-pointer">
+                                        이어쓰기 (추가) - 기존 수량에 더하기
+                                    </Label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+                    )}
 
                     {errors.length > 0 && (
                         <Alert variant="destructive">
@@ -361,51 +350,39 @@ export function BulkUploadDialog({
                         </Alert>
                     )}
 
-                    {parsedData.length > 0 && (
-                        <div>
+                    <div>
+                        {parsedData.length > 0 && (
                             <h3 className="text-sm font-semibold mb-2">
                                 미리보기 ({parsedData.length}개 항목)
                             </h3>
-                            <div className="border rounded-md max-h-[400px] overflow-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="whitespace-nowrap w-[80px]">사업</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[140px]">품명</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[120px]">규격</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[80px] text-right">재고현황</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[80px] text-right">현장팀</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[80px] text-right">사무실</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[100px] text-right">단가</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[110px] text-right">금액</TableHead>
-                                            <TableHead className="whitespace-nowrap w-[50px]"></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
+                        )}
+                        <div className="border rounded-md max-h-[400px] overflow-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        {columns.map((col, idx) => (
+                                            <TableHead
+                                                key={idx}
+                                                className={`whitespace-nowrap ${col.width || ''} ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : ''}`}
+                                            >
+                                                {col.header}
+                                            </TableHead>
+                                        ))}
+                                        {parsedData.length > 0 && <TableHead className="whitespace-nowrap w-[50px]"></TableHead>}
+                                    </TableRow>
+                                </TableHeader>
+                                {parsedData.length > 0 && (
                                     <TableBody>
-                                        {parsedData.map((item, index) => (
+                                        {parsedData.slice(0, 50).map((item, index) => (
                                             <TableRow key={index}>
-                                                <TableCell className="whitespace-nowrap">{item.division}</TableCell>
-                                                <TableCell className="whitespace-nowrap max-w-[140px] truncate">
-                                                    {item.productName}
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap max-w-[120px] truncate">
-                                                    {item.specification}
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">
-                                                    {(item.remaining + item.outgoing).toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">
-                                                    {item.outgoing.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">
-                                                    {item.remaining.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">
-                                                    {item.unitPrice.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">
-                                                    {item.totalAmount.toLocaleString()}
-                                                </TableCell>
+                                                {columns.map((col, cIdx) => (
+                                                    <TableCell
+                                                        key={cIdx}
+                                                        className={`whitespace-nowrap ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : ''}`}
+                                                    >
+                                                        {col.render(item)}
+                                                    </TableCell>
+                                                ))}
                                                 <TableCell>
                                                     <Button
                                                         variant="ghost"
@@ -418,13 +395,23 @@ export function BulkUploadDialog({
                                                 </TableCell>
                                             </TableRow>
                                         ))}
+                                        {parsedData.length > 50 && (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={columns.length + 1}
+                                                    className="text-center text-muted-foreground"
+                                                >
+                                                    그 외 {parsedData.length - 50}개 항목...
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
-                                </Table>
-                            </div>
+                                )}
+                            </Table>
                         </div>
-                    )}
+                    </div>
                 </div>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }

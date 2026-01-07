@@ -60,7 +60,7 @@ async function verifyCLMux() {
     });
 
     let calculatedTotalTeamStock = 0;
-    for (const [team, stats] of teamMap.entries()) {
+    for (const [team, stats] of Array.from(teamMap.entries())) {
         const stock = stats.sent - stats.used;
         calculatedTotalTeamStock += stock;
         console.log(`  ${team}: Received ${stats.sent} - Used ${stats.used} = Stock ${stock}`);

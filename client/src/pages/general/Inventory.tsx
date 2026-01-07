@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InventoryTable } from "@/components/InventoryTable";
 import { MaterialFormDialog, type MaterialSubmitData } from "@/components/MaterialFormDialog";
-import { BulkUploadDialog } from "@/components/BulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { validateInventoryRow, transformInventoryRow, inventoryColumns } from "@/lib/bulk-configs/inventory";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { exportToExcel } from "@/lib/excel";
@@ -252,8 +253,8 @@ export default function Inventory() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
-  const handleBulkUpload = (items: any[], mode: 'overwrite' | 'add') => {
-    bulkUploadMutation.mutate({ items, mode });
+  const handleBulkUpload = (items: any[], mode?: 'overwrite' | 'add') => {
+    bulkUploadMutation.mutate({ items, mode: mode || 'overwrite' });
   };
 
 
@@ -577,10 +578,18 @@ export default function Inventory() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <BulkUploadDialog
+      <GenericBulkUploadDialog
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
+        title="재고 일괄 등록"
+        description="CSV 파일을 업로드하여 재고 현황을 일괄 등록(덮어쓰기/추가)할 수 있습니다."
+        templateUrl="/api/templates/inventory"
+        templateFileName="inventory_template.csv"
+        validateRow={validateInventoryRow}
+        transformRow={transformInventoryRow}
+        columns={inventoryColumns}
         onUpload={handleBulkUpload}
+        enableModeSelection={true}
       />
     </div >
   );

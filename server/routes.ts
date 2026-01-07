@@ -157,13 +157,15 @@ export async function registerRoutes(
 
     const inventoryItemsList = await storage.getInventoryItems(tenantId);
     const matchingItem = inventoryItemsList.find(
-      item => item.productName === productName &&
-        item.specification === specification &&
-        item.division === division
+      item => item.productName.trim() === productName.trim() &&
+        (item.specification || "").trim() === (specification || "").trim() &&
+        item.division.trim() === division.trim()
     );
 
     if (!matchingItem) {
-      console.log(`[SYNC] No inventory item found for: ${productName}`);
+      console.log(`[SYNC] No inventory item found for: ${productName} (${specification}) [${division}]`);
+      // 매칭되는 아이템이 없다는 건, 해당 자재로 등록된 재고가 없다는 의미.
+      // 입고 내역 삭제 시 재고가 없으면 동기화할 필요(또는 수단)가 없음.
       return;
     }
 

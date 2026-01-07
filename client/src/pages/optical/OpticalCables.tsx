@@ -21,7 +21,13 @@ import { useAppContext } from "@/contexts/AppContext";
 import { Trash2, Download, Upload } from "lucide-react";
 import { OpticalCableFormDialog, type OpticalCableFormData } from "@/components/OpticalCableFormDialog";
 import { OpticalCableHistoryDialog } from "@/components/OpticalCableHistoryDialog";
-import { OpticalBulkUploadDialog } from "@/components/OpticalBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import {
+    validateOpticalRow,
+    transformOpticalRow,
+    opticalColumns,
+    downloadOpticalTemplate
+} from "@/lib/bulk-configs/optical";
 import { OpticalCableActionDialog } from "@/components/OpticalCableActionDialog";
 import * as XLSX from "xlsx";
 import {
@@ -515,10 +521,18 @@ export default function OpticalCables() {
                 editingItem={editingItem}
             />
 
-            <OpticalBulkUploadDialog
+            <GenericBulkUploadDialog
                 open={bulkUploadOpen}
                 onOpenChange={setBulkUploadOpen}
+                title="광케이블 일괄 등록"
+                description="CSV 파일을 업로드하여 여러 광케이블 드럼을 한번에 등록할 수 있습니다"
+                onDownloadTemplate={downloadOpticalTemplate}
+                templateFileName="optical_cable_template.csv"
+                validateRow={validateOpticalRow}
+                transformRow={transformOpticalRow}
+                columns={opticalColumns}
                 onUpload={(items) => bulkUploadMutation.mutate(items)}
+                maxWidth="max-w-7xl"
             />
 
             <OpticalCableHistoryDialog
