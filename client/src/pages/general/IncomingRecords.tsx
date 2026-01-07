@@ -41,47 +41,13 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { Loader } from "lucide-react";
 
-const handleDownload = async (recordId: number, fileName: string) => {
-  try {
-    const fullRecord = await queryClient.fetchQuery<IncomingRecord>({
-      queryKey: [`/api/incoming/${recordId}`],
-      staleTime: 0
-    });
-
-    if (fullRecord && fullRecord.attributes) {
-      const attrs = JSON.parse(fullRecord.attributes);
-      // Check for single attachment
-      if (attrs.attachment && attrs.attachment.data) {
-        const link = document.createElement('a');
-        link.href = attrs.attachment.data;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-      // Check for multiple attachments array (if applicable in future view)
-      else if (attrs.attachments && Array.isArray(attrs.attachments)) {
-        const target = attrs.attachments.find((a: any) => a.name === fileName);
-        if (target && target.data) {
-          const link = document.createElement('a');
-          link.href = target.data;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Failed to download file", error);
-    alert("파일 다운로드에 실패했습니다.");
-  }
-};
+import { useDownload } from "@/hooks/useDownload";
 
 export default function IncomingRecords() {
   const { toast } = useToast();
   const { checkPermission, tenants, currentTenant } = useAppContext();
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
+  const { downloadFile } = useDownload();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -541,7 +507,7 @@ export default function IncomingRecords() {
                               className="h-8 w-8 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDownload(record.id, attrs.attachment.name);
+                                downloadFile(`/api/incoming/${record.id}`, attrs.attachment.name);
                               }}
                               title={attrs.attachment.name}
                             >
@@ -604,7 +570,7 @@ export default function IncomingRecords() {
 
       <IncomingBulkUploadDialog
         open={bulkUploadOpen}
-        onClose={() => setBulkUploadOpen(false)}
+        onOpenChange={setBulkUploadOpen}
         onUpload={handleBulkUpload}
       />
 

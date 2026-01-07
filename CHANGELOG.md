@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.2.6] - 2026-01-07
+### ♻️ Refactoring (Code Cleanup)
+- **다운로드 로직 리팩터링**:
+  - `IncomingRecords.tsx`, `OutgoingRecords.tsx`, `TeamMaterialUsage.tsx`, `OpticalIncoming.tsx`, `OpticalOutgoing.tsx` 등 5개 파일에 산재된 중복 다운로드 코드 제거.
+  - `client/src/hooks/useDownload.ts` 공통 훅 생성 및 전면 적용.
+  - 다운로드 버튼 클릭 시 최신 데이터를 실시간으로 가져와 처리하도록 로직 통일.
+
+### 🐞 Bug Fixes
+- **입고 내역 다이얼로그**:
+  - `IncomingBulkUploadDialog` 컴포넌트의 타입 오류(`onClose` prop) 수정.
+
 ## [v1.1.7] - 2026-01-05
 ### 🐞 Bug Fixes (Critical)
 - **재고 금액 변동 이슈 해결**:

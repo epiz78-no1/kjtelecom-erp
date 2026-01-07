@@ -12,9 +12,9 @@ if (!process.env.DATABASE_URL) {
 // PostgreSQL (Supabase) 사용
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: process.env.NODE_ENV === 'production' ? 1 : 10,
+  max: process.env.NODE_ENV === 'production' ? 1 : 3, // Reduced from 10 to 3 to avoid Supabase limits
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000, // Increased from 2000 to 10000
 });
 export const db = drizzle(pool, { schema });
 

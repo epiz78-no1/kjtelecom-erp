@@ -67,44 +67,13 @@ import { useAppContext } from "@/contexts/AppContext";
 const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
 
 
-const handleDownload = async (recordId: number, fileName: string) => {
-  try {
-    const fullRecord = await queryClient.fetchQuery<MaterialUsageRecord>({
-      queryKey: [`/api/material-usage/${recordId}`],
-      staleTime: 0
-    });
-
-    if (fullRecord && fullRecord.attributes) {
-      const attrs = JSON.parse(fullRecord.attributes);
-      if (attrs.attachment && attrs.attachment.data) {
-        const link = document.createElement('a');
-        link.href = attrs.attachment.data;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else if (attrs.attachments && Array.isArray(attrs.attachments)) {
-        const target = attrs.attachments.find((a: any) => a.name === fileName);
-        if (target && target.data) {
-          const link = document.createElement('a');
-          link.href = target.data;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Failed to download file", error);
-    alert("파일 다운로드에 실패했습니다.");
-  }
-};
+import { useDownload } from "@/hooks/useDownload";
 
 export default function TeamMaterialUsage() {
   const { toast } = useToast();
   const { user, tenants, currentTenant, checkPermission, divisions, teams } = useAppContext();
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
+  const { downloadFile } = useDownload();
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -879,7 +848,7 @@ export default function TeamMaterialUsage() {
                               className="h-6 w-6 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDownload(record.id, attrs.attachment.name);
+                                downloadFile(`/api/material-usage/${record.id}`, attrs.attachment.name);
                               }}
                               title={attrs.attachment.name}
                             >

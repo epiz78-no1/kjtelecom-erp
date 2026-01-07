@@ -31,29 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 
-const handleDownload = async (logId: string, fileName: string) => {
-    try {
-        const fullLog = await queryClient.fetchQuery<OpticalCableLog>({
-            queryKey: [`/api/optical-cables/logs/${logId}`],
-            staleTime: 0
-        });
-
-        if (fullLog && fullLog.attributes) {
-            const attrs = JSON.parse(fullLog.attributes);
-            if (attrs.attachment && attrs.attachment.data) {
-                const link = document.createElement('a');
-                link.href = attrs.attachment.data;
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        }
-    } catch (error) {
-        console.error("Failed to download file", error);
-        alert("파일 다운로드에 실패했습니다.");
-    }
-};
+import { useDownload } from "@/hooks/useDownload";
 
 export default function OpticalIncoming() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -63,6 +41,7 @@ export default function OpticalIncoming() {
     const { tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
     const [editingCable, setEditingCable] = useState<OpticalCable | null>(null);
+    const { downloadFile } = useDownload();
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
@@ -375,7 +354,7 @@ export default function OpticalIncoming() {
                                                                 className="h-8 w-8 p-0"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    handleDownload(log.id, attrs.attachment.name);
+                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, attrs.attachment.name);
                                                                 }}
                                                                 title={attrs.attachment.name}
                                                             >
