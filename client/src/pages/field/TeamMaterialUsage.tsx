@@ -716,25 +716,10 @@ export default function TeamMaterialUsage() {
                   <Download className="h-3 w-3 mr-1" />
                   Excel
                 </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      등록
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => openAddDialog()}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      직접 등록
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem onClick={() => { /* open bulk upload dialog */ }}>
-                      <Upload className="mr-2 h-4 w-4" />
-                      일괄 등록 (Excel)
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button className="flex items-center gap-2" onClick={() => openAddDialog()}>
+                  <Plus className="h-4 w-4" />
+                  등록
+                </Button>
               </>
             )}
             {canRegister && !canManage && (
