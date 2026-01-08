@@ -1,5 +1,29 @@
 # Changelog
 
+## [v1.2.8] - 2026-01-08 (Hotfix)
+### 🐞 Bug Fixes (Critical)
+- **멤버 관리 페이지 오류 수정**:
+  - `AdminMembers.tsx`: `joinDate`가 null인 경우 Invalid Date 오류 발생 문제 해결
+  - 가입일이 없는 멤버도 정상적으로 표시되도록 수정
+
+### 🔒 Security & Permissions
+- **일괄 삭제 권한 강화**:
+  - 현장팀 자재 사용 내역 일괄 삭제 기능을 소유자(Owner)만 사용 가능하도록 제한
+  - 프론트엔드(`TeamMaterialUsage.tsx`): `canWrite` → `isTenantOwner` 조건으로 변경
+  - 백엔드(`server/routes/inventory.ts`): `/api/material-usage/bulk-delete` 엔드포인트에 `requireAdmin` 미들웨어 적용
+
+### ♻️ Refactoring
+- **백엔드 모듈화 (Phase 1 완료)**:
+  - `server/routes/` 디렉토리로 라우터 분리 (auth, inventory, optical, teams, system)
+  - `server/storage/` 디렉토리로 스토리지 레이어 분리 (user, inventory, optical, team)
+  - 기존 `server/routes.ts`, `server/auth.ts` 삭제 및 모듈화된 구조로 전환
+
+### ✨ Validation Improvements
+- **음수 입력 방지**:
+  - `shared/schema.ts`: 모든 수량/금액 필드에 `.min(0)` 조건 추가
+  - 프론트엔드: `IncomingDialog`, `OutgoingDialog`, `TeamMaterialUsage`, `OpticalCableFormDialog`, `OpticalCableActionDialog`에 `min="0"` 속성 추가
+  - 일괄 업로드: `bulk-configs/*.tsx`에 음수 값 검증 로직 추가
+
 ## [v1.2.7] - 2026-01-07
 ### ✨ Features & Improvements
 - **일괄 등록 기능 개선**:

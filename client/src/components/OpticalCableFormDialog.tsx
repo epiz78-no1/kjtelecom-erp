@@ -281,6 +281,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     value={formData.coreCount}
                                     onChange={(e) => setFormData({ ...formData, coreCount: e.target.value === "" ? "" : Number(e.target.value) })}
                                     required
+                                    min="0"
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -304,6 +305,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     value={formData.totalLength}
                                     onChange={(e) => handleLengthChange(e.target.value === "" ? "" : Number(e.target.value))}
                                     required
+                                    min="0"
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -327,6 +329,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     value={formData.unitPrice}
                                     onChange={(e) => handleUnitPriceChange(e.target.value === "" ? "" : Number(e.target.value))}
                                     required
+                                    min="0"
                                 />
                             </div>
                             <div className="grid gap-2">

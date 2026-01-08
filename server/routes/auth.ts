@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
-import { db } from "./db.js";
-import { users, tenants, userTenants } from "../shared/schema.js";
+import { db } from "../db.js";
+import { users, tenants, userTenants } from "../../shared/schema.js";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 

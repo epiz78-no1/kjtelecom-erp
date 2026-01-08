@@ -191,13 +191,13 @@ export const apiInsertInventoryItemSchema = z.object({
   type: z.string().optional(),
   attributes: z.string().optional(),
   specification: z.string(),
-  carriedOver: z.number().optional(),
-  incoming: z.number().optional(),
-  outgoing: z.number().optional(),
-  usage: z.number().optional(),
-  remaining: z.number().optional(),
-  unitPrice: z.number().optional(),
-  totalAmount: z.number().optional(),
+  carriedOver: z.number().min(0).optional(),
+  incoming: z.number().min(0).optional(),
+  outgoing: z.number().min(0).optional(),
+  usage: z.number().min(0).optional(),
+  remaining: z.number().min(0).optional(),
+  unitPrice: z.number().min(0).optional(),
+  totalAmount: z.number().min(0).optional(),
 });
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
 export type InventoryItem = typeof inventoryItems.$inferSelect;
@@ -238,7 +238,7 @@ export const apiInsertOutgoingRecordSchema = z.object({
   type: z.string().optional(),
   attributes: z.string().optional(),
   specification: z.string(),
-  quantity: z.number(),
+  quantity: z.number().min(0),
   recipient: z.string(),
   remark: z.string().optional(),
 });
@@ -282,7 +282,7 @@ export const apiInsertMaterialUsageRecordSchema = z.object({
   type: z.string().optional(),
   attributes: z.string().optional(),
   specification: z.string(),
-  quantity: z.number(),
+  quantity: z.number().min(0),
   recipient: z.string(),
   remark: z.string().optional(),
 });
@@ -325,8 +325,8 @@ export const apiInsertIncomingRecordSchema = z.object({
   type: z.string().optional(),
   attributes: z.string().optional(),
   specification: z.string().optional(),
-  quantity: z.number(),
-  unitPrice: z.number().optional(),
+  quantity: z.number().min(0),
+  unitPrice: z.number().min(0).optional(),
   remark: z.string().optional(),
 });
 export type InsertIncomingRecord = z.infer<typeof insertIncomingRecordSchema>;
@@ -494,15 +494,15 @@ export const apiInsertOpticalCableSchema = z.object({
   manufacturer: z.string().optional(),
   manufactureYear: z.string().optional(),
   spec: z.string(),
-  coreCount: z.number(),
+  coreCount: z.number().min(0),
   drumNo: z.string(),
-  totalLength: z.union([z.string(), z.number().transform(String)]),
+  totalLength: z.union([z.string(), z.number().min(0).transform(String)]),
   location: z.string().optional(),
   remark: z.string().optional(),
-  wasteLength: z.number().optional(),
-  unitPrice: z.number().optional(),
-  totalAmount: z.number().optional(),
-  remainingLength: z.number().optional(),
+  wasteLength: z.number().min(0).optional(),
+  unitPrice: z.number().min(0).optional(),
+  totalAmount: z.number().min(0).optional(),
+  remainingLength: z.number().min(0).optional(),
 });
 export type InsertOpticalCable = z.infer<typeof insertOpticalCableSchema>;
 export type OpticalCable = typeof opticalCables.$inferSelect;
@@ -537,8 +537,8 @@ export const apiInsertOpticalCableLogSchema = z.object({
   projectCode: z.string().optional(),
   projectNameUsage: z.string().optional(),
   sectionName: z.string().optional(),
-  installLength: z.number().optional(),
-  wasteLength: z.number().optional(),
+  installLength: z.number().min(0).optional(),
+  wasteLength: z.number().min(0).optional(),
   usageDate: z.string(),
   workerName: z.string().optional(),
   attributes: z.string().optional(),

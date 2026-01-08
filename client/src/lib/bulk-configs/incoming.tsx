@@ -36,6 +36,8 @@ export const validateIncomingRow = (row: any, index: number): { valid: boolean; 
     // 숫자 필드 검증
     if (qtyVal !== undefined && qtyVal !== "" && isNaN(Number(String(qtyVal).replace(/,/g, "")))) {
         rowErrors.push(`${index + 2}행: 수량은 숫자여야 합니다`);
+    } else if (qtyVal !== undefined && qtyVal !== "" && Number(String(qtyVal).replace(/,/g, "")) < 0) {
+        rowErrors.push(`${index + 2}행: 수량은 0보다 작을 수 없습니다`);
     }
 
     // 날짜 형식 검증 (YYYY-MM-DD)

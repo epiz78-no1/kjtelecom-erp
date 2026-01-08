@@ -26,6 +26,22 @@ export const validateInventoryRow = (row: any, index: number): { valid: boolean;
     if (!productVal?.trim()) rowErrors.push(`${index + 2}행: 품명이 필요합니다`);
     if (!specVal?.trim()) rowErrors.push(`${index + 2}행: 규격이 필요합니다`);
 
+    // 숫자 필드 검증 (음수 체크)
+    const checkNegative = (key: string, label: string) => {
+        const val = getValue(key);
+        if (val !== undefined && val !== "") {
+            const num = Number(String(val).replace(/,/g, ""));
+            if (!isNaN(num) && num < 0) {
+                rowErrors.push(`${index + 2}행: ${label}(은)는 0보다 작을 수 없습니다`);
+            }
+        }
+    };
+
+    checkNegative("재고현황", "재고현황");
+    checkNegative("사무실보유재고", "사무실보유재고");
+    checkNegative("현장팀보유재고", "현장팀보유재고");
+    checkNegative("단가", "단가");
+
     return { valid: rowErrors.length === 0, errors: rowErrors };
 };
 

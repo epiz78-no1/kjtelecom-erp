@@ -452,6 +452,7 @@ export function IncomingDialog({
                                             newItems[index].quantity = e.target.value;
                                             setFormData({ ...formData, items: newItems });
                                         }}
+                                        min="0"
                                         placeholder="수량"
                                     />
                                 </div>

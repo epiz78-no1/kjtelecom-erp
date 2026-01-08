@@ -190,6 +190,7 @@ export function OpticalCableActionDialog({
                                                         type="number"
                                                         {...field}
                                                         onChange={e => field.onChange(Number(e.target.value))}
+                                                        min="0"
                                                     />
                                                 </FormControl>
                                                 <FormMessage />
@@ -207,6 +208,7 @@ export function OpticalCableActionDialog({
                                                         type="number"
                                                         {...field}
                                                         onChange={e => field.onChange(Number(e.target.value))}
+                                                        min="0"
                                                     />
                                                 </FormControl>
                                                 <FormMessage />

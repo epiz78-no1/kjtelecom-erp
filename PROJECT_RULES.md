@@ -38,8 +38,10 @@
 - **Hooks**: `/hooks/use[Feature].ts`
 
 ### Backend (`server`)
-- `routes.ts`: API 엔드포인트 라우팅 (비즈니스 로직 최소화)
-- `storage.ts`: DB 접근 및 비즈니스 로직 구현 (Repository Pattern 유사)
+- `routes/`: 도메인별 라우트 모듈 디렉토리
+  - `index.ts`: 메인 라우터 진입점 (모든 모듈 통합)
+  - `auth.ts`, `inventory.ts`, `teams.ts`, `optical.ts` 등
+- `storage.ts`: DB 접근 및 비즈니스 로직 구현 (추후 서비스 계층으로 분리 예정)
 - `db.ts`: Drizzle DB 연결 설정
 
 ### Shared
@@ -73,7 +75,7 @@
 - **원칙**: 모든 `POST`/`PATCH` 요청 시 세션의 `userId`를 기록해야 함.
 - **Backend 구현**:
   ```typescript
-  // routes.ts
+  // routes/inventory.ts
   const data = await requestSchema.parseAsync(req.body);
   const result = await storage.createItem({
     ...data,

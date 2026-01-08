@@ -678,7 +678,7 @@ export default function AdminMembers() {
                                             <TableCell>{getPermissionLabel(member.permissions)}</TableCell>
                                             <TableCell>{getStatusBadge(member.status)}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
-                                                {format(new Date(member.joinDate), "yyyy-MM-dd", { locale: ko })}
+                                                {member.joinDate ? format(new Date(member.joinDate), "yyyy-MM-dd", { locale: ko }) : "-"}
                                             </TableCell>
                                             <TableCell>
                                                 <DropdownMenu>

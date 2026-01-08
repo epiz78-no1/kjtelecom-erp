@@ -2,8 +2,11 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { registerRoutes } from "./routes.js";
-import { registerAuthRoutes } from "./auth.js";
+import { registerAuthRoutes } from "./routes/auth.js";
+import { registerInventoryRoutes } from "./routes/inventory.js";
+import { registerOpticalRoutes } from "./routes/optical.js";
+import { registerTeamsRoutes } from "./routes/teams.js";
+import { registerSystemRoutes } from "./routes/system.js";
 import { tenantContext } from "./middleware/tenant.js";
 import { serveStatic } from "./static.js";
 import { createServer } from "http";
@@ -111,6 +114,9 @@ app.use((req, res, next) => {
 
 // Initialize routes immediately to handle Vercel Cold Starts
 registerAuthRoutes(app);
+registerInventoryRoutes(app);
+registerTeamsRoutes(app);
+registerOpticalRoutes(app);
 registerAdminRoutes(app);
 
 // Template Download API (Global priority)
@@ -153,9 +159,8 @@ app.get("/api/templates/:type", (req, res, next) => {
 });
 
 // Register application routes (async but registers immediately since no awaits inside)
-registerRoutes(httpServer, app).catch(err => {
-  console.error("Failed to register routes:", err);
-});
+// Register application routes
+registerSystemRoutes(app);
 
 // Start DB Initialization in background (don't block server startup)
 ensureUsers().catch(e => console.error("Failed to ensure users:", e));

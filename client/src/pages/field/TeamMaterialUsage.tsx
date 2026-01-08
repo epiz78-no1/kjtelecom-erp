@@ -769,7 +769,7 @@ export default function TeamMaterialUsage() {
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
                 <TableHead className="w-[40px] text-center align-middle bg-background">
-                  {isTenantOwner ? (
+                  {canWrite ? (
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={toggleSelectAll}
@@ -796,7 +796,7 @@ export default function TeamMaterialUsage() {
               {filteredRecords.map((record) => (
                 <TableRow key={record.id} data-testid={`row-usage-${record.id}`} className="h-6 [&_td]:py-0">
                   <TableCell className="text-center align-middle">
-                    {isTenantOwner ? (
+                    {canWrite ? (
                       <Checkbox
                         checked={selectedIds.has(record.id)}
                         onCheckedChange={() => toggleSelect(record.id)}
@@ -1081,6 +1081,7 @@ export default function TeamMaterialUsage() {
                           newItems[index].quantity = e.target.value;
                           setFormData({ ...formData, items: newItems });
                         }}
+                        min="0"
                         placeholder="수량"
                       />
                     </div>

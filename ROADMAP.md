@@ -36,6 +36,17 @@
 - **Backend Optimization**: 목록 조회 API에서 대용량 첨부파일 데이터(Base64) 제외 (`regexp_replace` 적용)
 - **Frontend Optimization**: 상세/수정 진입 시 원본 파일 데이터 On-Demand 로드 (`fetchQuery` 적용)
 
+### 🚀 Phase 2.6: 광케이블 완성 및 시스템 고도화 (Advanced Development)
+**목표**: 광케이블 관리 기능의 완전한 정착과 시스템 아키텍처(F/E, B/E) 리팩터링을 통한 성능/유지보수성 향상
+- **광케이블 고도화 (Optical Cable Advancement)**:
+  - [x] Backend Storage 모듈화 및 타입 안정성 확보
+  - [ ] 기능 보완: 로그 관리 UI 개선, 통계/분석 기능 강화
+  - [ ] Frontend 리팩터링: 복잡한 컴포넌트(LogTable, Modal) 최적화
+- **시스템 고도화 (System Enhancement)**:
+  - [x] **Backend Modularization**: 라우터 및 스토리지 서비스 완전 분리 (Phase 1 완료)
+  - [ ] **Frontend Optimization**: 비대한 Dialog 컴포넌트 분리 (Page 단위 전환), Custom Hooks 도입
+  - [ ] **성능 최적화**: 불필요한 리렌더링 방지, 메모리 누수 점검
+
 ### v1.2.3 (2026-01-07) - Hotfix: 파일 첨부 기능 강화 및 시스템 문서화
 - **기능 개선**:
   - `IncomingDialog`, `OutgoingDialog`, `TeamMaterialUsage` 파일 첨부 기능 고도화
