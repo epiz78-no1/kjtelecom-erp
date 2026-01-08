@@ -7,6 +7,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useQuery } from "@tanstack/react-query";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { exportToExcel } from "@/lib/excel";
+import { useTableFilters } from "@/hooks/useTableFilters";
 import {
     Select,
     SelectContent,
@@ -26,9 +27,6 @@ import {
 export default function FieldOpticalStatus() {
     const { divisions, teams: allTeams, checkPermission } = useAppContext();
     const canWrite = checkPermission("usage", "write");
-    const [selectedDivision, setSelectedDivision] = useState("all");
-    const [selectedTeam, setSelectedTeam] = useState("all");
-    const [searchQuery, setSearchQuery] = useState("");
 
     const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
         queryKey: ["/api/optical-cables"],
@@ -63,20 +61,22 @@ export default function FieldOpticalStatus() {
 
     const allStockItems = Array.from(stockMap.values());
 
-    const divisionFiltered = selectedDivision === "all"
-        ? allStockItems
-        : allStockItems.filter((item) => item.division === selectedDivision);
-
-    const teams = Array.from(new Set(divisionFiltered.map((r) => r.teamCategory))).filter(Boolean).sort();
-
-    const filteredStock = divisionFiltered.filter((item) => {
-        const matchesTeam = selectedTeam === "all" || item.teamCategory === selectedTeam;
-        const matchesSearch =
-            (item.drumNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (item.spec || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (item.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesTeam && matchesSearch;
+    const {
+        searchQuery,
+        setSearchQuery,
+        selectedDivision,
+        setSelectedDivision,
+        selectedCategory: selectedTeam,
+        setSelectedCategory: setSelectedTeam,
+        filteredItems: filteredStock,
+        categories: uniqueTeams
+    } = useTableFilters(allStockItems, {
+        searchFields: ["drumNo", "spec", "teamCategory"],
+        divisionField: "division",
+        categoryField: "teamCategory"
     });
+
+    const uniqueDivisions = ["전체", ...Array.from(new Set(allStockItems.map(item => item.division))).filter(Boolean)];
 
     const handleExportExcel = () => {
         const dataToExport = filteredStock.map(item => ({
@@ -125,9 +125,10 @@ export default function FieldOpticalStatus() {
                                     <SelectValue placeholder="사업부 선택" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">전체</SelectItem>
-                                    <SelectItem value="SKT">SKT</SelectItem>
-                                    <SelectItem value="SKB">SKB</SelectItem>
+                                    <SelectItem value="전체">전체</SelectItem>
+                                    {uniqueDivisions.filter(d => d !== "전체").map(d => (
+                                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -137,7 +138,7 @@ export default function FieldOpticalStatus() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {allTeams
                         .filter((t: any) => {
-                            if (selectedDivision === "all") return true;
+                            if (selectedDivision === "전체") return true;
                             const division = divisions?.find(d => d.id === t.divisionId);
                             return division?.name === selectedDivision;
                         })
@@ -150,7 +151,7 @@ export default function FieldOpticalStatus() {
                                 <FieldTeamCard
                                     key={team.id}
                                     team={{ ...team, materialCount: teamCableCount }}
-                                    onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "all" : t.name)}
+                                    onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "전체" : t.name)}
                                 />
                             );
                         })}
@@ -171,10 +172,10 @@ export default function FieldOpticalStatus() {
                             <SelectValue placeholder="팀 선택" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">전체</SelectItem>
-                            {teams.map((team) => (
-                                <SelectItem key={team} value={team}>
-                                    {team}
+                            <SelectItem value="전체">전체</SelectItem>
+                            {uniqueTeams.filter(t => t !== "전체").map((team) => (
+                                <SelectItem key={String(team)} value={String(team)}>
+                                    {String(team)}
                                 </SelectItem>
                             ))}
                         </SelectContent>

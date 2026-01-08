@@ -471,3 +471,71 @@ graph TD
 3. 스키마가 일치하지 않으면 배포가 중단됩니다. 이 경우, 운영 DB에 마이그레이션을 적용(`drizzle-kit push` 등)하여 스키마를 동기화한 후 재시도해야 합니다.
 
 
+474: 
+475: ---
+476: 
+477: ## 15. 표준 훅 및 패턴 (Standard Hooks & Patterns)
+478: 
+479: 반복적으로 사용되는 UI/로직 패턴은 표준화된 커스텀 훅을 사용하여 일관성을 유지하고 중복 코드를 방지합니다.
+480: 
+481: ### A. 테이블 필터링 (`useTableFilters`)
+482: 
+483: 테이블 데이터의 검색, 사업 구분(Division), 카테고리 필터링을 통합 관리하는 훅입니다.
+484: 
+485: - **주요 기능**:
+486:   - 검색어(Query) 상태 관리 및 필터링
+487:   - 사업(Division) 필터 관리 (기본값: "전체")
+488:   - 카테고리 필터 관리 및 유니크 카테고리 목록 자동 추출
+489: 
+490: ```tsx
+491: // 사용 예시
+492: const {
+493:   searchQuery,     // 검색어 State
+494:   setSearchQuery,  // 검색어 Setter
+495:   selectedDivision, // 사업 구분 State (기본: "전체")
+496:   setSelectedDivision,
+497:   filteredItems,    // 필터링된 최종 데이터 목록
+498:   categories        // 데이터 기반 카테고리 목록 (중복 제거됨)
+499: } = useTableFilters(rawData, {
+500:   searchFields: ["productName", "modelName"], // 검색 대상 필드
+501:   divisionField: "division",                  // 사업 구분 필드명
+502:   categoryField: "category"                   // 카테고리 필드명
+503: });
+504: ```
+505: 
+506: **주의사항**:
+507: - 필터의 '전체' 선택 시 값은 `"전체"` 문자열을 사용합니다. (과거 `"all"` 혼용 금지)
+508: - UI의 `<Select>` 컴포넌트에서도 `<SelectItem value="전체">전체</SelectItem>`를 사용해야 매칭됩니다.
+509: 
+510: ### B. 다이얼로그 관리 (`useDialogState`)
+511: 
+512: 등록(Create)과 수정(Edit)을 겸하는 다이얼로그의 상태를 관리하는 표준 패턴입니다.
+513: 
+514: - **주요 기능**:
+515:   - 열림/닫힘(`open`) 상태 관리
+516:   - 편집 대상 아이템(`editingItem`) 관리 (null이면 등록 모드, 있으면 수정 모드)
+517: 
+518: ```tsx
+519: // 사용 예시
+520: const { 
+521:   open, 
+522:   setOpen, 
+523:   editingItem, 
+524:   handleOpen,     // (item?) => void : 인자 없으면 등록, 있으면 수정 모드로 염
+525:   handleClose     // () => void : 닫고 editingItem 초기화
+526: } = useDialogState<InventoryItem>();
+527: 
+528: // 버튼 연결
+529: <Button onClick={() => handleOpen()}>등록</Button>
+530: <Button onClick={() => handleOpen(record)}>수정</Button>
+531: 
+532: // 다이얼로그 연결
+533: <Dialog open={open} onOpenChange={setOpen}>
+534:   <DialogTitle>{editingItem ? "수정" : "등록"}</DialogTitle>
+535:   {/* Form 컴포넌트에 초기값 전달 */}
+536:   <MyForm defaultValues={editingItem} onSubmit={...} />
+537: </Dialog>
+538: ```
+539: 
+540: ---
+541:

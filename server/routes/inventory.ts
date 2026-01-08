@@ -270,6 +270,8 @@ export function registerInventoryRoutes(app: Express) {
             console.log("[OUTGOING BULK] Received items count:", items.length);
             const sharedCreatedAt = new Date();
 
+            const inventoryItemsList = await storage.getInventoryItems(tenantId);
+
             const recordsToCreate = [];
             for (const item of items) {
                 const parseResult = apiInsertOutgoingRecordSchema.safeParse(item);
@@ -281,9 +283,27 @@ export function registerInventoryRoutes(app: Express) {
                 const specification = parseResult.data.specification.trim();
                 const division = (parseResult.data.division || "SKT").trim();
                 const projectName = parseResult.data.projectName.trim();
+                const quantity = parseResult.data.quantity || 0;
+
+                const targetItem = inventoryItemsList.find(item =>
+                    item.productName.trim() === productName &&
+                    (item.specification || "").trim() === (specification || "").trim() &&
+                    item.division.trim() === division
+                );
+
+                if (!targetItem) {
+                    return res.status(400).json({ error: `[${productName}] 해당 자재가 재고 목록에 존재하지 않습니다.` });
+                }
+
+                if (targetItem.remaining < quantity) {
+                    return res.status(400).json({
+                        error: `[${productName}] 재고가 부족합니다 (잔여: ${targetItem.remaining.toLocaleString()}, 요청: ${quantity.toLocaleString()})`
+                    });
+                }
 
                 recordsToCreate.push({
                     ...parseResult.data,
+                    inventoryItemId: targetItem.id, // Explicitly set inventory ID
                     productName,
                     specification,
                     division,
@@ -581,9 +601,13 @@ export function registerInventoryRoutes(app: Express) {
                     item.division === division
             );
 
-            if (!matchingItem) {
+            let targetInventoryId: number;
+
+            if (matchingItem) {
+                targetInventoryId = matchingItem.id;
+            } else {
                 const unitPrice = parseResult.data.unitPrice ?? 0;
-                await storage.createInventoryItem({
+                const newItem = await storage.createInventoryItem({
                     tenantId,
                     division,
                     category: division,
@@ -597,10 +621,12 @@ export function registerInventoryRoutes(app: Express) {
                     totalAmount: 0,
                     createdBy: req.session!.userId!
                 });
+                targetInventoryId = newItem.id;
             }
 
             const record = await storage.createIncomingRecord({
                 ...parseResult.data,
+                inventoryItemId: targetInventoryId, // Link to Inventory Item
                 productName,
                 specification,
                 division,
@@ -629,12 +655,52 @@ export function registerInventoryRoutes(app: Express) {
         const tenantId = req.session!.tenantId!;
         try {
             const sharedCreatedAt = new Date();
-            const recordsToCreate = items.map((item: any) => ({
-                ...item,
-                tenantId,
-                createdBy: req.session!.userId!,
-                createdAt: sharedCreatedAt
-            }));
+            const inventoryItemsList = await storage.getInventoryItems(tenantId);
+
+            const recordsToCreate = [];
+            for (const item of items) {
+                const productName = (item.productName || "").trim();
+                const specification = (item.specification || "").trim();
+                const division = (item.division || "SKT").trim();
+                const unitPrice = item.unitPrice ?? 0;
+
+                let targetItem = inventoryItemsList.find(inv =>
+                    inv.productName === productName &&
+                    inv.specification === specification &&
+                    inv.division === division
+                );
+
+                if (!targetItem) {
+                    // Create if not exists (Synchronous to ensure ID is available)
+                    targetItem = await storage.createInventoryItem({
+                        tenantId,
+                        division,
+                        category: division,
+                        productName,
+                        specification,
+                        carriedOver: 0,
+                        incoming: 0,
+                        outgoing: 0,
+                        remaining: 0,
+                        unitPrice: unitPrice,
+                        totalAmount: 0,
+                        createdBy: req.session!.userId!
+                    });
+                    // Add to local list to avoid duplicates in this loop if same item appears multiple times
+                    inventoryItemsList.push(targetItem);
+                }
+
+                recordsToCreate.push({
+                    ...item,
+                    inventoryItemId: targetItem.id, // Set Inventory ID
+                    productName,
+                    specification,
+                    division,
+                    tenantId,
+                    createdBy: req.session!.userId!,
+                    createdAt: sharedCreatedAt
+                });
+            }
 
             const createdRecords = await storage.createIncomingRecordsBulk(recordsToCreate, tenantId);
 

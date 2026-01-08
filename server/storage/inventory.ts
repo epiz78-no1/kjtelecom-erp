@@ -3,10 +3,10 @@ import {
     type OutgoingRecord, type InsertOutgoingRecord,
     type MaterialUsageRecord, type InsertMaterialUsageRecord,
     type IncomingRecord, type InsertIncomingRecord,
-    inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords
+    inventoryItems, outgoingRecords, materialUsageRecords, incomingRecords, users
 } from "../../shared/schema.js";
 import { db } from "../db.js";
-import { eq, and, sql, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, asc, inArray, getTableColumns } from "drizzle-orm";
 
 export class InventoryStorage {
     // Inventory
@@ -84,10 +84,12 @@ export class InventoryStorage {
                 if (existing) {
                     if (mode === 'overwrite') {
                         // Overwrite: Update existing item completely
+                        // IMPORTANT: Set carriedOver to quantity to support initial stock logic
                         const totalAmount = (quantity + outgoingCount) * unitPrice;
                         const [updated] = await tx.update(inventoryItems)
                             .set({
                                 ...item,
+                                carriedOver: quantity, // Set carriedOver
                                 totalAmount: totalAmount,
                                 unitPrice: unitPrice,
                             })
@@ -98,14 +100,15 @@ export class InventoryStorage {
                         // Add (Append): Sum quantities
                         const newRemaining = (existing.remaining || 0) + quantity;
                         const newOutgoing = (existing.outgoing || 0) + outgoingCount;
-                        // Weighted average price could be complex, for now assume latest price or keep existing?
-                        // "이어쓰기" usually implies adding stock. Let's update price to latest and recalc amount.
+                        const newCarriedOver = (existing.carriedOver || 0) + quantity;
+
                         const newTotalAmount = (newRemaining + newOutgoing) * unitPrice;
 
                         const [updated] = await tx.update(inventoryItems)
                             .set({
                                 remaining: newRemaining,
                                 outgoing: newOutgoing,
+                                carriedOver: newCarriedOver, // Increase carriedOver
                                 unitPrice: unitPrice,
                                 totalAmount: newTotalAmount,
                             })
@@ -118,6 +121,7 @@ export class InventoryStorage {
                     const totalAmount = (quantity + outgoingCount) * unitPrice;
                     const [created] = await tx.insert(inventoryItems).values({
                         ...item,
+                        carriedOver: quantity, // Set carriedOver
                         totalAmount: totalAmount,
                         unitPrice: unitPrice
                     }).returning();
@@ -129,10 +133,18 @@ export class InventoryStorage {
     }
 
     // Incoming
+    // Incoming
     async getIncomingRecords(tenantId: string): Promise<IncomingRecord[]> {
-        return await db.select().from(incomingRecords)
+        const records = await db.select({
+            ...getTableColumns(incomingRecords),
+            createdByName: users.name
+        })
+            .from(incomingRecords)
+            .leftJoin(users, eq(incomingRecords.createdBy, users.id))
             .where(eq(incomingRecords.tenantId, tenantId))
             .orderBy(desc(incomingRecords.date), desc(incomingRecords.id));
+
+        return records as IncomingRecord[];
     }
 
     async getIncomingRecord(id: number, tenantId: string): Promise<IncomingRecord | undefined> {
@@ -226,7 +238,12 @@ export class InventoryStorage {
 
     // Outgoing
     async getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]> {
-        const records = await db.select().from(outgoingRecords)
+        const records = await db.select({
+            ...getTableColumns(outgoingRecords),
+            createdByName: users.name
+        })
+            .from(outgoingRecords)
+            .leftJoin(users, eq(outgoingRecords.createdBy, users.id))
             .where(eq(outgoingRecords.tenantId, tenantId))
             .orderBy(desc(outgoingRecords.date), desc(outgoingRecords.id));
 
@@ -244,7 +261,7 @@ export class InventoryStorage {
                     // ignore parse errors
                 }
             }
-            return record;
+            return record as OutgoingRecord;
         });
     }
 
@@ -300,7 +317,12 @@ export class InventoryStorage {
 
     // Material Usage
     async getMaterialUsageRecords(tenantId: string): Promise<MaterialUsageRecord[]> {
-        const records = await db.select().from(materialUsageRecords)
+        const records = await db.select({
+            ...getTableColumns(materialUsageRecords),
+            createdByName: users.name
+        })
+            .from(materialUsageRecords)
+            .leftJoin(users, eq(materialUsageRecords.createdBy, users.id))
             .where(eq(materialUsageRecords.tenantId, tenantId))
             .orderBy(desc(materialUsageRecords.date), desc(materialUsageRecords.id));
 
@@ -316,7 +338,7 @@ export class InventoryStorage {
                     // Ignore parse errors
                 }
             }
-            return record;
+            return record as MaterialUsageRecord;
         });
     }
 

@@ -49,6 +49,8 @@ import {
 import { useAppContext } from "@/contexts/AppContext";
 import { useState } from "react";
 import { useColumnResize } from "@/hooks/useColumnResize";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 export default function Inventory() {
   const { toast } = useToast();
@@ -57,15 +59,17 @@ export default function Inventory() {
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
   const canWrite = checkPermission("inventory", "write");
 
-  const [selectedDivision, setSelectedDivision] = useState("all");
-  const [selectedCategory, setSelectedCategory] = useState("전체");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  /* 필터링 로직을 useTableFilters 훅으로 대체 */
+  /* const [selectedDivision, setSelectedDivision] = useState("all"); */
+  /* const [selectedCategory, setSelectedCategory] = useState("전체"); */
+  /* const [searchQuery, setSearchQuery] = useState(""); */
+
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+
+  const { open: materialDialogOpen, editingItem, handleOpen: openMaterialDialog, handleClose: closeMaterialDialog } = useDialogState<InventoryItem>();
 
   const { widths, startResizing } = useColumnResize({
     checkbox: 40,
@@ -91,7 +95,7 @@ export default function Inventory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "자재가 추가되었습니다" });
-      setMaterialDialogOpen(false);
+      closeMaterialDialog();
     },
     onError: (error: Error) => {
       toast({
@@ -109,8 +113,7 @@ export default function Inventory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       toast({ title: "자재가 수정되었습니다" });
-      setEditingItem(null);
-      setMaterialDialogOpen(false);
+      closeMaterialDialog();
     },
     onError: () => {
       toast({ title: "자재 수정 실패", variant: "destructive" });
@@ -186,22 +189,20 @@ export default function Inventory() {
     },
   });
 
-  const divisionFiltered = selectedDivision === "all"
-    ? inventoryItems
-    : inventoryItems.filter((item) => item.division === selectedDivision);
-
-  const categorySet = new Set(divisionFiltered.map((item) => item.category).filter(cat => cat && cat.trim() !== ''));
-  const categories = ["전체", ...Array.from(categorySet)];
-
-  const categoryFiltered = selectedCategory === "전체"
-    ? divisionFiltered
-    : divisionFiltered.filter((item) => item.category === selectedCategory);
-
-  const filteredInventory = searchQuery
-    ? categoryFiltered.filter((item) =>
-      (item.productName || "").toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    : categoryFiltered;
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedDivision,
+    setSelectedDivision,
+    selectedCategory,
+    setSelectedCategory,
+    filteredItems: filteredInventory,
+    categories
+  } = useTableFilters(inventoryItems, {
+    searchFields: ["productName"],
+    divisionField: "division",
+    categoryField: "category"
+  });
 
   const allSelected = filteredInventory.length > 0 && filteredInventory.every(item => selectedIds.has(item.id));
 
@@ -225,10 +226,7 @@ export default function Inventory() {
 
 
 
-  const handleEdit = (item: InventoryItem) => {
-    setEditingItem(item);
-    setMaterialDialogOpen(true);
-  };
+  const handleEdit = (item: InventoryItem) => openMaterialDialog(item);
 
   const handleDelete = (item: InventoryItem) => {
     setDeleteItem(item);
@@ -240,14 +238,7 @@ export default function Inventory() {
     }
   };
 
-  const openMaterialDialog = (item?: InventoryItem) => {
-    if (item) {
-      setEditingItem(item);
-    } else {
-      setEditingItem(null);
-    }
-    setMaterialDialogOpen(true);
-  };
+
 
   const confirmBulkDelete = () => {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
@@ -349,14 +340,14 @@ export default function Inventory() {
               />
             </div>
             <div className="w-48">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select value={selectedCategory || "전체"} onValueChange={setSelectedCategory}>
                 <SelectTrigger data-testid="select-category-filter">
                   <SelectValue placeholder="카테고리 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                    <SelectItem key={String(cat)} value={String(cat)}>
+                      {String(cat)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -541,8 +532,7 @@ export default function Inventory() {
       <MaterialFormDialog
         open={materialDialogOpen}
         onOpenChange={(open) => {
-          setMaterialDialogOpen(open);
-          if (!open) setEditingItem(null);
+          if (!open) closeMaterialDialog();
         }}
         onSubmit={handleSubmit}
         editingItem={editingItem}

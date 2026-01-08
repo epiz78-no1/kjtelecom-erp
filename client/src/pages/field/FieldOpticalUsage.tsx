@@ -7,6 +7,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useTableFilters } from "@/hooks/useTableFilters";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import {
     Table,
@@ -47,14 +49,6 @@ export default function FieldOpticalUsage() {
     const { tenants, currentTenant, teams, checkPermission } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
-    const [selectedCategory, setSelectedCategory] = useState("all");
-    const [searchQuery, setSearchQuery] = useState("");
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingLog, setEditingLog] = useState<OpticalCableLog | null>(null);
-    const [deleteLog, setDeleteLog] = useState<OpticalCableLog | null>(null);
-
     const canWrite = checkPermission("usage", "write");
     const currentTenantData = tenants.find(t => t.id === currentTenant);
     const isFieldTeam = currentTenantData?.permissions &&
@@ -84,6 +78,35 @@ export default function FieldOpticalUsage() {
         });
         return logs.sort((a, b) => new Date(b.usageDate || b.createdAt).getTime() - new Date(a.usageDate || a.createdAt).getTime());
     }, [cables]);
+
+    const {
+        searchQuery,
+        setSearchQuery,
+        selectedCategory,
+        setSelectedCategory,
+        filteredItems: filteredLogs,
+    } = useTableFilters(allLogs.map(log => ({
+        ...log,
+        division: log.cable.division,
+        drumNo: log.cable.drumNo,
+        spec: log.cable.spec,
+        projectNameUsage: (log as any).projectNameUsage || log.cable.projectName || '',
+        sectionName: (log as any).sectionName || ''
+    })), {
+        searchFields: ["drumNo", "spec", "projectNameUsage", "sectionName"],
+        categoryField: "division"
+    });
+
+    const {
+        open: dialogOpen,
+        editingItem: editingLog,
+        handleOpen: openDialog,
+        handleClose: closeDialog
+    } = useDialogState<OpticalCableLog>();
+
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+    const [deleteLog, setDeleteLog] = useState<OpticalCableLog | null>(null);
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -122,17 +145,7 @@ export default function FieldOpticalUsage() {
         },
     });
 
-    const filteredLogs = useMemo(() => {
-        return allLogs.filter(log => {
-            const matchesCategory = selectedCategory === "all" || log.cable.division === selectedCategory;
-            const matchesSearch = searchQuery === "" ||
-                (log.cable.drumNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (log.cable.spec || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                ((log as any).projectNameUsage || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                ((log as any).sectionName || "").toLowerCase().includes(searchQuery.toLowerCase());
-            return matchesCategory && matchesSearch;
-        });
-    }, [allLogs, selectedCategory, searchQuery]);
+    // Filter Logic Removed (Handled by hook)
 
     const totalRecords = filteredLogs.length;
     const totalLength = filteredLogs.reduce((sum, log) => sum + (log.installLength || 0) + (log.wasteLength || 0), 0);
@@ -157,15 +170,7 @@ export default function FieldOpticalUsage() {
 
     const allSelected = filteredLogs.length > 0 && selectedIds.size === filteredLogs.length;
 
-    const openAddDialog = () => {
-        setEditingLog(null);
-        setDialogOpen(true);
-    };
-
-    const openEditDialog = (log: OpticalCableLog) => {
-        setEditingLog(log);
-        setDialogOpen(true);
-    };
+    // Dialog handlers removed (Handled by hook)
 
     const handleExportExcel = () => {
         const dataToExport = filteredLogs.map(log => {
@@ -211,7 +216,7 @@ export default function FieldOpticalUsage() {
                                 <SelectValue placeholder="전체" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">전체</SelectItem>
+                                <SelectItem value="전체">전체</SelectItem>
                                 <SelectItem value="SKT">SKT</SelectItem>
                                 <SelectItem value="SKB">SKB</SelectItem>
                             </SelectContent>
@@ -228,7 +233,7 @@ export default function FieldOpticalUsage() {
                             </Button>
                         )}
                         {canRegister && (
-                            <Button className="flex items-center gap-2" onClick={openAddDialog}>
+                            <Button className="flex items-center gap-2" onClick={() => openDialog()}>
                                 <Plus className="h-4 w-4" />
                                 등록
                             </Button>
@@ -348,19 +353,17 @@ export default function FieldOpticalUsage() {
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => openEditDialog(log)}>
+                                                            <DropdownMenuItem onClick={() => openDialog(log)}>
                                                                 <Pencil className="mr-2 h-4 w-4" />
                                                                 수정
                                                             </DropdownMenuItem>
-                                                            {isTenantOwner && (
-                                                                <DropdownMenuItem
-                                                                    onClick={() => setDeleteLog(log)}
-                                                                    className="text-destructive"
-                                                                >
-                                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                                    삭제
-                                                                </DropdownMenuItem>
-                                                            )}
+                                                            <DropdownMenuItem
+                                                                onClick={() => setDeleteLog(log)}
+                                                                className="text-destructive"
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                삭제
+                                                            </DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 )}
@@ -375,9 +378,10 @@ export default function FieldOpticalUsage() {
             </div>
 
             {/* Dialogs */}
+            {/* Dialogs */}
             <OpticalUsageDialog
                 open={dialogOpen}
-                onOpenChange={setDialogOpen}
+                onOpenChange={(open) => !open && closeDialog()}
                 editingLog={editingLog}
             />
 

@@ -10,6 +10,7 @@ import type { OutgoingRecord, MaterialUsageRecord } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
+import { useTableFilters } from "@/hooks/useTableFilters";
 import {
   Select,
   SelectContent,
@@ -30,10 +31,6 @@ export default function TeamOutgoing() {
   const { toast } = useToast();
   const { user, divisions, teams: allTeams, checkPermission } = useAppContext();
   const canWrite = checkPermission("outgoing", "write");
-  const [selectedDivision, setSelectedDivision] = useState("all");
-  const [selectedTeam, setSelectedTeam] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
   const { data: outgoingRecords = [], isLoading: outgoingLoading } = useQuery<OutgoingRecord[]>({
     queryKey: ["/api/outgoing"],
   });
@@ -101,19 +98,22 @@ export default function TeamOutgoing() {
   // Convert to array and filter out zero stock (allow negative for data consistency check)
   const allStockItems = Array.from(stockMap.values()).filter(item => item.quantity !== 0);
 
-  const divisionFiltered = selectedDivision === "all"
-    ? allStockItems
-    : allStockItems.filter((item) => item.division === selectedDivision);
-
-  const teams = Array.from(new Set(divisionFiltered.map((r) => r.teamCategory))).filter(Boolean).sort();
-
-  const filteredStock = divisionFiltered.filter((item) => {
-    const matchesTeam = selectedTeam === "all" || item.teamCategory === selectedTeam;
-    const matchesSearch =
-      (item.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTeam && matchesSearch;
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedDivision,
+    setSelectedDivision,
+    selectedCategory: selectedTeam,
+    setSelectedCategory: setSelectedTeam,
+    filteredItems: filteredStock,
+    categories: uniqueTeams
+  } = useTableFilters(allStockItems, {
+    searchFields: ["productName", "teamCategory"],
+    divisionField: "division",
+    categoryField: "teamCategory"
   });
+
+  const uniqueDivisions = ["전체", ...Array.from(new Set(allStockItems.map(item => item.division))).filter(Boolean)];
 
 
 
@@ -165,9 +165,10 @@ export default function TeamOutgoing() {
                   <SelectValue placeholder="사업부 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">전체</SelectItem>
-                  <SelectItem value="SKT">SKT</SelectItem>
-                  <SelectItem value="SKB">SKB</SelectItem>
+                  <SelectItem value="전체">전체</SelectItem>
+                  {uniqueDivisions.filter(d => d !== "전체").map(d => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -177,7 +178,7 @@ export default function TeamOutgoing() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {allTeams
             .filter((t: any) => {
-              if (selectedDivision === "all") return true;
+              if (selectedDivision === "전체") return true;
               const division = divisions?.find(d => d.id === t.divisionId);
               return division?.name === selectedDivision;
             })
@@ -191,7 +192,7 @@ export default function TeamOutgoing() {
                 <FieldTeamCard
                   key={team.id}
                   team={{ ...team, materialCount: teamStockCount }}
-                  onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "all" : t.name)}
+                  onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "전체" : t.name)}
                 />
               );
             })}
@@ -213,10 +214,10 @@ export default function TeamOutgoing() {
               <SelectValue placeholder="팀 선택" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">전체</SelectItem>
-              {teams.map((team) => (
-                <SelectItem key={team} value={team}>
-                  {team}
+              <SelectItem value="전체">전체</SelectItem>
+              {uniqueTeams.filter(t => t !== "전체").map((team) => (
+                <SelectItem key={String(team)} value={String(team)}>
+                  {String(team)}
                 </SelectItem>
               ))}
             </SelectContent>

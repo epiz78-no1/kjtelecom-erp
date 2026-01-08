@@ -32,15 +32,16 @@ import { OpticalLogEditDialog } from "@/components/OpticalLogEditDialog";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 
 import { useDownload } from "@/hooks/useDownload";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 export default function OpticalOutgoing() {
-    const [searchQuery, setSearchQuery] = useState("");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const { teams, tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
-    const [editingLog, setEditingLog] = useState<OpticalCableLog | null>(null);
+    const { open: dialogOpen, editingItem: editingLog, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCableLog>();
     const { downloadFile } = useDownload();
 
     const { widths, startResizing } = useColumnResize({
@@ -106,19 +107,27 @@ export default function OpticalOutgoing() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
             toast({ title: "내역이 수정되었습니다" });
-            setEditingLog(null);
+            closeDialog();
         },
         onError: (error: Error) => {
             toast({ title: "수정 실패", description: error.message, variant: "destructive" });
         },
     });
 
-    const filteredLogs = outgoingLogs.filter(log => {
-        const searchLower = searchQuery.toLowerCase();
-        const drumNo = log.cable?.drumNo?.toLowerCase() || '';
-        const spec = log.cable?.spec?.toLowerCase() || '';
-        const teamName = teams.find(t => t.id === log.teamId)?.name?.toLowerCase() || '';
-        return drumNo.includes(searchLower) || spec.includes(searchLower) || teamName.includes(searchLower);
+    // 데이터를 평탄화하여 검색 및 필터링에 사용
+    const searchableLogs = outgoingLogs.map(log => ({
+        ...log,
+        drumNo: log.cable?.drumNo || '',
+        spec: log.cable?.spec || '',
+        teamName: teams.find(t => t.id === log.teamId)?.name || ''
+    }));
+
+    const {
+        searchQuery,
+        setSearchQuery,
+        filteredItems: filteredLogs
+    } = useTableFilters(searchableLogs, {
+        searchFields: ["drumNo", "spec", "teamName"]
     });
 
     const allSelected = filteredLogs.length > 0 && filteredLogs.every(log => selectedIds.has(log.id));
@@ -414,7 +423,7 @@ export default function OpticalOutgoing() {
                                                         <DropdownMenuLabel>출고 관리</DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
-                                                            onClick={() => setEditingLog(log)}
+                                                            onClick={() => openDialog(log)}
                                                         >
                                                             <Pencil className="mr-2 h-4 w-4" />
                                                             수정
@@ -445,7 +454,7 @@ export default function OpticalOutgoing() {
 
             <OpticalLogEditDialog
                 open={!!editingLog}
-                onOpenChange={(open) => !open && setEditingLog(null)}
+                onOpenChange={(open) => !open && closeDialog()}
                 log={editingLog}
                 onSubmit={async (id, data) => updateLogMutation.mutateAsync({ id, data })}
             />

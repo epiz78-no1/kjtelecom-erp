@@ -68,6 +68,8 @@ const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"
 
 
 import { useDownload } from "@/hooks/useDownload";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 export default function TeamMaterialUsage() {
   const { toast } = useToast();
@@ -75,8 +77,7 @@ export default function TeamMaterialUsage() {
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
   const { downloadFile } = useDownload();
 
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  /* useState 제거됨 */
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
 
@@ -353,23 +354,28 @@ export default function TeamMaterialUsage() {
     exportToExcel(dataToExport, "팀자재사용내역");
   };
 
-  const categoryFiltered = selectedCategory === "all"
-    ? records
-    : records.filter((record) => record.category === selectedCategory);
+  // 1. Permission Filter
+  const permissionFilteredRaw = isOwnOnly
+    ? records.filter(r => r.recipient === user?.name)
+    : records;
 
-  // Filter based on permissions
-  const permissionFiltered = isOwnOnly
-    ? categoryFiltered.filter(r => r.recipient === user?.name)
-    : categoryFiltered;
+  // 2. Table Filters (Search & Category) via Hook
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    filteredItems: filteredRecords
+  } = useTableFilters(permissionFilteredRaw, {
+    searchFields: ["productName", "projectName", "recipient", "teamCategory", "specification"],
+    categoryField: "category"
+  });
+  // 2. Table Filters (Search & Category)
 
-  const filteredRecords = permissionFiltered.filter(
-    (record) =>
-      (record.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.recipient || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.specification || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Wait, the hook handles category and search.
+  // If we want permission filter to be base, we pass permissionFiltered to hook.
+
+  /* Re-implementing with correct flow */
 
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
   const totalRecords = filteredRecords.length;
@@ -696,7 +702,7 @@ export default function TeamMaterialUsage() {
                   <SelectValue placeholder="사업 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="전체">전체</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
@@ -769,7 +775,7 @@ export default function TeamMaterialUsage() {
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
                 <TableHead className="w-[40px] text-center align-middle bg-background">
-                  {canWrite ? (
+                  {isTenantOwner ? (
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={toggleSelectAll}
@@ -796,7 +802,7 @@ export default function TeamMaterialUsage() {
               {filteredRecords.map((record) => (
                 <TableRow key={record.id} data-testid={`row-usage-${record.id}`} className="h-6 [&_td]:py-0">
                   <TableCell className="text-center align-middle">
-                    {canWrite ? (
+                    {isTenantOwner ? (
                       <Checkbox
                         checked={selectedIds.has(record.id)}
                         onCheckedChange={() => toggleSelect(record.id)}
@@ -1026,7 +1032,10 @@ export default function TeamMaterialUsage() {
                     <Label className="text-xs text-muted-foreground">보유 자재 선택 ({index + 1})</Label>
                     <Select
                       disabled={!formData.teamCategory}
-                      value={item.inventoryItemId ? teamInventory.find(inv => inv.inventoryItemId === item.inventoryItemId)?.id?.toString() : ""}
+                      value={teamInventory.find(inv =>
+                        (item.inventoryItemId && inv.inventoryItemId === item.inventoryItemId) ||
+                        (!item.inventoryItemId && inv.productName === item.productName && inv.specification === item.specification)
+                      )?.id?.toString() || ""}
                       onValueChange={(key) => {
                         const selectedInventory = teamInventory.find(i => i.id.toString() === key);
                         if (selectedInventory) {

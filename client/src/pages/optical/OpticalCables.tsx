@@ -45,15 +45,39 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 export default function OpticalCables() {
     const { toast } = useToast();
-    const [searchQuery, setSearchQuery] = useState("");
-    const [categoryFilter, setCategoryFilter] = useState("all"); // New category filter
-    const [dialogOpen, setDialogOpen] = useState(false);
+    const { user, tenants, currentTenant } = useAppContext();
+    const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
+
+    const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
+        queryKey: ["/api/optical-cables"],
+    });
+
+    const {
+        searchQuery,
+        setSearchQuery,
+        selectedCategory,
+        setSelectedCategory,
+        filteredItems: filteredCables,
+        categories
+    } = useTableFilters(cables, {
+        searchFields: ["drumNo", "spec"],
+        categoryField: "category"
+    });
+
+    const {
+        open: dialogOpen,
+        editingItem,
+        handleOpen: openDialog,
+        handleClose: closeDialog
+    } = useDialogState<OpticalCable>();
+
     const [historyOpen, setHistoryOpen] = useState(false);
-    const [bulkUploadOpen, setBulkUploadOpen] = useState(false); // New bulk upload dialog
-    const [editingItem, setEditingItem] = useState<OpticalCable | null>(null);
+    const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
     const [historyItem, setHistoryItem] = useState<OpticalCable | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -73,13 +97,6 @@ export default function OpticalCables() {
         setActionType(type);
         setActionDialogOpen(true);
     };
-
-    const { user, tenants, currentTenant } = useAppContext();
-    const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
-
-    const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
-        queryKey: ["/api/optical-cables"],
-    });
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
@@ -111,7 +128,7 @@ export default function OpticalCables() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
             toast({ title: "광케이블 드럼이 등록되었습니다" });
-            setDialogOpen(false);
+            closeDialog();
         },
         onError: (error: Error) => {
             toast({ title: "등록 실패", description: error.message, variant: "destructive" });
@@ -147,15 +164,7 @@ export default function OpticalCables() {
         }
     });
 
-    const categories = Array.from(new Set(cables.map(c => c.category).filter(Boolean)));
-
-    // Filter
-    const filteredCables = cables.filter(cable => {
-        const matchesSearch = (cable.drumNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (cable.spec || "").toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = categoryFilter === "all" || cable.category === categoryFilter;
-        return matchesSearch && matchesCategory;
-    });
+    // Filter logic removed (handled by hook)
 
     const handleExcelDownload = () => {
         const data = filteredCables.map(item => ({
@@ -208,10 +217,7 @@ export default function OpticalCables() {
         }
     };
 
-    const openDialog = (item?: OpticalCable) => {
-        setEditingItem(item || null);
-        setDialogOpen(true);
-    };
+    // openDialog function removed (handled by hook)
 
     const calculateStatusColor = (status: string) => {
         switch (status) {
@@ -298,15 +304,15 @@ export default function OpticalCables() {
                             />
                         </div>
                         <div className="w-48">
-                            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="구분 선택" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">전체</SelectItem>
-                                    {categories.map(category => (
-                                        <SelectItem key={category} value={category}>
-                                            {category}
+                                    <SelectItem value="전체">전체</SelectItem>
+                                    {categories.filter(c => c !== "전체").map(category => (
+                                        <SelectItem key={String(category)} value={String(category)}>
+                                            {String(category)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -516,7 +522,7 @@ export default function OpticalCables() {
 
             <OpticalCableFormDialog
                 open={dialogOpen}
-                onOpenChange={setDialogOpen}
+                onOpenChange={(open) => !open && closeDialog()}
                 onSubmit={(data) => createMutation.mutate(data)}
                 editingItem={editingItem}
             />

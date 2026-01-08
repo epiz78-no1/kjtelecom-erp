@@ -43,6 +43,7 @@ import { useColumnResize } from "@/hooks/useColumnResize";
 
 
 import { useDownload } from "@/hooks/useDownload";
+import { useDialogState } from "@/hooks/useDialogState";
 
 export default function OutgoingRecords() {
   const { toast } = useToast();
@@ -55,8 +56,7 @@ export default function OutgoingRecords() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState<OutgoingRecord | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<OutgoingRecord | null>(null);
+  const { open: dialogOpen, editingItem: editingRecord, handleOpen: openDialog, handleClose: closeDialog, setOpen: setDialogOpen } = useDialogState<OutgoingRecord>();
 
   const { widths, startResizing } = useColumnResize({
     checkbox: 40,
@@ -171,15 +171,8 @@ export default function OutgoingRecords() {
     setSelectedIds(newSet);
   };
 
-  const openAddDialog = () => {
-    setEditingRecord(null);
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = (record: OutgoingRecord) => {
-    setEditingRecord(record);
-    setDialogOpen(true);
-  };
+  const openAddDialog = () => openDialog();
+  const openEditDialog = (record: OutgoingRecord) => openDialog(record);
 
   const handleDialogSubmit = async (data: {
     date: Date;
@@ -226,7 +219,7 @@ export default function OutgoingRecords() {
         inventoryItemId: item.inventoryItemId,
       };
 
-      setDialogOpen(false);
+      closeDialog();
       toast({ title: "수정중입니다", description: "잠시만 기다려주세요." });
 
       try {
@@ -239,7 +232,7 @@ export default function OutgoingRecords() {
 
     // 등록 모드 - 다중 저장
     try {
-      setDialogOpen(false);
+      closeDialog();
       toast({ title: "등록중입니다", description: `${validItems.length}건의 출고 등록을 진행합니다.` });
 
       let successCount = 0;
@@ -587,7 +580,7 @@ export default function OutgoingRecords() {
       {/* Dialogs */}
       <OutgoingDialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={closeDialog}
         onSubmit={handleDialogSubmit}
         editingRecord={editingRecord}
         inventoryItems={inventoryItems}

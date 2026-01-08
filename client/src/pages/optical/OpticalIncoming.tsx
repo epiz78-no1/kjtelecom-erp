@@ -32,15 +32,16 @@ import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 
 import { useDownload } from "@/hooks/useDownload";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 export default function OpticalIncoming() {
-    const [searchQuery, setSearchQuery] = useState("");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const { tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
-    const [editingCable, setEditingCable] = useState<OpticalCable | null>(null);
+    const { open: dialogOpen, editingItem: editingCable, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCable>();
     const { downloadFile } = useDownload();
 
     const { widths, startResizing } = useColumnResize({
@@ -102,7 +103,7 @@ export default function OpticalIncoming() {
                 title: "수정 완료",
                 description: "광케이블 정보가 수정되었습니다.",
             });
-            setEditingCable(null);
+            closeDialog();
         },
         onError: (error: Error) => {
             toast({
@@ -143,11 +144,16 @@ export default function OpticalIncoming() {
 
     const incomingLogs = logs.filter(l => l.logType === 'receive' || l.logType === 'create');
 
-    const filteredLogs = incomingLogs.filter(log => {
-        const searchLower = searchQuery.toLowerCase();
-        const drumNo = log.cable?.drumNo?.toLowerCase() || '';
-        const spec = log.cable?.spec?.toLowerCase() || '';
-        return drumNo.includes(searchLower) || spec.includes(searchLower);
+    const {
+        searchQuery,
+        setSearchQuery,
+        filteredItems: filteredLogs
+    } = useTableFilters(incomingLogs.map(log => ({
+        ...log,
+        drumNo: log.cable?.drumNo || '',
+        spec: log.cable?.spec || ''
+    })), {
+        searchFields: ["drumNo", "spec"]
     });
 
     const allSelected = filteredLogs.length > 0 && filteredLogs.every(log => selectedIds.has(log.id));
@@ -381,7 +387,7 @@ export default function OpticalIncoming() {
                                                     <DropdownMenuItem
                                                         onClick={() => {
                                                             if (log.cable) {
-                                                                setEditingCable(log.cable);
+                                                                openDialog(log.cable);
                                                             }
                                                         }}
                                                     >
@@ -414,7 +420,7 @@ export default function OpticalIncoming() {
             <OpticalCableFormDialog
                 open={!!editingCable}
                 onOpenChange={(open) => {
-                    if (!open) setEditingCable(null);
+                    if (!open) closeDialog();
                 }}
                 editingItem={editingCable}
                 onSubmit={(data) => updateMutation.mutate(data)}
