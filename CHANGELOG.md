@@ -1,6 +1,12 @@
 # Changelog
 
-## [v1.2.8] - 2026-01-08 (Hotfix)
+## v1.2.9 (2026-01-08) - 긴급 핫픽스
+
+### 🐛 버그 수정
+- **조직 관리 팀 memberCount 누락**: 백엔드 리팩터링 시 누락된 memberCount 계산 로직 복구
+- **E-Type 함체 중복 데이터**: 운영 서버에서 중복 생성된 재고 0 항목 삭제
+
+## v1.2.8 (2026-01-08) - 긴급 핫픽스(Hotfix)
 ### 🐞 Bug Fixes (Critical)
 - **멤버 관리 페이지 오류 수정**:
   - `AdminMembers.tsx`: `joinDate`가 null인 경우 Invalid Date 오류 발생 문제 해결
