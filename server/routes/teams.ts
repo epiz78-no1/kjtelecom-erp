@@ -68,6 +68,9 @@ export function registerTeamsRoutes(app: Express) {
         const divisionList = await storage.getDivisions(tenantId);
         const divisionMap = new Map(divisionList.map(d => [d.id, d.name]));
 
+        // Fetch members to calculate memberCount for each team
+        const members = await storage.getMembers(tenantId);
+
         const usageRecords = await storage.getMaterialUsageRecords(tenantId);
         const outgoingRecords = await storage.getOutgoingRecords(tenantId);
 
@@ -104,9 +107,13 @@ export function registerTeamsRoutes(app: Express) {
                 }
             }
 
+            // Calculate memberCount for this team
+            const memberCount = members.filter(m => m.teamId === team.id).length;
+
             return {
                 ...team,
                 divisionName: divisionMap.get(team.divisionId) || "",
+                memberCount,
                 lastActivity
             };
         });
