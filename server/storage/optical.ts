@@ -7,14 +7,9 @@ import { db } from "../db.js";
 import { eq, and, desc, inArray } from "drizzle-orm";
 
 export class OpticalStorage {
-    async getOpticalCables(tenantId: string): Promise<(OpticalCable & { logs: OpticalCableLog[] })[]> {
+    async getOpticalCables(tenantId: string): Promise<OpticalCable[]> {
         return await db.query.opticalCables.findMany({
             where: eq(opticalCables.tenantId, tenantId),
-            with: {
-                logs: {
-                    orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)]
-                }
-            },
             orderBy: [desc(opticalCables.createdAt)]
         });
     }
@@ -64,25 +59,41 @@ export class OpticalStorage {
 
     // Logs
     async getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]> {
-        return await db.query.opticalCableLogs.findMany({
-            where: and(
+        const { users } = await import("../../shared/schema.js");
+        const { getTableColumns } = await import("drizzle-orm");
+
+        const records = await db.select({
+            ...getTableColumns(opticalCableLogs),
+            createdByName: users.name
+        })
+            .from(opticalCableLogs)
+            .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
+            .where(and(
                 eq(opticalCableLogs.cableId, cableId),
                 eq(opticalCableLogs.tenantId, tenantId)
-            ),
-            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)]
-        });
+            ))
+            .orderBy(desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id));
+
+        return records as OpticalCableLog[];
     }
 
     // For unified log view
     async getAllOpticalCableLogs(tenantId: string): Promise<(OpticalCableLog & { cable: OpticalCable | null })[]> {
-        // To minimize data, avoiding large joins if possible, but user needs cable details?
-        return await db.query.opticalCableLogs.findMany({
-            where: eq(opticalCableLogs.tenantId, tenantId),
-            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)],
-            with: {
-                cable: true
-            }
-        });
+        const { users } = await import("../../shared/schema.js");
+        const { getTableColumns } = await import("drizzle-orm");
+
+        const records = await db.select({
+            ...getTableColumns(opticalCableLogs),
+            createdByName: users.name,
+            cable: opticalCables
+        })
+            .from(opticalCableLogs)
+            .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
+            .leftJoin(opticalCables, eq(opticalCableLogs.cableId, opticalCables.id))
+            .where(eq(opticalCableLogs.tenantId, tenantId))
+            .orderBy(desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id));
+
+        return records as (OpticalCableLog & { cable: OpticalCable | null })[];
     }
 
     async getOpticalCableLog(id: string, tenantId: string): Promise<OpticalCableLog | undefined> {
@@ -124,12 +135,23 @@ export class OpticalStorage {
             if (log.logType === 'assign') {
                 // 불출: 팀 할당, 상태 변경
                 if (!log.teamId) throw new Error("Team ID is required for assignment");
+
+                // 예약된 자재인지 확인
+                if (cable.reservationStatus === 'reserved') {
+                    throw new Error(`이 자재는 현재 예약되어 있습니다 (${cable.reservedForProject}). 예약을 먼저 해제해주세요.`);
+                }
+
                 updates.currentTeamId = log.teamId;
                 updates.status = 'assigned';
             } else if (log.logType === 'return') {
                 // 반납: 팀 해제, 상태 변경 (창고)
                 updates.currentTeamId = null;
                 updates.status = 'in_stock';
+                // 반납 시 예약 상태도 초기화할지? -> 보통 반납되면 새로운 자재가 되므로 초기화가 맞음.
+                updates.reservationStatus = 'none';
+                updates.reservedForProject = null;
+                updates.reservedBy = null;
+                updates.reservedAt = null;
             } else if (log.logType === 'usage') {
                 // 사용: 길이 차감
                 // 설치 길이와 폐기 길이를 합쳐서 총 사용량 계산
@@ -215,5 +237,21 @@ export class OpticalStorage {
             const result = await tx.delete(opticalCableLogs).where(eq(opticalCableLogs.id, id)).returning();
             return result.length > 0;
         });
+    }
+
+    async updateCableReservation(id: string, reservation: { status: string, project?: string, by?: string }, tenantId: string): Promise<OpticalCable> {
+        const [updated] = await db.update(opticalCables)
+            .set({
+                reservationStatus: reservation.status,
+                reservedForProject: reservation.project || null,
+                reservedBy: reservation.by || null,
+                reservedAt: reservation.status === 'reserved' ? new Date() : null,
+                updatedAt: new Date()
+            })
+            .where(and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId)))
+            .returning();
+
+        if (!updated) throw new Error("Cable not found");
+        return updated;
     }
 }
