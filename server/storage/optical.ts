@@ -7,14 +7,9 @@ import { db } from "../db.js";
 import { eq, and, desc, inArray } from "drizzle-orm";
 
 export class OpticalStorage {
-    async getOpticalCables(tenantId: string): Promise<(OpticalCable & { logs: OpticalCableLog[] })[]> {
+    async getOpticalCables(tenantId: string): Promise<OpticalCable[]> {
         return await db.query.opticalCables.findMany({
             where: eq(opticalCables.tenantId, tenantId),
-            with: {
-                logs: {
-                    orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)]
-                }
-            },
             orderBy: [desc(opticalCables.createdAt)]
         });
     }

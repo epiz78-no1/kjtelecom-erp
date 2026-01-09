@@ -260,7 +260,7 @@ export default function Inventory() {
         "사업": item.category,
         "품명": item.productName,
         "규격": item.specification,
-        "재고현황": totalStock,
+        "자재현황": totalStock,
         "현장팀 보유재고": teamStock,
         "사무실 보유재고": officeStock,
         "단가": item.unitPrice,
@@ -268,7 +268,7 @@ export default function Inventory() {
       };
     });
 
-    exportToExcel(dataToExport, "재고현황");
+    exportToExcel(dataToExport, "자재현황");
   };
 
   if (isLoading) {
@@ -284,7 +284,7 @@ export default function Inventory() {
       <div className="flex-shrink-0 space-y-4 pb-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">일반자재 재고현황</h1>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">일반자재 자재현황</h1>
             <p className="text-muted-foreground">자재별 재고 수량과 상태를 확인합니다</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -407,7 +407,7 @@ export default function Inventory() {
                   />
                 </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.totalStock }}>
-                  재고현황
+                  자재현황
                   <div
                     className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
                     onMouseDown={(e) => startResizing("totalStock", e)}

@@ -60,24 +60,29 @@ export default function FieldOpticalUsage() {
     const canManage = canWrite && !isFieldTeam;
     const canRegister = true;
 
-    const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
+    const { data: cables = [], isLoading } = useQuery<OpticalCable[]>({
         queryKey: ["/api/optical-cables"],
+    });
+
+    // 모든 광케이블의 사용 로그를 개별적으로 조회
+    const { data: allCableLogs = [] } = useQuery<OpticalCableLog[]>({
+        queryKey: ["/api/optical-cables/logs"],
+        enabled: cables.length > 0,
     });
 
     // Extract all usage logs
     const allLogs = useMemo(() => {
         const logs: (OpticalCableLog & { cable: OpticalCable })[] = [];
-        cables.forEach(cable => {
-            if (cable.logs) {
-                cable.logs
-                    .filter(log => log.logType === 'usage')
-                    .forEach(log => {
-                        logs.push({ ...log, cable });
-                    });
-            }
-        });
+        allCableLogs
+            .filter(log => log.logType === 'usage')
+            .forEach(log => {
+                const cable = cables.find(c => c.id === log.cableId);
+                if (cable) {
+                    logs.push({ ...log, cable });
+                }
+            });
         return logs.sort((a, b) => new Date(b.usageDate || b.createdAt).getTime() - new Date(a.usageDate || a.createdAt).getTime());
-    }, [cables]);
+    }, [cables, allCableLogs]);
 
     const {
         searchQuery,

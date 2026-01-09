@@ -478,6 +478,11 @@ export const opticalCables = pgTable("optical_cables", {
   unitPrice: integer("unit_price").notNull().default(0),
   totalAmount: integer("total_amount").notNull().default(0),
   currentTeamId: varchar("current_team_id").references(() => teams.id), // Currently assigned team
+  // Reservation fields
+  reservationStatus: text("reservation_status").notNull().default("none"), // 'none', 'reserved'
+  reservedForProject: text("reserved_for_project"), // 예약된 공사명
+  reservedBy: varchar("reserved_by").references(() => users.id), // 예약자
+  reservedAt: timestamp("reserved_at"), // 예약 일시
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

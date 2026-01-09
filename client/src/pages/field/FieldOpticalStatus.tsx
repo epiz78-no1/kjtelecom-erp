@@ -1,4 +1,4 @@
-import { Download, Search, Loader2, Cable } from "lucide-react";
+import { Download, Search, Loader2, Cable, MoreHorizontal, ArrowLeftRight, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { exportToExcel } from "@/lib/excel";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { OpticalActionDialog } from "@/components/OpticalActionDialog";
 import {
     Select,
     SelectContent,
@@ -23,10 +24,27 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function FieldOpticalStatus() {
-    const { divisions, teams: allTeams, checkPermission } = useAppContext();
+    const { tenants, currentTenant, divisions, teams: allTeams, checkPermission } = useAppContext();
     const canWrite = checkPermission("usage", "write");
+
+    const currentTenantData = tenants.find(t => t.id === currentTenant);
+    const isFieldTeam = currentTenantData?.permissions &&
+        currentTenantData.permissions.usage === 'write' &&
+        currentTenantData.permissions.incoming === 'none' &&
+        currentTenantData.permissions.outgoing === 'none' &&
+        currentTenantData.permissions.inventory === 'none';
+
+    const canManage = canWrite && !isFieldTeam;
+    // 현장팀이거나 관리자면 반납/폐기 가능
+    const canAction = canManage || isFieldTeam;
 
     const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
         queryKey: ["/api/optical-cables"],
@@ -36,30 +54,28 @@ export default function FieldOpticalStatus() {
     const assignedCables = cables.filter(c => c.status === 'assigned' && c.currentTeamId);
 
     // Aggregate by team
-    const stockMap = new Map<string, any>();
+    // ... (기존 로직 유지하되, action을 위해 개별 항목 식별자 필요)
+    // 현재 로직은 group by key를 함. 하지만 개별 드럼 단위로 보여주므로 stockMap key가 unique identifier가 됨.
+    // 하지만 Action을 하려면 cableId가 필요함.
+    // assignedCables 자체가 개별 드럼 리스트이므로, 굳이 stockMap으로 묶을 필요 없이 바로 써도 됨.
+    // 다만, 기존 코드가 stockMap을 쓰는 이유는 중복 드럼이 없어서 그런듯? (assignedCables는 이미 개별 row)
 
-    assignedCables.forEach(cable => {
+    const allStockItems = assignedCables.map(cable => {
         const team = allTeams.find(t => t.id === cable.currentTeamId);
-        if (!team) return;
-
-        const division = divisions?.find(d => d.id === team.divisionId);
+        const division = divisions?.find(d => d.id === team?.divisionId);
         const divisionName = division?.name || 'SKT';
 
-        const key = `${divisionName}|${team.name}|${cable.drumNo}|${cable.spec}`;
-        if (!stockMap.has(key)) {
-            stockMap.set(key, {
-                id: key,
-                division: divisionName,
-                teamCategory: team.name,
-                drumNo: cable.drumNo,
-                spec: cable.spec,
-                coreCount: cable.coreCount,
-                remainingLength: cable.remainingLength
-            });
-        }
+        return {
+            id: cable.id, // 케이블 ID 사용
+            division: divisionName,
+            teamCategory: team?.name || '',
+            drumNo: cable.drumNo,
+            spec: cable.spec,
+            coreCount: cable.coreCount,
+            remainingLength: cable.remainingLength,
+            currentTeamId: cable.currentTeamId
+        };
     });
-
-    const allStockItems = Array.from(stockMap.values());
 
     const {
         searchQuery,
@@ -75,6 +91,17 @@ export default function FieldOpticalStatus() {
         divisionField: "division",
         categoryField: "teamCategory"
     });
+
+    // Action Dialog State
+    const [actionOpen, setActionOpen] = useState(false);
+    const [selectedCable, setSelectedCable] = useState<typeof allStockItems[0] | null>(null);
+    const [actionType, setActionType] = useState<'return' | 'waste'>('return');
+
+    const handleOpenAction = (cable: typeof allStockItems[0], type: 'return' | 'waste') => {
+        setSelectedCable(cable);
+        setActionType(type);
+        setActionOpen(true);
+    };
 
     const uniqueDivisions = ["전체", ...Array.from(new Set(allStockItems.map(item => item.division))).filter(Boolean)];
 
@@ -183,8 +210,8 @@ export default function FieldOpticalStatus() {
                 </div>
             </div>
 
-            <div className="flex-1 rounded-md border overflow-hidden">
-                <div className="h-full overflow-auto relative">
+            <div className="flex-1 rounded-md border bg-background overflow-hidden relative">
+                <div className="h-full overflow-auto">
                     <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                             <TableRow className="h-10">
@@ -194,12 +221,13 @@ export default function FieldOpticalStatus() {
                                 <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
                                 <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">코어</TableHead>
                                 <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">잔량(m)</TableHead>
+                                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredStock.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                         보유 중인 광케이블이 없습니다
                                     </TableCell>
                                 </TableRow>
@@ -214,6 +242,30 @@ export default function FieldOpticalStatus() {
                                         <TableCell className="text-center align-middle font-bold">
                                             {item.remainingLength.toLocaleString()}
                                         </TableCell>
+                                        <TableCell className="text-center align-middle">
+                                            {canAction && (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => handleOpenAction(item, 'return')}>
+                                                            <ArrowLeftRight className="mr-2 h-4 w-4" />
+                                                            사무실 반납
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleOpenAction(item, 'waste')}
+                                                            className="text-destructive"
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            폐기 처리
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            )}
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
@@ -221,6 +273,13 @@ export default function FieldOpticalStatus() {
                     </table>
                 </div>
             </div>
+
+            <OpticalActionDialog
+                open={actionOpen}
+                onOpenChange={setActionOpen}
+                cable={selectedCable}
+                actionType={actionType}
+            />
         </div>
     );
 }

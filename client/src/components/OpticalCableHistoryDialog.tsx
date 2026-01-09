@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -16,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import OpticalAssignmentDialog from "./OpticalAssignmentDialog";
+import { OpticalReserveDialog } from "./OpticalReserveDialog";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { format } from "date-fns";
 import { useAppContext } from "@/contexts/AppContext";
@@ -29,6 +31,9 @@ interface OpticalCableHistoryDialogProps {
 
 export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo }: OpticalCableHistoryDialogProps) {
     const { teams } = useAppContext();
+    const [reserveDialogOpen, setReserveDialogOpen] = useState(false);
+    const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+    const previousStatusRef = useRef<string | undefined>();
 
     const { data: cable } = useQuery<OpticalCable>({
         queryKey: [`/api/optical-cables/${cableId}`],
@@ -39,6 +44,18 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
         queryKey: [`/api/optical-cables/${cableId}/logs`],
         enabled: !!cableId && open,
     });
+
+    // Detect cable status change (e.g., from in_stock to assigned)
+    useEffect(() => {
+        if (cable && previousStatusRef.current && previousStatusRef.current !== cable.status) {
+            // Status changed, likely due to assignment or other action
+            // Close the history dialog
+            onOpenChange(false);
+        }
+        if (cable) {
+            previousStatusRef.current = cable.status;
+        }
+    }, [cable?.status, onOpenChange]);
 
     const getLogTypeLabel = (type: string) => {
         switch (type) {
@@ -63,7 +80,14 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                 <DialogHeader className="flex flex-row items-center justify-between">
                     <DialogTitle className="text-xl">이력 조회 - 제조번호 {drumNo}</DialogTitle>
                     {cable?.status === 'in_stock' && (
-                        <div className="mr-8">
+                        <div className="mr-8 flex gap-2">
+                            <Button
+                                size="sm"
+                                variant={cable?.reservationStatus === 'reserved' ? 'outline' : 'default'}
+                                onClick={() => setReserveDialogOpen(true)}
+                            >
+                                {cable?.reservationStatus === 'reserved' ? '예약 해제' : '예약'}
+                            </Button>
                             <OpticalAssignmentDialog
                                 initialCableId={cableId}
                                 trigger={<Button size="sm">출고 등록</Button>}
@@ -125,6 +149,25 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                     </div>
                 )}
             </DialogContent>
+
+            {/* Reserve Dialog */}
+            <OpticalReserveDialog
+                open={reserveDialogOpen}
+                onOpenChange={(open) => {
+                    setReserveDialogOpen(open);
+                    if (!open) {
+                        // Close history dialog when reserve dialog closes
+                        onOpenChange(false);
+                    }
+                }}
+                cable={cable ? {
+                    id: cable.id,
+                    drumNo: cable.drumNo,
+                    spec: cable.spec,
+                    reservationStatus: cable.reservationStatus,
+                    reservedForProject: cable.reservedForProject
+                } : null}
+            />
         </Dialog>
     );
 }

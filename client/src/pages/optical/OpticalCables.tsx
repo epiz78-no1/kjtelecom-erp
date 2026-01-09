@@ -53,7 +53,7 @@ export default function OpticalCables() {
     const { user, tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
-    const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
+    const { data: cables = [], isLoading } = useQuery<OpticalCable[]>({
         queryKey: ["/api/optical-cables"],
     });
 
