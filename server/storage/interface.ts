@@ -72,7 +72,7 @@ export interface IStorage {
     getMaterialUsageRecord(id: number, tenantId: string): Promise<MaterialUsageRecord | undefined>;
     createMaterialUsageRecord(record: InsertMaterialUsageRecord): Promise<MaterialUsageRecord>;
     updateMaterialUsageRecord(id: number, updates: Partial<InsertMaterialUsageRecord>, tenantId: string): Promise<MaterialUsageRecord | undefined>;
-    getTeamItemStock(tenantId: string, teamCategory: string, productName: string, specification: string, division: string): Promise<number>;
+    getTeamItemStock(tenantId: string, teamCategory: string, inventoryItemId: number): Promise<number>;
     calculateInventoryStats(tenantId: string, productName: string, specification: string, division: string): Promise<{ totalIncoming: number; totalSentToTeam: number; totalUsage: number }>;
     deleteMaterialUsageRecord(id: number, tenantId: string): Promise<boolean>;
     bulkDeleteMaterialUsageRecords(ids: number[], tenantId: string): Promise<number>;

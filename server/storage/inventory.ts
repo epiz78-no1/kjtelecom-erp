@@ -316,14 +316,19 @@ export class InventoryStorage {
     }
 
     // Material Usage
-    async getMaterialUsageRecords(tenantId: string): Promise<MaterialUsageRecord[]> {
+    async getMaterialUsageRecords(tenantId: string, teamCategory?: string): Promise<MaterialUsageRecord[]> {
+        const conditions = [eq(materialUsageRecords.tenantId, tenantId)];
+        if (teamCategory) {
+            conditions.push(eq(materialUsageRecords.teamCategory, teamCategory));
+        }
+
         const records = await db.select({
             ...getTableColumns(materialUsageRecords),
             createdByName: users.name
         })
             .from(materialUsageRecords)
             .leftJoin(users, eq(materialUsageRecords.createdBy, users.id))
-            .where(eq(materialUsageRecords.tenantId, tenantId))
+            .where(and(...conditions))
             .orderBy(desc(materialUsageRecords.date), desc(materialUsageRecords.id));
 
         return records.map(record => {
@@ -379,11 +384,8 @@ export class InventoryStorage {
         return result.length;
     }
 
-    async getTeamItemStock(tenantId: string, teamCategory: string, productName: string, specification: string, division: string): Promise<number> {
-        // 1. Calculate Total Outgoing to this team (or category)
-        // Note: 'teamCategory' usage in Outgoing is actually storing Team Name or "외주팀" etc.
-        // Ideally we match by teamId if possible, but legacy logic uses category/name matching often.
-        // Let's match by teamCategory (string) field in outgoingRecords.
+    async getTeamItemStock(tenantId: string, teamCategory: string, inventoryItemId: number): Promise<number> {
+        // 1. Calculate Total Outgoing to this team
         const outgoing = await db.select({
             total: sql<number>`sum(${outgoingRecords.quantity})`
         })
@@ -391,9 +393,7 @@ export class InventoryStorage {
             .where(and(
                 eq(outgoingRecords.tenantId, tenantId),
                 eq(outgoingRecords.teamCategory, teamCategory),
-                eq(outgoingRecords.productName, productName),
-                eq(outgoingRecords.specification, specification),
-                eq(outgoingRecords.division, division)
+                eq(outgoingRecords.inventoryItemId, inventoryItemId)
             ));
 
         // 2. Calculate Total Usage by this team
@@ -404,9 +404,7 @@ export class InventoryStorage {
             .where(and(
                 eq(materialUsageRecords.tenantId, tenantId),
                 eq(materialUsageRecords.teamCategory, teamCategory),
-                eq(materialUsageRecords.productName, productName),
-                eq(materialUsageRecords.specification, specification),
-                eq(materialUsageRecords.division, division)
+                eq(materialUsageRecords.inventoryItemId, inventoryItemId)
             ));
 
         const totalIn = outgoing[0]?.total || 0;

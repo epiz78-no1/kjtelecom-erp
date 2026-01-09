@@ -25,7 +25,83 @@
 
 ---
 
-## 2. 폴더 구조 및 파일 명명 규칙
+## 2. 핵심 개발 원칙 (Core Development Principles)
+
+### A. 엔티티 간 참조는 반드시 ID(외래키) 사용 ⭐ **NEW**
+
+**원칙**: 모든 엔티티 간 관계 및 자재 관련 로직은 **문자열 매칭 대신 ID(외래키) 기반 매핑**을 사용해야 합니다.
+
+#### 🎯 왜 중요한가?
+- **문자열 매칭**은 띄어쓰기, 대소문자, NULL vs "" 등 미세한 차이로 인해 매칭 실패 가능
+- **ID 매칭**은 데이터 정합성을 보장하고 성능도 우수 (정수 비교 \u003e 문자열 비교)
+
+#### ❌ 잘못된 예시 (문자열 매칭)
+```typescript
+// 재고 계산 시 문자열로 매칭
+const stock = await db.select()
+  .from(outgoingRecords)
+  .where(and(
+    eq(outgoingRecords.productName, productName),      // ❌ 문자열
+    eq(outgoingRecords.specification, specification),  // ❌ NULL != ""
+    eq(outgoingRecords.division, division)             // ❌ "SKT " != "SKT"
+  ));
+```
+
+#### ✅ 올바른 예시 (ID 매칭)
+```typescript
+// 재고 계산 시 ID로 매칭
+const stock = await db.select()
+  .from(outgoingRecords)
+  .where(and(
+    eq(outgoingRecords.tenantId, tenantId),
+    eq(outgoingRecords.inventoryItemId, inventoryItemId)  // ✅ ID
+  ));
+```
+
+#### 📋 적용 규칙
+
+1. **DB 스키마**: 모든 트랜잭션 테이블은 `inventoryItemId` 외래키 필수
+   ```typescript
+   export const materialUsageRecords = pgTable("material_usage_records", {
+     inventoryItemId: integer("inventory_item_id")
+       .references(() =\u003e inventoryItems.id),  // ✅ 외래키 설정
+     // productName, specification은 참고용으로만 유지
+   });
+   ```
+
+2. **비즈니스 로직**: 재고 계산, 매칭, 필터링은 모두 ID 기반
+   - `getTeamItemStock(tenantId, teamCategory, inventoryItemId)`  ✅
+   - `getTeamItemStock(tenantId, teamCategory, productName, spec, div)`  ❌
+
+3. **API 요청**: 프론트엔드는 항상 `inventoryItemId` 전송
+   ```typescript
+   // ✅ 올바른 API 요청
+   const data = {
+     inventoryItemId: item.inventoryItemId,  // ✅ ID 전송
+     // productName, specification은 표시용
+   };
+   ```
+
+4. **Validation**: `inventoryItemId` 필수 체크
+   ```typescript
+   if (!parseResult.data.inventoryItemId) {
+     return res.status(400).json({
+       error: "inventoryItemId가 필요합니다. 품목을 다시 선택해주세요."
+     });
+   }
+   ```
+
+#### 🔄 마이그레이션 가이드
+
+기존 문자열 매칭 코드를 발견하면:
+1. 먼저 DB에 `inventoryItemId`가 제대로 채워져 있는지 확인
+2. 함수 시그니처를 ID 기반으로 변경
+3. 호출하는 모든 곳도 함께 수정
+4. TypeScript 컴파일 에러로 누락 확인
+
+---
+
+## 3. 폴더 구조 및 파일 명명 규칙
 
 ### Frontend (`client/src`)
 - **Pages**: `/pages/[Category]/[Feature].tsx` (PascalCase)

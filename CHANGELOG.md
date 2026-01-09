@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.2.10 (2026-01-09) - 재고 추적 시스템 근본 개선
+
+### 🎯 Critical Fix (중대 버그 수정)
+- **재고 부족 오류 근본 해결**:
+  - 간헐적으로 발생하던 "재고가 있는데도 '재고 부족' 메시지" 오류 완전히 제거
+  - 원인: `getTeamItemStock` 함수가 문자열 매칭(`productName + specification + division`)을 사용하여 미세한 차이(띄어쓰기 등)로 매칭 실패
+  - 해결: 재고 계산 로직을 **ID 기반 매핑**(`inventoryItemId`)으로 전환
+  - 영향 파일:
+    - `server/storage/inventory.ts`: `getTeamItemStock` 함수 시그니처 변경
+    - `server/routes/inventory.ts`: POST `/api/material-usage` 엔드포인트 수정
+    - `server/storage/interface.ts`: 인터페이스 정의 업데이트
+
+### 📊 Performance Improvements
+- **쿼리 성능 향상**: 문자열 비교 → 정수 비교로 전환하여 재고 조회 속도 개선
+- **인덱스 활용**: `inventoryItemId` 외래키 인덱스 활용으로 대용량 데이터 환경에서도 빠른 응답 보장
+
+### ♻️ Architecture Improvements
+- **데이터 정합성 강화**: ID 기반 참조로 품명 변경 시에도 기존 데이터 추적 가능
+- **유지보수성 향상**: 명확한 관계 정의로 코드 가독성 및 안정성 증대
+
+### 📋 Project Standards (프로젝트 표준)
+- **NEW RULE**: 모든 자재 관련 로직은 문자열 매핑 대신 `inventoryItemId` 키값 매핑 사용 원칙 확립
+- `PROJECT_RULES.md` 업데이트: "엔티티 간 참조는 반드시 ID(외래키)를 사용" 규칙 추가
+
 ## v1.2.9 (2026-01-08) - 긴급 핫픽스
 
 ### 🐛 버그 수정

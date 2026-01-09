@@ -411,7 +411,8 @@ export function registerInventoryRoutes(app: Express) {
     // Material Usage API
     app.get("/api/material-usage", requireAuth, requireTenant, async (req, res) => {
         const tenantId = req.session!.tenantId!;
-        const records = await storage.getMaterialUsageRecords(tenantId);
+        const teamCategory = req.query.teamCategory as string | undefined;
+        const records = await storage.getMaterialUsageRecords(tenantId, teamCategory);
         res.json(records);
     });
 
@@ -438,12 +439,15 @@ export function registerInventoryRoutes(app: Express) {
 
             const tenantId = req.session!.tenantId!;
 
+            // inventoryItemId가 필수입니다
+            if (!parseResult.data.inventoryItemId) {
+                return res.status(400).json({ error: "inventoryItemId가 필요합니다. 품목을 다시 선택해주세요." });
+            }
+
             const teamStock = await storage.getTeamItemStock(
                 tenantId,
                 parseResult.data.teamCategory,
-                parseResult.data.productName,
-                parseResult.data.specification,
-                parseResult.data.division || "SKT"
+                parseResult.data.inventoryItemId
             );
 
             if (teamStock < parseResult.data.quantity) {

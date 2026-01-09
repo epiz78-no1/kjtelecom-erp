@@ -168,9 +168,54 @@ export default function TeamMaterialUsage() {
     }
   }, [dialogOpen, refetchMembers]);
 
+  // Derived state for team/division filters
+  // If field team, we override these for display/logic
+  // (Moved up for useQuery)
+  const currentTeamName = isFieldTeam && currentTenantData?.teamId
+    ? teams.find(t => t.id === currentTenantData.teamId)?.name
+    : null;
+
   const { data: records = [], isLoading } = useQuery<MaterialUsageRecord[]>({
-    queryKey: ["/api/material-usage"],
+    queryKey: isFieldTeam && currentTeamName
+      ? ["/api/material-usage", { teamCategory: currentTeamName }]
+      : ["/api/material-usage"],
+    queryFn: async () => {
+      const url = isFieldTeam && currentTeamName
+        ? `/api/material-usage?teamCategory=${encodeURIComponent(currentTeamName)}`
+        : "/api/material-usage";
+      const res = await apiRequest("GET", url);
+      return res.json();
+    }
   });
+
+  // [NEW] Permission-based filtering
+  // 현장팀은 본인 팀의 기록만 볼 수 있어야 함
+  const filteredRecordsByPermission = useMemo(() => {
+    // 관리자나 다른 권한은 전체 보기
+    if (!isFieldTeam) return records;
+
+    // 현장팀이고 팀 정보가 있으면 필터링
+    if (currentTenantData?.teamId) {
+      const myTeamId = String(currentTenantData.teamId);
+      // Find my team name for legacy data matching
+      const myTeamName = teams.find(t => String(t.id) === myTeamId)?.name;
+
+      return records.filter(r => {
+        // 1. Match by Team ID (Primary)
+        if (r.teamId && String(r.teamId) === myTeamId) return true;
+
+        // 2. Match by Team Name (Legacy/Fallback) - Only if Record ID is missing but Name matches
+        // (Note: r.teamCategory holds the team name)
+        if (myTeamName && r.teamCategory === myTeamName) return true;
+
+        return false;
+      });
+    }
+
+    // 팀 정보가 없는 현장팀은 (이론상 없어야 하지만) 빈 배열 혹은 전체? -> 보안상 빈 배열이 안전하나 현재는 전체 리턴 후 로직 흐름 유지
+    // 하지만 "내 팀"을 못 찾으면 아무 것도 안 보여주는 게 맞음.
+    return records;
+  }, [records, isFieldTeam, currentTenantData, teams]);
 
   const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory"],
@@ -247,28 +292,32 @@ export default function TeamMaterialUsage() {
     });
 
     // Sum Used (from local records) -- Filter usage by THIS Team
-    const teamUsage = records.filter(r => r.teamCategory === formData.teamCategory);
+    // 여기서도 filteredRecordsByPermission 사용하는게 맞음 (일관성)
+    const teamUsage = filteredRecordsByPermission.filter(r => r.teamCategory === formData.teamCategory);
 
     teamUsage.forEach(r => {
       // Find matching item in inventoryMap
-      // Priority 1: Match by ID
-      // Priority 2: Match by Name + Spec
-      for (const item of Array.from(inventoryMap.values())) {
-        const matchById = r.inventoryItemId && item.inventoryItemId && r.inventoryItemId === item.inventoryItemId;
-        const matchByName = r.productName === item.productName && (r.specification || "") === (item.specification || "");
+      let foundKey = "";
+      if (r.inventoryItemId) {
+        foundKey = `ID:${r.inventoryItemId}`;
+      } else {
+        foundKey = `${r.productName}|${r.specification}`;
+      }
 
-        if (matchById || matchByName) {
-          item.used += r.quantity;
-          break; // Assume one usage record affects one inventory item type
-        }
+      const entry = inventoryMap.get(foundKey);
+      if (entry) {
+        entry.used += r.quantity;
       }
     });
 
-    // Return items with remaining > 0
+    // Return items with remaining > 0 (Calculate remaining here)
     return Array.from(inventoryMap.values())
-      .map(item => ({ ...item, remaining: item.received - item.used }))
+      .map(item => ({
+        ...item,
+        remaining: item.received - item.used
+      }))
       .filter(item => item.remaining > 0);
-  }, [outgoingRecords, records, formData.teamCategory, teams]);
+  }, [formData.teamCategory, outgoingRecords, filteredRecordsByPermission]); // Dependencies updated
 
   const createMutation = useMutation({
     mutationFn: async (data: Omit<MaterialUsageRecord, "id" | "tenantId">) => {
@@ -278,9 +327,11 @@ export default function TeamMaterialUsage() {
       queryClient.invalidateQueries({ queryKey: ["/api/material-usage"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       toast({ title: "사용 내역이 등록되었습니다" });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      toast({ title: "사용 내역이 수정되었습니다" });
     },
     onError: (error: any) => {
-      const errorMessage = error?.message || "등록 실패";
+      const errorMessage = error?.message || "수정 실패";
       toast({
         title: "등록 실패",
         description: errorMessage,
@@ -354,28 +405,20 @@ export default function TeamMaterialUsage() {
     exportToExcel(dataToExport, "팀자재사용내역");
   };
 
-  // 1. Permission Filter
-  const permissionFilteredRaw = isOwnOnly
-    ? records.filter(r => r.recipient === user?.name)
-    : records;
-
   // 2. Table Filters (Search & Category) via Hook
   const {
     searchQuery,
     setSearchQuery,
+    selectedDivision,
+    setSelectedDivision,
     selectedCategory,
     setSelectedCategory,
     filteredItems: filteredRecords
-  } = useTableFilters(permissionFilteredRaw, {
+  } = useTableFilters(filteredRecordsByPermission, {
     searchFields: ["productName", "projectName", "recipient", "teamCategory", "specification"],
-    categoryField: "category"
+    divisionField: "division",
+    categoryField: "teamCategory",
   });
-  // 2. Table Filters (Search & Category)
-
-  // Wait, the hook handles category and search.
-  // If we want permission filter to be base, we pass permissionFiltered to hook.
-
-  /* Re-implementing with correct flow */
 
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
   const totalRecords = filteredRecords.length;
@@ -696,21 +739,31 @@ export default function TeamMaterialUsage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
 
-            <div className="w-[180px]">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger data-testid="select-category">
-                  <SelectValue placeholder="사업 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="전체">전체</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Field Team Badge or Filter Select */}
+            {isFieldTeam ? (
+              <div className="flex items-center gap-2 px-3 py-1 bg-secondary/50 rounded-md border border-secondary">
+                <span className="text-sm font-medium text-muted-foreground">내 팀:</span>
+                <span className="text-sm font-bold text-primary">{currentTeamName || "팀 정보 없음"}</span>
+              </div>
+            ) : (
+              <div className="w-[180px]">
+                {/* useTableFilters에서 제공하는 selectedCategory(원래 teamCategory)를 사용 */}
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger data-testid="select-category">
+                    <SelectValue placeholder="팀 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="전체">전체 (팀)</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {canManage && (
               <>
                 <Button
