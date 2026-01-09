@@ -67,7 +67,7 @@ app.use(session({
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // FIXME: Revert to 'process.env.NODE_ENV === "production"' after diagnosing login issue
     sameSite: 'lax'
   }
 }));
