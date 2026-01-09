@@ -145,6 +145,14 @@ const stock = await db.select()
 - 페이지/컴포넌트 레벨에서 `useAppContext`의 `checkPermission(resource, action)` 사용하여 접근 제어.
 - 예: `const canWrite = checkPermission("inventory", "write");`
 
+### D. 데이터 전송 최적화 (Data Transfer Optimization) ⭐ **NEW**
+- **원칙**: 목록 조회 API(`GET /api/list`)에서는 **대용량 데이터(Base64 이미지, 긴 텍스트 등)를 제외**하고 메타데이터만 전송해야 합니다.
+- **구현 패턴**:
+  - `storage` 계층에서 `attributes` JSON 파싱 후 `data`(파일 내용) 필드 제거 (`delete attr.data`)
+  - 상세 조회 API(`GET /api/item/:id`)에서만 전체 데이터 반환
+  - 프론트엔드는 목록에서 썸네일/다운로드 아이콘 표시 시, 실제 다운로드 클릭 시점에 상세 데이터를 페치(`fetchQuery`)하거나 별도 다운로드 API를 호출.
+- **목적**: 불필요한 네트워크 트래픽(Egress) 방지 및 로딩 속도 향상.
+
 ---
 
 ## 4. 데이터 추적 규칙 (Audit Trail)

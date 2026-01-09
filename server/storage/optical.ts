@@ -59,12 +59,27 @@ export class OpticalStorage {
 
     // Logs
     async getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]> {
-        return await db.query.opticalCableLogs.findMany({
+        const logs = await db.query.opticalCableLogs.findMany({
             where: and(
                 eq(opticalCableLogs.cableId, cableId),
                 eq(opticalCableLogs.tenantId, tenantId)
             ),
             orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)]
+        });
+
+        return logs.map(log => {
+            if (log.attributes) {
+                try {
+                    const attr = JSON.parse(log.attributes);
+                    if (attr && attr.data) {
+                        delete attr.data;
+                        return { ...log, attributes: JSON.stringify(attr) };
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+            return log;
         });
     }
 
@@ -96,10 +111,26 @@ export class OpticalStorage {
 
         const userMap = new Map(usersData.map(u => [u.id, u.name]));
 
-        return logs.map(log => ({
-            ...log,
-            createdByName: log.createdBy ? userMap.get(log.createdBy) || null : null
-        }));
+        return logs.map(log => {
+            let attributes = log.attributes;
+            if (attributes) {
+                try {
+                    const attr = JSON.parse(attributes);
+                    if (attr && attr.data) {
+                        delete attr.data;
+                        attributes = JSON.stringify(attr);
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            return {
+                ...log,
+                attributes,
+                createdByName: log.createdBy ? userMap.get(log.createdBy) || null : null
+            };
+        });
     }
 
     async getOpticalCableLog(id: string, tenantId: string): Promise<OpticalCableLog | undefined> {

@@ -41,18 +41,33 @@
 - **광케이블 고도화 (Optical Cable Advancement)**:
   - [x] Backend Storage 모듈화 및 타입 안정성 확보
   - [ ] 기능 보완: 로그 관리 UI 개선, 통계/분석 기능 강화
+  - [ ] **예약 시스템 보완**:
+    - 목록(`...` 메뉴)에 '예약/해제' 버튼 추가 (접근성 개선)
+    - 예약된 자재 불출(Assign) 시 차단 로직 구현 (데이터 무결성)
   - [ ] Frontend 리팩터링: 복잡한 컴포넌트(LogTable, Modal) 최적화
 - **시스템 고도화 (System Enhancement)**:
   - [x] **Backend Modularization**: 라우터 및 스토리지 서비스 완전 분리 (Phase 1 완료)
   - [ ] **Frontend Optimization**: 비대한 Dialog 컴포넌트 분리 (Page 단위 전환), Custom Hooks 도입
-  - [ ] **성능 최적화**: 불필요한 리렌더링 방지, 메모리 누수 점검
-  - [ ] **편집 이력 관리 (Audit Log System)**: 
+  - [ ] **성능 최적화**:
+    - 불필요한 리렌더링 방지, 메모리 누수 점검
+    - **페이지네이션(Pagination) 도입**: 전체 목록 조회(All) → 페이지 단위 조회(Page)로 변경 (데이터 비용 절감)
+  - [ ] **편집 이력 관리 (Audit Log System)**:
     - 모든 데이터 편집 시 변경 이력 자동 기록 (누가, 언제, 무엇을, 어떻게 변경)
     - 타임라인 + 테이블 혼합 형태의 이력 조회 다이얼로그 구현
     - 각 항목별 "이력" 버튼 추가 (일반 자재, 광케이블, 입출고 내역 등)
     - `audit_logs` 테이블 생성 및 트리거 기반 자동 로깅
+  - [ ] **파일 저장소 고도화 (추후 검토)**:
+    - DB 내 파일 저장(Base64) → Supabase Storage 분리 마이그레이션 (용량 증가 시 수행)
 
-### v1.2.3 (2026-01-07) - Hotfix: 파일 첨부 기능 강화 및 시스템 문서화
+### v1.2.11 (2026-01-10) - 성능 최적화 및 데이터 비용 절감
+- **성능 개선**:
+  - `IncomingRecords`, `OpticalCableLogs` 목록 조회 시 대용량 파일 데이터(Base64) 제외 처리 (데이터 사용량 급감)
+  - React Query 캐시 유지 시간(`staleTime`) 5분 → 30분 연장
+- **문서화**:
+  - `PROJECT_RULES.md` 데이터 전송 최적화 규칙 추가
+  - `ROADMAP.md` 페이지네이션 및 저장소 분리 계획 추가
+
+
 - **기능 개선**:
   - `IncomingDialog`, `OutgoingDialog`, `TeamMaterialUsage` 파일 첨부 기능 고도화
   - 다중 파일 첨부 지원 (최대 4개)

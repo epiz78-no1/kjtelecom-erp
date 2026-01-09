@@ -144,7 +144,20 @@ export class InventoryStorage {
             .where(eq(incomingRecords.tenantId, tenantId))
             .orderBy(desc(incomingRecords.date), desc(incomingRecords.id));
 
-        return records as IncomingRecord[];
+        return records.map(record => {
+            if (record.attributes) {
+                try {
+                    const attr = JSON.parse(record.attributes);
+                    if (attr && attr.data) {
+                        delete attr.data;
+                        return { ...record, attributes: JSON.stringify(attr) };
+                    }
+                } catch (e) {
+                    // ignore parse errors
+                }
+            }
+            return record as IncomingRecord;
+        });
     }
 
     async getIncomingRecord(id: number, tenantId: string): Promise<IncomingRecord | undefined> {
