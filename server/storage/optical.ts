@@ -69,15 +69,37 @@ export class OpticalStorage {
     }
 
     // For unified log view
-    async getAllOpticalCableLogs(tenantId: string): Promise<(OpticalCableLog & { cable: OpticalCable | null })[]> {
-        // To minimize data, avoiding large joins if possible, but user needs cable details?
-        return await db.query.opticalCableLogs.findMany({
+    async getAllOpticalCableLogs(tenantId: string): Promise<(OpticalCableLog & { cable: OpticalCable | null, createdByName?: string | null })[]> {
+        const logs = await db.query.opticalCableLogs.findMany({
             where: eq(opticalCableLogs.tenantId, tenantId),
             orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)],
             with: {
                 cable: true
             }
         });
+
+        // Fetch user names for createdBy
+        const userIds = logs.map(log => log.createdBy).filter(Boolean) as string[];
+        const uniqueUserIds = Array.from(new Set(userIds));
+
+        if (uniqueUserIds.length === 0) {
+            return logs.map(log => ({ ...log, createdByName: null }));
+        }
+
+        const { users } = await import('../../shared/schema.js');
+        const { inArray } = await import('drizzle-orm');
+
+        const usersData = await db.select({
+            id: users.id,
+            name: users.name
+        }).from(users).where(inArray(users.id, uniqueUserIds));
+
+        const userMap = new Map(usersData.map(u => [u.id, u.name]));
+
+        return logs.map(log => ({
+            ...log,
+            createdByName: log.createdBy ? userMap.get(log.createdBy) || null : null
+        }));
     }
 
     async getOpticalCableLog(id: string, tenantId: string): Promise<OpticalCableLog | undefined> {
@@ -209,6 +231,52 @@ export class OpticalStorage {
             // 4. Delete log
             const result = await tx.delete(opticalCableLogs).where(eq(opticalCableLogs.id, id)).returning();
             return result.length > 0;
+        });
+    }
+    async updateCableReservation(
+        id: string,
+        action: 'reserve' | 'release',
+        projectName: string | undefined,
+        userId: string,
+        tenantId: string
+    ): Promise<OpticalCable> {
+        return await db.transaction(async (tx) => {
+            const [cable] = await tx.select().from(opticalCables).where(
+                and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId))
+            );
+
+            if (!cable) throw new Error("Cable not found");
+
+            // 상태 업데이트 객체
+            // Using 'any' to avoid strict type checking on nullable fields during update if needed, 
+            // but Partial<InsertOpticalCable> is safer if types align perfectly with nulls
+            const updates: any = { updatedAt: new Date() };
+
+            if (action === 'reserve') {
+                // 이미 예약되었거나, 불출된 자재는 예약 불가
+                // 단, 예약 해제는 가능해야 함
+                if (cable.status !== 'in_stock') throw new Error("Cannot reserve cable that is not in stock");
+                if (cable.reservationStatus === 'reserved') throw new Error("Cable is already reserved");
+
+                updates.reservationStatus = 'reserved';
+                updates.reservedForProject = projectName;
+                updates.reservedBy = userId;
+                updates.reservedAt = new Date();
+            } else {
+                if (cable.reservationStatus !== 'reserved') throw new Error("Cable is not reserved");
+
+                updates.reservationStatus = 'none';
+                updates.reservedForProject = null;
+                updates.reservedBy = null;
+                updates.reservedAt = null;
+            }
+
+            const [updatedCable] = await tx.update(opticalCables)
+                .set(updates)
+                .where(eq(opticalCables.id, id))
+                .returning();
+
+            return updatedCable;
         });
     }
 }

@@ -45,9 +45,16 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
         enabled: !!cableId && open,
     });
 
+    // Reset previous status when cableId changes or dialog opens
+    useEffect(() => {
+        previousStatusRef.current = undefined;
+    }, [cableId, open]);
+
     // Detect cable status change (e.g., from in_stock to assigned)
     useEffect(() => {
-        if (cable && previousStatusRef.current && previousStatusRef.current !== cable.status) {
+        if (!open) return; // Only check when dialog is open
+
+        if (cable && previousStatusRef.current !== undefined && previousStatusRef.current !== cable.status) {
             // Status changed, likely due to assignment or other action
             // Close the history dialog
             onOpenChange(false);
@@ -55,7 +62,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
         if (cable) {
             previousStatusRef.current = cable.status;
         }
-    }, [cable?.status, onOpenChange]);
+    }, [cable?.status, open, onOpenChange]);
 
     const getLogTypeLabel = (type: string) => {
         switch (type) {

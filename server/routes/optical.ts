@@ -201,16 +201,22 @@ export function registerOpticalRoutes(app: Express) {
         try {
             if (action === 'reserve') {
                 if (!project) return res.status(400).json({ error: "예약할 공사명을 입력해주세요" });
-                const cable = await storage.updateCableReservation(id, {
-                    status: 'reserved',
+                const cable = await storage.updateCableReservation(
+                    id,
+                    'reserve',
                     project,
-                    by: req.session!.userId
-                }, tenantId);
+                    req.session!.userId!,
+                    tenantId
+                );
                 res.json(cable);
             } else if (action === 'release') {
-                const cable = await storage.updateCableReservation(id, {
-                    status: 'none'
-                }, tenantId);
+                const cable = await storage.updateCableReservation(
+                    id,
+                    'release',
+                    undefined,
+                    req.session!.userId!,
+                    tenantId
+                );
                 res.json(cable);
             } else {
                 res.status(400).json({ error: "Invalid action" });

@@ -82,6 +82,14 @@ export default function OpticalCables() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
+    // Reservation Dialog State
+    const [reserveDialogOpen, setReserveDialogOpen] = useState(false);
+    const [selectedReserveCable, setSelectedReserveCable] = useState<OpticalCable | null>(null);
+
+    // Range Filter State
+    const [minRemaining, setMinRemaining] = useState<string>('');
+    const [maxRemaining, setMaxRemaining] = useState<string>('');
+    const [selectedCoreCount, setSelectedCoreCount] = useState<string>('전체');
     // Action Dialog State
     const [actionDialogOpen, setActionDialogOpen] = useState(false);
     const [selectedActionCable, setSelectedActionCable] = useState<OpticalCable | null>(null);
@@ -97,6 +105,16 @@ export default function OpticalCables() {
         setActionType(type);
         setActionDialogOpen(true);
     };
+
+    // Apply range filters
+    const rangeFilteredCables = filteredCables.filter(cable => {
+        // 잔량 범위 필터
+        if (minRemaining && cable.remainingLength < Number(minRemaining)) return false;
+        if (maxRemaining && cable.remainingLength > Number(maxRemaining)) return false;
+        // 코어 수 필터
+        if (selectedCoreCount !== '전체' && cable.coreCount !== Number(selectedCoreCount)) return false;
+        return true;
+    });
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
@@ -191,13 +209,13 @@ export default function OpticalCables() {
         XLSX.writeFile(wb, `광케이블_재고현황_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
-    const allSelected = filteredCables.length > 0 && filteredCables.every(cable => selectedIds.has(cable.id));
+    const allSelected = rangeFilteredCables.length > 0 && rangeFilteredCables.every(cable => selectedIds.has(cable.id));
 
     const toggleSelectAll = () => {
         if (allSelected) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(filteredCables.map(cable => cable.id)));
+            setSelectedIds(new Set(rangeFilteredCables.map(cable => cable.id)));
         }
     };
 
@@ -309,7 +327,7 @@ export default function OpticalCables() {
                                     <SelectValue placeholder="구분 선택" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="전체">전체</SelectItem>
+                                    <SelectItem value="전체">구분 (전체)</SelectItem>
                                     {categories.filter(c => c !== "전체").map(category => (
                                         <SelectItem key={String(category)} value={String(category)}>
                                             {String(category)}
@@ -318,6 +336,57 @@ export default function OpticalCables() {
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        <div className="w-32">
+                            <Select value={selectedCoreCount} onValueChange={setSelectedCoreCount}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="용량(코어)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="전체">코어 (전체)</SelectItem>
+                                    <SelectItem value="24">24c</SelectItem>
+                                    <SelectItem value="48">48c</SelectItem>
+                                    <SelectItem value="72">72c</SelectItem>
+                                    <SelectItem value="96">96c</SelectItem>
+                                    <SelectItem value="144">144c</SelectItem>
+                                    <SelectItem value="288">288c</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">잔량:</span>
+                            <Input
+                                type="number"
+                                placeholder="최소"
+                                value={minRemaining}
+                                onChange={(e) => setMinRemaining(e.target.value)}
+                                className="w-20"
+                            />
+                            <span className="text-muted-foreground">~</span>
+                            <Input
+                                type="number"
+                                placeholder="최대"
+                                value={maxRemaining}
+                                onChange={(e) => setMaxRemaining(e.target.value)}
+                                className="w-20"
+                            />
+                            {(minRemaining || maxRemaining || selectedCoreCount !== '전체') && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setMinRemaining('');
+                                        setMaxRemaining('');
+                                        setSelectedCoreCount('전체');
+                                    }}
+                                    className="h-8 px-2"
+                                >
+                                    초기화
+                                </Button>
+                            )}
+                        </div>
+
                         {selectedIds.size > 0 && isTenantOwner && (
                             <Button
                                 variant="destructive"
@@ -330,7 +399,7 @@ export default function OpticalCables() {
                         )}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                        총 <span className="font-semibold text-foreground">{filteredCables.length}</span>개 품목
+                        총 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목
                     </div>
                 </div>
             </div>
@@ -420,17 +489,22 @@ export default function OpticalCables() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredCables.length === 0 ? (
+                            {rangeFilteredCables.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
                                         등록된 광케이블 드럼이 없습니다.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredCables.map((cable) => (
+                                rangeFilteredCables.map((cable) => (
                                     <TableRow
                                         key={cable.id}
-                                        className="h-6 [&_td]:py-0 cursor-pointer hover:bg-muted/50"
+                                        className={`h-6 [&_td]:py-0 cursor-pointer hover:bg-muted/50 ${cable.reservationStatus === 'reserved'
+                                            ? 'bg-orange-100/40 hover:bg-orange-100/60'
+                                            : cable.status === 'assigned'
+                                                ? 'bg-blue-100/30'
+                                                : ''
+                                            }`}
                                         onDoubleClick={() => {
                                             setHistoryItem(cable);
                                             setHistoryOpen(true);
