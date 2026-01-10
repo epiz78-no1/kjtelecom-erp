@@ -68,7 +68,7 @@
   - `ROADMAP.md` 페이지네이션 및 저장소 분리 계획 추가
 
 
-- **기능 개선**:
+### v1.2.3 (2026-01-07) - Hotfix: 파일 첨부 기능 강화 및 시스템 문서화
   - `IncomingDialog`, `OutgoingDialog`, `TeamMaterialUsage` 파일 첨부 기능 고도화
   - 다중 파일 첨부 지원 (최대 4개)
   - 엑셀 파일(.xlsx, .xls) 및 PDF 지원 추가
