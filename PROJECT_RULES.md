@@ -33,7 +33,7 @@
 
 #### 🎯 왜 중요한가?
 - **문자열 매칭**은 띄어쓰기, 대소문자, NULL vs "" 등 미세한 차이로 인해 매칭 실패 가능
-- **ID 매칭**은 데이터 정합성을 보장하고 성능도 우수 (정수 비교 \u003e 문자열 비교)
+- **ID 매칭**은 데이터 정합성을 보장하고 성능도 우수 (정수 비교 > 문자열 비교)
 
 #### ❌ 잘못된 예시 (문자열 매칭)
 ```typescript
@@ -130,6 +130,15 @@ const stock = await db.select()
 ### A. 데이터 조회 및 변경 (React Query)
 - **Fetch**: `useQuery` 훅 사용. Key는 API URL 경로 사용 (e.g., `["/api/inventory"]`).
 - **Mutation**: `useMutation` 사용. 성공 시 `queryClient.invalidateQueries` 호출로 데이터 갱신.
+  - **데이터 효율성**: `refetchType: 'active'` 옵션 사용 권장 (현재 활성화된 쿼리만 refetch, 백그라운드 캐시는 유지)
+  - **예시**:
+    ```typescript
+    queryClient.invalidateQueries({ 
+        queryKey: ["/api/optical-cables"],
+        refetchType: 'active' // 현재 화면에 표시 중인 쿼리만 즉시 refetch
+    });
+    ```
+  - **staleTime 고려**: 프로젝트는 `staleTime: 30분` 설정으로 데이터 사용량 절약. `invalidateQueries`만으로는 즉시 refetch되지 않으므로 `refetchType: 'active'` 필수.
 - **API Wrapper**: `lib/queryClient.ts`의 `apiRequest` 함수 반드시 사용 (에러 핸들링 및 JSON 파싱 자동화).
 
 ### B. 데이터베이스 스키마 정의 (Drizzle + Zod)
@@ -144,6 +153,14 @@ const stock = await db.select()
 ### C. 권한 관리 (Context API)
 - 페이지/컴포넌트 레벨에서 `useAppContext`의 `checkPermission(resource, action)` 사용하여 접근 제어.
 - 예: `const canWrite = checkPermission("inventory", "write");`
+
+### D. 데이터 전송 최적화 (Data Transfer Optimization) ⭐ **NEW**
+- **원칙**: 목록 조회 API(`GET /api/list`)에서는 **대용량 데이터(Base64 이미지, 긴 텍스트 등)를 제외**하고 메타데이터만 전송해야 합니다.
+- **구현 패턴**:
+  - `storage` 계층에서 `attributes` JSON 파싱 후 `data`(파일 내용) 필드 제거 (`delete attr.data`)
+  - 상세 조회 API(`GET /api/item/:id`)에서만 전체 데이터 반환
+  - 프론트엔드는 목록에서 썸네일/다운로드 아이콘 표시 시, 실제 다운로드 클릭 시점에 상세 데이터를 페치(`fetchQuery`)하거나 별도 다운로드 API를 호출.
+- **목적**: 불필요한 네트워크 트래픽(Egress) 방지 및 로딩 속도 향상.
 
 ---
 
@@ -547,71 +564,27 @@ graph TD
 3. 스키마가 일치하지 않으면 배포가 중단됩니다. 이 경우, 운영 DB에 마이그레이션을 적용(`drizzle-kit push` 등)하여 스키마를 동기화한 후 재시도해야 합니다.
 
 
-474: 
-475: ---
-476: 
-477: ## 15. 표준 훅 및 패턴 (Standard Hooks & Patterns)
-478: 
-479: 반복적으로 사용되는 UI/로직 패턴은 표준화된 커스텀 훅을 사용하여 일관성을 유지하고 중복 코드를 방지합니다.
-480: 
-481: ### A. 테이블 필터링 (`useTableFilters`)
-482: 
-483: 테이블 데이터의 검색, 사업 구분(Division), 카테고리 필터링을 통합 관리하는 훅입니다.
-484: 
-485: - **주요 기능**:
-486:   - 검색어(Query) 상태 관리 및 필터링
-487:   - 사업(Division) 필터 관리 (기본값: "전체")
-488:   - 카테고리 필터 관리 및 유니크 카테고리 목록 자동 추출
-489: 
-490: ```tsx
-491: // 사용 예시
-492: const {
-493:   searchQuery,     // 검색어 State
-494:   setSearchQuery,  // 검색어 Setter
-495:   selectedDivision, // 사업 구분 State (기본: "전체")
-496:   setSelectedDivision,
-497:   filteredItems,    // 필터링된 최종 데이터 목록
-498:   categories        // 데이터 기반 카테고리 목록 (중복 제거됨)
-499: } = useTableFilters(rawData, {
-500:   searchFields: ["productName", "modelName"], // 검색 대상 필드
-501:   divisionField: "division",                  // 사업 구분 필드명
-502:   categoryField: "category"                   // 카테고리 필드명
-503: });
-504: ```
-505: 
-506: **주의사항**:
-507: - 필터의 '전체' 선택 시 값은 `"전체"` 문자열을 사용합니다. (과거 `"all"` 혼용 금지)
-508: - UI의 `<Select>` 컴포넌트에서도 `<SelectItem value="전체">전체</SelectItem>`를 사용해야 매칭됩니다.
-509: 
-510: ### B. 다이얼로그 관리 (`useDialogState`)
-511: 
-512: 등록(Create)과 수정(Edit)을 겸하는 다이얼로그의 상태를 관리하는 표준 패턴입니다.
-513: 
-514: - **주요 기능**:
-515:   - 열림/닫힘(`open`) 상태 관리
-516:   - 편집 대상 아이템(`editingItem`) 관리 (null이면 등록 모드, 있으면 수정 모드)
-517: 
-518: ```tsx
-519: // 사용 예시
-520: const { 
-521:   open, 
-522:   setOpen, 
-523:   editingItem, 
-524:   handleOpen,     // (item?) => void : 인자 없으면 등록, 있으면 수정 모드로 염
-525:   handleClose     // () => void : 닫고 editingItem 초기화
-526: } = useDialogState<InventoryItem>();
-527: 
-528: // 버튼 연결
-529: <Button onClick={() => handleOpen()}>등록</Button>
-530: <Button onClick={() => handleOpen(record)}>수정</Button>
-531: 
-532: // 다이얼로그 연결
-533: <Dialog open={open} onOpenChange={setOpen}>
-534:   <DialogTitle>{editingItem ? "수정" : "등록"}</DialogTitle>
-535:   {/* Form 컴포넌트에 초기값 전달 */}
-536:   <MyForm defaultValues={editingItem} onSubmit={...} />
-537: </Dialog>
-538: ```
-539: 
-540: ---
-541:
+## 16. 파일 처리 및 저장소 규칙 (File Handling & Storage)
+
+### A. 데이터 구조 (Data Structure)
+- **JSON 기반 저장**: 파일 메타데이터와 Base64 데이터를 `attributes` JSON 컬럼 내에 저장합니다.
+- **다중 파일 지원 (표준)**:
+  - `attributes.attachments`: `{ name: string, data: string }[]` 배열 구조 사용.
+  - 레거시 호환성: 단일 파일 필드 `attributes.attachment`도 읽기 시 지원하되, 쓰기 시에는 가급적 `attachments[0]`과 동기화하거나 마이그레이션.
+
+### B. 데이터 전송 최적화 (Optimization)
+- **목록 조회 (List API)**:
+  - `GET /api/xxx`: `attributes` 내부의 `data` (Base64 본문) 필드를 **제거(delete)** 하고 메타데이터만 전송해야 합니다.
+  - 목적: 목록 조회 시 수 MB 단위의 불필요한 데이터 전송 방지.
+- **상세/다운로드 (Detail/Download)**:
+  - 다운로드는 별도 API(`GET /api/xxx/:id`)를 호출하여 `data`가 포함된 전체 레코드를 받아 수행하거나, 클라이언트 측 `useDownload` 훅을 사용합니다.
+
+### C. 다운로드 구현 로직 (Client-side)
+- **`useDownload` 훅 사용**:
+  - `client/src/hooks/useDownload.ts`의 `downloadFile` 함수를 사용합니다.
+  - 로직:
+    1. 목록에 `data`가 없으므로 식별자(ID)로 전체 레코드 Fetch (`/api/xxx/:id`).
+    2. 받아온 레코드의 `attributes.attachments`에서 해당 파일명 매칭.
+    3. Base64 데이터를 Blob으로 변환하여 브라우저 다운로드 트리거.
+- **파일명 중복 처리**: 동일 파일명 다운로드 시 브라우저가 자동 처리하거나, 업로드 시점에 이름 변경(timestamp append 등)을 권장.
+

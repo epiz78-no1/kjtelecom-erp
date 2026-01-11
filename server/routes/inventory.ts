@@ -176,6 +176,10 @@ export function registerInventoryRoutes(app: Express) {
     app.get("/api/outgoing", requireAuth, requireTenant, async (req, res) => {
         const tenantId = req.session!.tenantId!;
         const records = await storage.getOutgoingRecords(tenantId);
+        // Debug Log
+        if (records.length > 0) {
+            console.log("[DEBUG_GET_OUTGOING] Sample attributes:", records[0].attributes ? (typeof records[0].attributes === 'string' ? records[0].attributes.substring(0, 100) : JSON.stringify(records[0].attributes).substring(0, 100)) : "null");
+        }
         res.json(records);
     });
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Loader2, Trash2, Plus, Calendar, Pencil, MoreHorizontal, Download, Upload } from "lucide-react";
+import { Search, Loader2, Trash2, Plus, Calendar, Pencil, MoreHorizontal, Download, Upload, Paperclip, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -327,8 +327,7 @@ export default function TeamMaterialUsage() {
       queryClient.invalidateQueries({ queryKey: ["/api/material-usage"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       toast({ title: "사용 내역이 등록되었습니다" });
-      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
-      toast({ title: "사용 내역이 수정되었습니다" });
+      setDialogOpen(false);
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "수정 실패";
@@ -739,13 +738,8 @@ export default function TeamMaterialUsage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
 
-            {/* Field Team Badge or Filter Select */}
-            {isFieldTeam ? (
-              <div className="flex items-center gap-2 px-3 py-1 bg-secondary/50 rounded-md border border-secondary">
-                <span className="text-sm font-medium text-muted-foreground">내 팀:</span>
-                <span className="text-sm font-bold text-primary">{currentTeamName || "팀 정보 없음"}</span>
-              </div>
-            ) : (
+            {/* Filter Select for Admin/Manager only */}
+            {!isFieldTeam && (
               <div className="w-[180px]">
                 {/* useTableFilters에서 제공하는 selectedCategory(원래 teamCategory)를 사용 */}
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -883,8 +877,17 @@ export default function TeamMaterialUsage() {
                     {(() => {
                       try {
                         if (!record.attributes) return null;
-                        const attrs = JSON.parse(record.attributes);
-                        if (attrs.attachment) {
+                        let attrs: any = {};
+                        if (typeof record.attributes === 'string') {
+                          attrs = JSON.parse(record.attributes);
+                        } else if (typeof record.attributes === 'object') {
+                          attrs = record.attributes;
+                        }
+                        const attachments = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
+
+                        if (attachments.length === 0) return null;
+
+                        if (attachments.length === 1) {
                           return (
                             <Button
                               variant="ghost"
@@ -892,14 +895,50 @@ export default function TeamMaterialUsage() {
                               className="h-6 w-6 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                downloadFile(`/api/material-usage/${record.id}`, attrs.attachment.name);
+                                downloadFile(`/api/material-usage/${record.id}`, attachments[0].name);
                               }}
-                              title={attrs.attachment.name}
+                              title={attachments[0].name}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
                           );
                         }
+
+                        return (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 gap-0.5 px-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Paperclip className="h-3.5 w-3.5" />
+                                <span className="text-[10px] font-medium">{attachments.length}</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-2" align="end">
+                              <div className="flex flex-col gap-1">
+                                {attachments.map((file: any, idx: number) => (
+                                  <Button
+                                    key={idx}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start h-8 text-xs max-w-[200px]"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadFile(`/api/material-usage/${record.id}`, file.name);
+                                    }}
+                                    title={file.name}
+                                  >
+                                    <Download className="h-3 w-3 mr-2 shrink-0" />
+                                    <span className="truncate">{file.name}</span>
+                                  </Button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        );
                       } catch (e) { }
                       return null;
                     })()}
@@ -940,22 +979,180 @@ export default function TeamMaterialUsage() {
           </table>
         </div>
 
-        {/* Mobile View: Simple Register Button Only */}
-        <div className="md:hidden h-full flex flex-col items-center justify-center bg-muted/10 p-4 space-y-6">
-          <div className="text-center space-y-2">
-            <h3 className="text-lg font-semibold">자재 사용 등록</h3>
-            <p className="text-muted-foreground text-sm">
-              아래 버튼을 눌러 자재 사용 내역을 등록하세요.
-            </p>
+        {/* Mobile View: Card List + FloatingButton */}
+        <div className="md:hidden h-full flex flex-col overflow-hidden">
+          {/* Mobile Header with Add Button */}
+          <div className="flex-shrink-0 p-4 border-b bg-background">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-lg font-bold">사용 등록 내역</h2>
+                <p className="text-xs text-muted-foreground">
+                  {totalRecords}건 / 수량 {totalQuantity.toLocaleString()}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="h-9"
+                onClick={openAddDialog}
+                data-testid="button-mobile-add"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                등록
+              </Button>
+            </div>
+
+            {/* Mobile Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="품명, 공사명 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
           </div>
-          <Button
-            size="lg"
-            className="w-full max-w-xs h-14 text-lg shadow-lg animate-in fade-in zoom-in duration-300"
-            onClick={openAddDialog}
-          >
-            <Plus className="mr-2 h-6 w-6" />
-            사용 등록하기
-          </Button>
+
+          {/* Mobile Card List */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {filteredRecords.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                <p className="text-sm">등록된 사용 내역이 없습니다</p>
+              </div>
+            ) : (
+              filteredRecords.map((record) => (
+                <div
+                  key={record.id}
+                  className="bg-card border rounded-lg p-3 shadow-sm"
+                >
+                  {/* Header: Date + Actions */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold">{record.date}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-secondary rounded">{record.division}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {record.teamCategory || teams.find(t => t.id === record.teamId)?.name || ''}
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(record)}>
+                          <Pencil className="mr-2 h-4 w-4" /> 수정
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setDeleteRecord(record)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> 삭제
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Material Info */}
+                  <div className="space-y-1 mb-2">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-medium">{record.productName}</span>
+                      <span className="text-xs text-muted-foreground">{record.specification}</span>
+                    </div>
+                    {record.projectName && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        공사: {record.projectName}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer: Quantity + Recipient */}
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{record.recipient || '-'}</span>
+                      {(() => {
+                        try {
+                          if (!record.attributes) return null;
+                          let attrs: any = {};
+                          if (typeof record.attributes === 'string') {
+                            attrs = JSON.parse(record.attributes);
+                          } else if (typeof record.attributes === 'object') {
+                            attrs = record.attributes;
+                          }
+                          const attachments = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
+
+                          if (attachments.length === 0) return null;
+
+                          if (attachments.length === 1) {
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 px-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadFile(`/api/material-usage/${record.id}`, attachments[0].name);
+                                }}
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            );
+                          }
+
+                          return (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 gap-1 px-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Paperclip className="h-3 w-3" />
+                                  <span className="text-[10px] font-medium">{attachments.length}</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-2" align="end">
+                                <div className="flex flex-col gap-1">
+                                  {attachments.map((file: any, idx: number) => (
+                                    <Button
+                                      key={idx}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="justify-start h-8 text-xs max-w-[200px]"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        downloadFile(`/api/material-usage/${record.id}`, file.name);
+                                      }}
+                                      title={file.name}
+                                    >
+                                      <Download className="h-3 w-3 mr-2 shrink-0" />
+                                      <span className="truncate">{file.name}</span>
+                                    </Button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          );
+                        } catch (e) { }
+                        return null;
+                      })()}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-muted-foreground">수량:</span>
+                      <span className="text-base font-bold text-primary">
+                        {Number(record.quantity).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
@@ -1137,10 +1334,12 @@ export default function TeamMaterialUsage() {
                       <Label className="text-xs text-muted-foreground">수량 *</Label>
                       <Input
                         type="number"
-                        value={item.quantity}
+                        value={item.quantity || ''}
                         onChange={(e) => {
                           const newItems = [...formData.items];
-                          newItems[index].quantity = e.target.value;
+                          // Parse to number for validation but store as string if that matches the type
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          newItems[index].quantity = val.toString();
                           setFormData({ ...formData, items: newItems });
                         }}
                         min="0"

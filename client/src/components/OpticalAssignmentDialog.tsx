@@ -36,6 +36,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { useAppContext } from "@/contexts/AppContext";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { format } from "date-fns";
@@ -61,7 +62,10 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
         usageDate: new Date().toISOString().split("T")[0],
         remark: "",
         attachment: null as { name: string; data: string } | null,
+        attachments: [] as { name: string; data: string }[],
     });
+
+    const [openCombobox, setOpenCombobox] = useState(false);
 
     const { data: cables = [] } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
         queryKey: ["/api/optical-cables"],
@@ -99,6 +103,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                         recipient: formData.recipient,
                         remark: formData.remark || undefined,
                         attachment: formData.attachment || undefined,
+                        attachments: formData.attachments || undefined,
                     }),
                 }
             );
@@ -106,6 +111,10 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
+            if (formData.cableId) {
+                queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${formData.cableId}`] });
+                queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${formData.cableId}/logs`] });
+            }
             toast({
                 title: "출고 등록 완료",
                 description: "광케이블이 성공적으로 출고되었습니다.",
@@ -120,6 +129,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                 usageDate: new Date().toISOString().split("T")[0],
                 remark: "",
                 attachment: null,
+                attachments: [],
             });
         },
         onError: (error: Error) => {
@@ -131,11 +141,15 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
         },
     });
 
+    // const [mutation] = React.useState(createMutation);
+
     const handleSubmit = () => {
+        // ... validation checks ...
         if (!formData.cableId) {
             toast({ title: "제조번호를 선택해주세요", variant: "destructive" });
             return;
         }
+        // ... other validations ...
         if (!formData.teamId) {
             toast({ title: "수령 팀을 선택해주세요", variant: "destructive" });
             return;
@@ -152,6 +166,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
             toast({ title: "공사명을 입력해주세요", variant: "destructive" });
             return;
         }
+
         mutation.mutate();
     };
 
@@ -245,11 +260,12 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                             <Label className="text-sm font-medium">제조번호</Label>
-                            <Popover>
+                            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         role="combobox"
+                                        aria-expanded={openCombobox}
                                         disabled={!!initialCableId}
                                         className={cn(
                                             "w-full justify-between h-10",
@@ -276,6 +292,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                                                             key={cable.id}
                                                             onSelect={() => {
                                                                 setFormData({ ...formData, cableId: cable.id.toString() });
+                                                                setOpenCombobox(false);
                                                             }}
                                                         >
                                                             <Check
@@ -286,7 +303,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                                                                         : "opacity-0"
                                                                 )}
                                                             />
-                                                            {cable.division ? `[${cable.division}] ` : ""}{cable.drumNo} | {cable.spec} | {cable.remainingLength}m
+                                                            {cable.division ? `[${cable.division}] ` : ""}{cable.drumNo} | {cable.productName} | {cable.remainingLength}m
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
@@ -307,6 +324,13 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                             />
                         </div>
                     </div>
+
+                    {/* 선택된 드럼 정보 */}
+                    {selectedCable && (
+                        <div className="text-sm text-blue-600 font-medium p-2 bg-blue-50 rounded">
+                            선택된 드럼: {selectedCable.drumNo} ({selectedCable.productName} / 잔량 {selectedCable.remainingLength.toLocaleString()}m)
+                        </div>
+                    )}
 
                     {/* Row 3: 공사명 */}
                     <div className="space-y-2">
@@ -332,29 +356,75 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
 
                     {/* Row 5: 첨부파일 */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-medium">첨부파일 (선택)</Label>
+                        <Label className="text-sm font-medium">첨부파일 (선택, 최대 4개)</Label>
                         <div className="relative">
                             <input
                                 type="file"
                                 id="optical-file-upload"
                                 className="hidden"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (e) => {
-                                            if (e.target?.result && typeof e.target.result === "string") {
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    attachment: {
-                                                        name: file.name,
-                                                        data: e.target?.result as string
-                                                    }
-                                                }));
-                                            }
-                                        };
-                                        reader.readAsDataURL(file);
+                                multiple
+                                onChange={async (e) => {
+                                    const files = Array.from(e.target.files || []);
+                                    if (files.length === 0) return;
+
+                                    const currentCount = formData.attachments?.length || 0;
+                                    if (currentCount + files.length > 4) {
+                                        toast({
+                                            title: "파일 개수 초과",
+                                            description: "최대 4개까지만 업로드 가능합니다.",
+                                            variant: "destructive"
+                                        });
+                                        return;
                                     }
+
+                                    const newAttachments = [...(formData.attachments || [])];
+
+                                    for (const file of files) {
+                                        try {
+                                            if (file.size > 10 * 1024 * 1024) {
+                                                toast({
+                                                    title: "용량 초과",
+                                                    description: `${file.name}: 10MB 초과`,
+                                                    variant: "destructive"
+                                                });
+                                                continue;
+                                            }
+
+                                            let processedFile: { name: string; data: string };
+
+                                            if (file.type.startsWith('image/')) {
+                                                const compressed = await compressImage(file, {
+                                                    maxWidth: 1280,
+                                                    maxHeight: 1280,
+                                                    quality: 0.7,
+                                                    maxSizeMB: 1
+                                                });
+                                                processedFile = compressed;
+                                                // Toast removed to reduce noise for multiple files
+                                            } else {
+                                                const base64 = await new Promise<string>((resolve, reject) => {
+                                                    const reader = new FileReader();
+                                                    reader.onload = () => resolve(reader.result as string);
+                                                    reader.onerror = reject;
+                                                    reader.readAsDataURL(file);
+                                                });
+                                                processedFile = { name: file.name, data: base64 };
+                                            }
+                                            newAttachments.push(processedFile);
+                                        } catch (error: any) {
+                                            toast({
+                                                title: "파일 처리 실패",
+                                                description: `${file.name}: ${error.message}`,
+                                                variant: "destructive"
+                                            });
+                                        }
+                                    }
+
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        attachments: newAttachments,
+                                        attachment: newAttachments[0] || null // Update legacy field
+                                    }));
                                 }}
                             />
                             <label
@@ -363,23 +433,34 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                             >
                                 <Upload className="h-5 w-5 text-primary" />
                                 <span className="text-sm font-medium text-primary">
-                                    {formData.attachment ? formData.attachment.name : "파일 선택 또는 드래그"}
+                                    파일 선택 또는 드래그 (현재 {formData.attachments?.length || 0}/4)
                                 </span>
                             </label>
                         </div>
-                        {formData.attachment && (
-                            <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                                <span className="text-sm text-muted-foreground truncate">
-                                    📎 {formData.attachment.name}
-                                </span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => setFormData({ ...formData, attachment: null })}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                        {formData.attachments && formData.attachments.length > 0 && (
+                            <div className="grid grid-cols-1 gap-2 mt-2">
+                                {formData.attachments.map((file, index) => (
+                                    <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                                        <span className="text-sm text-muted-foreground truncate">
+                                            📎 {file.name}
+                                        </span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => {
+                                                const newAttachments = formData.attachments!.filter((_, i) => i !== index);
+                                                setFormData({
+                                                    ...formData,
+                                                    attachments: newAttachments,
+                                                    attachment: newAttachments[0] || null
+                                                });
+                                            }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>

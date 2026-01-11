@@ -257,10 +257,10 @@ export function IncomingDialog({
                 if (file.type.startsWith('image/')) {
                     // 이미지 압축 적용
                     const compressed = await compressImage(file, {
-                        maxWidth: 1920,
-                        maxHeight: 1920,
-                        quality: 0.8,
-                        maxSizeMB: 5
+                        maxWidth: 1280,
+                        maxHeight: 1280,
+                        quality: 0.7,
+                        maxSizeMB: 1
                     });
                     processedFile = compressed;
 
@@ -446,7 +446,7 @@ export function IncomingDialog({
                                     <Label className="text-xs text-muted-foreground">수량 *</Label>
                                     <Input
                                         type="number"
-                                        value={item.quantity}
+                                        value={item.quantity || ''}
                                         onChange={(e) => {
                                             const newItems = [...formData.items];
                                             newItems[index].quantity = e.target.value;

@@ -1,6 +1,11 @@
 import { exportToExcel } from "@/lib/excel";
 import { useState } from "react";
-import { Plus, Search, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Plus, Search, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal, Paperclip, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -176,6 +181,7 @@ export default function IncomingRecords() {
     supplier: string;
     projectName: string;
     attachment: { name: string; data: string } | null;
+    attachments?: { name: string; data: string }[];
     items: Array<{
       id: string;
       productName: string;
@@ -196,7 +202,12 @@ export default function IncomingRecords() {
     if (editingRecord) {
       const item = validItems[0];
       let attributesObj: any = {};
-      if (data.attachment) {
+
+      // Handle multiple attachments
+      if (data.attachments && data.attachments.length > 0) {
+        attributesObj.attachments = data.attachments;
+        attributesObj.attachment = data.attachments[0]; // Legacy support
+      } else if (data.attachment) {
         attributesObj.attachment = data.attachment;
       }
 
@@ -234,8 +245,15 @@ export default function IncomingRecords() {
       for (let i = 0; i < validItems.length; i++) {
         const item = validItems[i];
         const attributesObj: any = {};
-        if (i === 0 && data.attachment) {
-          attributesObj.attachment = data.attachment;
+
+        // Attachment only on first item
+        if (i === 0) {
+          if (data.attachments && data.attachments.length > 0) {
+            attributesObj.attachments = data.attachments;
+            attributesObj.attachment = data.attachments[0];
+          } else if (data.attachment) {
+            attributesObj.attachment = data.attachment;
+          }
         }
 
         const payload = {
@@ -498,8 +516,21 @@ export default function IncomingRecords() {
                   <TableCell className="text-center align-middle">
                     {(() => {
                       try {
-                        const attrs = JSON.parse(record.attributes || "{}");
-                        if (attrs.attachment) {
+                        let attrs: any = {};
+                        if (typeof record.attributes === 'string') {
+                          attrs = JSON.parse(record.attributes);
+                        } else if (typeof record.attributes === 'object' && record.attributes !== null) {
+                          attrs = record.attributes;
+                        }
+
+                        // Support both legacy single attachment and new multiple attachments
+                        const attachments = (attrs && Array.isArray(attrs.attachments))
+                          ? attrs.attachments
+                          : ((attrs && attrs.attachment) ? [attrs.attachment] : []);
+
+                        if (attachments.length === 0) return "-";
+
+                        if (attachments.length === 1) {
                           return (
                             <Button
                               variant="ghost"
@@ -507,16 +538,51 @@ export default function IncomingRecords() {
                               className="h-8 w-8 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                downloadFile(`/api/incoming/${record.id}`, attrs.attachment.name);
+                                downloadFile(`/api/incoming/${record.id}`, attachments[0].name);
                               }}
-                              title={attrs.attachment.name}
+                              title={attachments[0].name}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
                           );
                         }
-                      } catch (e) { }
-                      return "-";
+
+                        return (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 px-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Paperclip className="h-4 w-4" />
+                                <span className="text-xs font-medium">{attachments.length}</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-2" align="end">
+                              <div className="flex flex-col gap-1">
+                                {attachments.map((file: any, idx: number) => (
+                                  <Button
+                                    key={idx}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start h-8 text-xs max-w-[200px]"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadFile(`/api/incoming/${record.id}`, file.name);
+                                    }}
+                                    title={file.name}
+                                  >
+                                    <Download className="h-3 w-3 mr-2 shrink-0" />
+                                    <span className="truncate">{file.name}</span>
+                                  </Button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        );
+                      } catch (e) { return "-" }
                     })()}
                   </TableCell>
                   <TableCell className="text-center align-middle">

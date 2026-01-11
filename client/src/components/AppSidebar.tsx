@@ -38,7 +38,7 @@ import { FEATURE_FLAGS } from "@/lib/constants";
 
 const menuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard },
-  { title: "재고 현황", url: "/inventory", icon: Package },
+  { title: "자재현황", url: "/inventory", icon: Package },
   { title: "입고 내역", url: "/incoming", icon: ArrowDownToLine },
   { title: "출고 내역", url: "/outgoing", icon: ArrowUpFromLine },
   { title: "현장팀별 출고 현황", url: "/team-outgoing", icon: Users },
@@ -166,7 +166,7 @@ export function AppSidebar() {
                         <SidebarMenuSubButton asChild isActive={location === "/optical-cables"}>
                           <Link href="/optical-cables">
                             <Package className="h-4 w-4" />
-                            <span>재고 현황</span>
+                            <span>자재현황</span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

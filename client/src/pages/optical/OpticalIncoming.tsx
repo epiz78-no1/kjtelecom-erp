@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowDownToLine, Search, Plus, MoreHorizontal, Pencil, Download } from "lucide-react";
+import { Loader2, ArrowDownToLine, Search, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     TableHeader,
@@ -291,8 +296,11 @@ export default function OpticalIncoming() {
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("location", e)} />
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.totalLength }}>
-                                    케이블용량
+                                    품명
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("totalLength", e)} />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: 90 }}>
+                                    입고량
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
                                     비고
@@ -343,7 +351,7 @@ export default function OpticalIncoming() {
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.coreCount || ''}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{log.cable?.drumNo || ''}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.location || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{String(log.cable?.totalLength || '')}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{String(log.cable?.productName || '')}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap" style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.cable?.remark || ''}</TableCell>
                                         <TableCell className="text-center align-middle">
                                             {(log as any).createdByName || "-"}
@@ -351,8 +359,17 @@ export default function OpticalIncoming() {
                                         <TableCell className="text-center align-middle">
                                             {(() => {
                                                 try {
-                                                    const attrs = JSON.parse((log as any).attributes || "{}");
-                                                    if (attrs.attachment) {
+                                                    let attrs: any = {};
+                                                    if (typeof (log as any).attributes === 'string') {
+                                                        attrs = JSON.parse((log as any).attributes);
+                                                    } else if (typeof (log as any).attributes === 'object' && (log as any).attributes !== null) {
+                                                        attrs = (log as any).attributes;
+                                                    }
+                                                    const attachments = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
+
+                                                    if (attachments.length === 0) return "-";
+
+                                                    if (attachments.length === 1) {
                                                         return (
                                                             <Button
                                                                 variant="ghost"
@@ -360,15 +377,50 @@ export default function OpticalIncoming() {
                                                                 className="h-8 w-8 p-0"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, attrs.attachment.name);
+                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
                                                                 }}
-                                                                title={attrs.attachment.name}
+                                                                title={attachments[0].name}
                                                             >
                                                                 <Download className="h-4 w-4" />
                                                             </Button>
                                                         );
                                                     }
-                                                    return "-";
+
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 gap-1 px-2"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <Paperclip className="h-4 w-4" />
+                                                                    <span className="text-xs font-medium">{attachments.length}</span>
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="end">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {attachments.map((file: any, idx: number) => (
+                                                                        <Button
+                                                                            key={idx}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-8 text-xs max-w-[200px]"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                            }}
+                                                                            title={file.name}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
                                                 } catch {
                                                     return "-";
                                                 }

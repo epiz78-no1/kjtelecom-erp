@@ -30,6 +30,7 @@ import { CalendarIcon, Loader2, Upload, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import type { OpticalCableLog } from "@shared/schema";
 
 const formSchema = z.object({
@@ -209,19 +210,39 @@ export function OpticalLogEditDialog({ open, onOpenChange, log, onSubmit }: Prop
                                         type="file"
                                         className="hidden"
                                         id="edit-file-upload"
-                                        onChange={(e) => {
+                                        onChange={async (e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
-                                                const reader = new FileReader();
-                                                reader.onload = (e) => {
-                                                    if (e.target?.result && typeof e.target.result === "string") {
-                                                        setAttachment({
-                                                            name: file.name,
-                                                            data: e.target.result
-                                                        });
+                                                try {
+                                                    if (file.size > 10 * 1024 * 1024) {
+                                                        alert("파일 크기가 10MB를 초과합니다.");
+                                                        return;
                                                     }
-                                                };
-                                                reader.readAsDataURL(file);
+
+                                                    let processedFile: { name: string; data: string };
+
+                                                    if (file.type.startsWith('image/')) {
+                                                        const compressed = await compressImage(file, {
+                                                            maxWidth: 1920,
+                                                            maxHeight: 1920,
+                                                            quality: 0.8,
+                                                            maxSizeMB: 5
+                                                        });
+                                                        processedFile = compressed;
+                                                    } else {
+                                                        const base64 = await new Promise<string>((resolve, reject) => {
+                                                            const reader = new FileReader();
+                                                            reader.onload = () => resolve(reader.result as string);
+                                                            reader.onerror = reject;
+                                                            reader.readAsDataURL(file);
+                                                        });
+                                                        processedFile = { name: file.name, data: base64 };
+                                                    }
+
+                                                    setAttachment(processedFile);
+                                                } catch (error: any) {
+                                                    alert(error.message || "파일 처리 중 오류가 발생했습니다.");
+                                                }
                                             }
                                         }}
                                     />

@@ -13,7 +13,7 @@ export interface ParsedOpticalRow {
     coreCount: number;
     location: string;
     remark: string;
-    totalLength: string | number;
+    productName: string | number;
     incomingLength: number;
     unitPrice: number;
     totalAmount: number;
@@ -24,7 +24,7 @@ export interface ParsedOpticalRow {
 
 export const downloadOpticalTemplate = () => {
     // Minimal CSV content for template
-    const headers = ["사업", "구분", "입고일자", "제조사", "제조연도", "규격", "코어 수", "제조번호", "보관장소", "케이블용량", "입고량", "사용량", "폐기", "잔량", "단가", "금액", "비고"];
+    const headers = ["사업", "구분", "입고일자", "제조사", "제조연도", "규격", "코어 수", "제조번호", "보관장소", "품명", "입고량", "사용량", "폐기", "잔량", "단가", "금액", "비고"];
     const csvContent = headers.join(",") + "\n" + "SKT,실외용,2023-01-01,대한광통신,2023,SM 24C,24,DR-12345,자재창고,RS_288C,1000,0,0,1000,1500,1500000,비고내용";
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
@@ -46,8 +46,8 @@ export const validateOpticalRow = (row: any, index: number): { valid: boolean; e
     if (!getValue("규격")) rowErrors.push(`${index + 2}행: 규격이 필요합니다`);
 
     // Check for length fields
-    const hasLength = getValue("케이블용량") || getValue("입고량");
-    if (!hasLength) rowErrors.push(`${index + 2}행: 케이블용량 또는 입고량이 필요합니다`);
+    const hasLength = getValue("품명") || getValue("입고량");
+    if (!hasLength) rowErrors.push(`${index + 2}행: 품명 또는 입고량이 필요합니다`);
 
     return { valid: rowErrors.length === 0, errors: rowErrors };
 };
@@ -80,22 +80,22 @@ export const transformOpticalRow = (row: any, index: number): ParsedOpticalRow =
     const spec = getValue("규격") || "";
     const coreCount = parseNum(getValue("코어 수") || getValue("코어"));
 
-    let totalLength = getValue("케이블용량") ? getValue("케이블용량").trim() : "";
+    let productName = getValue("품명") ? getValue("품명").trim() : "";
     let incomingLength = parseNum(getValue("입고량"));
 
-    if (!totalLength) {
-        totalLength = `${spec}_${coreCount}C`;
+    if (!productName) {
+        productName = `${spec}_${coreCount}C`;
     }
 
     // Legacy "길이" support
-    if (!totalLength && incomingLength === 0 && getValue("길이")) {
+    if (!productName && incomingLength === 0 && getValue("길이")) {
         const length = getValue("길이").trim();
         const lengthNum = parseNum(length);
         if (lengthNum > 0) incomingLength = lengthNum;
     }
 
-    if (incomingLength === 0 && !isNaN(Number(totalLength)) && Number(totalLength) > 0) {
-        incomingLength = Number(totalLength);
+    if (incomingLength === 0 && !isNaN(Number(productName)) && Number(productName) > 0) {
+        incomingLength = Number(productName);
     }
 
     const usedLength = parseNum(getValue("사용량"));
@@ -125,7 +125,7 @@ export const transformOpticalRow = (row: any, index: number): ParsedOpticalRow =
         coreCount,
         location: getValue("보관장소") || getValue("위치") || "자재창고",
         remark: getValue("비고") || "",
-        totalLength,
+        productName,
         incomingLength,
         unitPrice,
         totalAmount: calculatedAmount,
@@ -145,7 +145,7 @@ export const opticalColumns: BulkUploadColumn<ParsedOpticalRow>[] = [
     { header: "코어 수", width: "w-[80px]", render: (item) => item.coreCount },
     { header: "제조번호", width: "w-[140px]", render: (item) => item.drumNo },
     { header: "보관장소", width: "w-[100px]", render: (item) => item.location },
-    { header: "케이블용량", width: "w-[80px]", align: 'right', render: (item) => item.totalLength.toLocaleString() },
+    { header: "품명", width: "w-[80px]", align: 'right', render: (item) => item.productName.toLocaleString() },
     { header: "입고량", width: "w-[80px]", align: 'right', render: (item) => item.incomingLength.toLocaleString() },
     { header: "사용량", width: "w-[80px]", align: 'right', render: (item) => item.usedLength.toLocaleString() },
     { header: "폐기", width: "w-[80px]", align: 'right', render: (item) => item.wasteLength.toLocaleString() },

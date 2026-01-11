@@ -41,7 +41,11 @@ export function registerOpticalRoutes(app: Express) {
         try {
             const cable = await storage.createOpticalCable({
                 ...parseResult.data,
-                remainingLength: Number(parseResult.data.totalLength),
+                // productName이 숫자일 경우를 대비해 변환, 하지만 remainingLength가 필수라면 클라이언트에서 보내야 함.
+                // 스키마에 remainingLength가 optional로 되어있으므로 여기서 초기값 설정 필요.
+                // 단, productName은 이제 'Spec+Core' 스트링일 수 있으므로 numeric parsing 주의.
+                // 만약 remainingLength가 없으면 0으로 초기화 (parseResult.data.remainingLength가 없으면)
+                remainingLength: parseResult.data.remainingLength ?? 0,
                 tenantId,
                 createdBy: req.session!.userId!
             }, tenantId);
@@ -136,6 +140,41 @@ export function registerOpticalRoutes(app: Express) {
         }
     });
 
+    app.post("/api/optical-cables/:id/usage", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        // usage 전용 라우트지만 스키마는 동일하게 사용 (단, logType은 무시하고 서버에서 'usage'로 강제)
+        const parseResult = apiInsertOpticalCableLogSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({ error: parseResult.error.message });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        const requestReturn = req.body.requestReturn === true; // 반납 요청 여부
+
+        try {
+            const cable = await storage.createOpticalCableLog({
+                ...parseResult.data,
+                cableId: id,
+                logType: "usage", // 강제 설정
+                tenantId,
+                createdBy: req.session!.userId
+            }, tenantId);
+
+            // 반납 요청이 있는 경우 케이블 상태 업데이트
+            if (requestReturn) {
+                await storage.updateOpticalCable(id, {
+                    returnRequestStatus: 'pending',
+                    returnRequestedBy: req.session!.userId,
+                    returnRequestedAt: new Date()
+                }, tenantId);
+            }
+
+            res.json(cable);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     app.get("/api/optical-cables/:id/logs", requireAuth, requireTenant, async (req, res) => {
         const { id } = req.params;
         const tenantId = req.session!.tenantId!;
@@ -166,6 +205,71 @@ export function registerOpticalRoutes(app: Express) {
                 return res.status(404).json({ error: "Log not found" });
             }
             res.status(204).send();
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    app.post("/api/optical-cables/:id/reserve", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        const { action, project } = req.body; // action: 'reserve' | 'release'
+        const tenantId = req.session!.tenantId!;
+
+        try {
+            if (action === 'reserve') {
+                if (!project) return res.status(400).json({ error: "예약할 공사명을 입력해주세요" });
+                const cable = await storage.updateCableReservation(
+                    id,
+                    'reserve',
+                    project,
+                    req.session!.userId!,
+                    tenantId
+                );
+                res.json(cable);
+            } else if (action === 'release') {
+                const cable = await storage.updateCableReservation(
+                    id,
+                    'release',
+                    undefined,
+                    req.session!.userId!,
+                    tenantId
+                );
+                res.json(cable);
+            } else {
+                return res.status(400).json({ error: "Invalid action" });
+            }
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // 반납 승인/반려 API
+    app.post("/api/optical-cables/:id/approve-return", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        const { action } = req.body; // action: 'approve' | 'reject'
+        const tenantId = req.session!.tenantId!;
+
+        try {
+            if (action === 'approve') {
+                // 승인: 자재실로 복귀 처리
+                const cable = await storage.updateOpticalCable(id, {
+                    status: 'in_stock',
+                    currentTeamId: null,
+                    returnRequestStatus: 'approved',
+                    returnApprovedBy: req.session!.userId,
+                    returnApprovedAt: new Date()
+                }, tenantId);
+                res.json(cable);
+            } else if (action === 'reject') {
+                // 반려: 반납 요청만 취소
+                const cable = await storage.updateOpticalCable(id, {
+                    returnRequestStatus: 'rejected',
+                    returnApprovedBy: req.session!.userId,
+                    returnApprovedAt: new Date()
+                }, tenantId);
+                res.json(cable);
+            } else {
+                return res.status(400).json({ error: "Invalid action" });
+            }
         } catch (error: any) {
             res.status(500).json({ error: error.message });
         }
