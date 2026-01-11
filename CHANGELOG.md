@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.2.17 (2026-01-12) - 로딩 성능 최적화 및 UX 개선
+
+### ⚡️ Performance (성능 최적화)
+- **획기적인 데이터 최적화 (99.99% 감소)**:
+  - 목록 조회 시 `attributes` 내부의 대용량 Base64 이미지(`data`) 및 레거시 필드(`attachment`)를 **DB SQL 레벨에서 원천 제거**.
+  - ID 48번 레코드 기준: 5MB → 337 Byte로 감소.
+  - 영향 범위: 자재 입고/출고/사용 내역, 광케이블 전체 로그.
+- **Double Loading 방지**:
+  - `FieldOpticalUsage`, `TeamMaterialUsage`에서 팀 정보 로딩 시점 차이로 인한 화면 깜빡임(빈 리스트 → 데이터 리스트) 현상 해결.
+
+### 🐛 Bug Fixes
+- **서버 안정성 확보**:
+  - `OpticalStorage` 모듈 누락(`getTableColumns`)으로 인한 서버 크래시 해결.
+
+### 📝 Documentation
+- **프로젝트 규칙 업데이트**: `PROJECT_RULES.md`에 SQL 레벨 데이터 최적화 원칙(Node.js 레벨 처리 금지) 추가.
+
 ## v1.2.16 (2026-01-11) - 광케이블 반납 승인 워크플로우 및 성능 최적화
 
 ### ✨ Features (신규 기능)

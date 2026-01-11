@@ -59,7 +59,9 @@ export default function FieldOpticalUsage() {
 
     const canWrite = checkPermission("usage", "write");
     const currentTenantData = tenants.find(t => t.id === currentTenant);
-    const isFieldTeam = teams.find(t => t.id === currentTenant)?.type === 'field';
+    const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
+    const team = teams.find(t => t.id === currentTenantData?.teamId);
+    const isFieldTeam = team ? teamCategories.includes(team.teamCategory) : false;
     const { downloadFile } = useDownload();
 
     const canManage = canWrite && !isFieldTeam;
@@ -84,22 +86,19 @@ export default function FieldOpticalUsage() {
     });
 
 
+    const teamId = currentTenantData?.teamId;
+    const isTeamResolved = !teamId || !!(teamId && team);
+
     // 모든 광케이블의 사용 로그를 개별적으로 조회
     // 최적화: logType='usage'인 것만, 그리고 필요 시 teamId로 필터링하여 가져옴
     const { data: allCableLogs = [], isLoading } = useQuery<OpticalCableLog[]>({
         queryKey: ["/api/optical-cables/logs", isFieldTeam && currentTenant ? currentTenant : undefined], // Filter by team if field team
+        enabled: isTeamResolved,
         queryFn: async () => {
             const params = new URLSearchParams();
             params.append('type', 'usage');
             if (isFieldTeam && currentTenant) {
-                // currentTenant is the teamId in this context (for field teams logic in AppContext?)
-                // Wait, currentTenant is tenantId usually. 'teams' array has filtering logic.
-                // Let's check existing logic.
-                // In AppContext, currentTenant is just the tenant ID selected.
-                // In generic logic, if user is field team, they are bound to a team via currentTenant usually?
-                // Actually, let's verify if `currentTenant` is `teamId`.
-                // Looking at line 62: const isFieldTeam = teams.find(t => t.id === currentTenant)?.type === 'field';
-                // Yes, currentTenant acts as teamId context here.
+                // currentTenant acts as teamId context here for field teams
                 params.append('teamId', currentTenant);
             }
             const res = await apiRequest("GET", `/api/optical-cables/logs?${params.toString()}`);
@@ -265,7 +264,7 @@ export default function FieldOpticalUsage() {
         exportToExcel(dataToExport, "광케이블_사용등록내역");
     };
 
-    if (isLoading) {
+    if (isLoading || !isTeamResolved) {
         return (
             <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -275,7 +274,7 @@ export default function FieldOpticalUsage() {
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-shrink-0 space-y-4 pb-4">
+            <div className="hidden md:block flex-shrink-0 space-y-4 pb-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">자재 사용등록내역 (광케이블)</h1>
@@ -342,7 +341,8 @@ export default function FieldOpticalUsage() {
             </div>
 
             <div className="flex-1 rounded-md border bg-background overflow-hidden relative">
-                <div className="h-full overflow-auto">
+                {/* PC View: Table */}
+                <div className="hidden md:block h-full overflow-auto">
                     <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                             <TableRow className="h-8">
@@ -605,6 +605,201 @@ export default function FieldOpticalUsage() {
                             )}
                         </TableBody>
                     </table>
+                </div>
+
+                {/* Mobile View: Card List */}
+                <div className="md:hidden h-full flex flex-col overflow-hidden">
+                    {/* Mobile Header with Add Button */}
+                    <div className="flex-shrink-0 p-4 border-b bg-background">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <h2 className="text-lg font-bold">사용 등록 내역</h2>
+                                <p className="text-xs text-muted-foreground">
+                                    {totalRecords}건 / 설치 {totalLength.toLocaleString()}m
+                                </p>
+                            </div>
+                            {canRegister && (
+                                <Button
+                                    size="sm"
+                                    className="h-9"
+                                    onClick={() => openDialog()}
+                                >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    등록
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Mobile Search */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="제조번호, 규격, 공사명 검색..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 h-9 text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Mobile Card List */}
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                        {filteredLogs.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                                <p className="text-sm">사용 내역이 없습니다</p>
+                            </div>
+                        ) : (
+                            filteredLogs.map((log) => {
+                                const teamName = teams.find(t => t.id === log.teamId)?.name || '';
+                                return (
+                                    <div
+                                        key={log.id}
+                                        className="bg-card border rounded-lg p-3 shadow-sm"
+                                    >
+                                        {/* Header: Date + Actions */}
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-semibold">
+                                                        {log.usageDate || new Date(log.createdAt).toISOString().split('T')[0]}
+                                                    </span>
+                                                    <span className="text-xs px-1.5 py-0.5 bg-secondary rounded">
+                                                        {log.cable.division}
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-0.5">
+                                                    {teamName}
+                                                </div>
+                                            </div>
+                                            {(canManage || isFieldTeam) && (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => openDialog(log)}>
+                                                            <Pencil className="mr-2 h-4 w-4" /> 수정
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => setDeleteLog(log)}
+                                                            className="text-destructive"
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" /> 삭제
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            )}
+                                        </div>
+
+                                        {/* Cable Info */}
+                                        <div className="space-y-1 mb-2">
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-sm font-medium">{log.cable.drumNo}</span>
+                                                <span className="text-xs text-muted-foreground">{log.cable.spec}</span>
+                                            </div>
+                                            {((log as any).projectNameUsage || log.cable.projectName) && (
+                                                <div className="text-xs text-muted-foreground truncate">
+                                                    공사: {(log as any).projectNameUsage || log.cable.projectName}
+                                                </div>
+                                            )}
+                                            {(log as any).projectCode && (
+                                                <div className="text-xs text-muted-foreground truncate">
+                                                    번호: {(log as any).projectCode}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Footer: Usage + Recipient */}
+                                        <div className="flex items-center justify-between pt-2 border-t">
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                <span>{(log as any).workerName || '-'}</span>
+                                                {(() => {
+                                                    try {
+                                                        const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
+                                                        if (!attr) return null;
+
+                                                        const attachments: { name: string }[] = [];
+                                                        if (attr.attachments && Array.isArray(attr.attachments)) {
+                                                            attachments.push(...attr.attachments);
+                                                        } else if (attr.attachment && typeof attr.attachment === 'object') {
+                                                            attachments.push(attr.attachment);
+                                                        }
+
+                                                        if (attachments.length === 0) return null;
+
+                                                        if (attachments.length === 1) {
+                                                            return (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-5 px-1"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    }}
+                                                                >
+                                                                    <Download className="h-3 w-3" />
+                                                                </Button>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-5 gap-1 px-1"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <Paperclip className="h-3 w-3" />
+                                                                        <span className="text-[10px] font-medium">{attachments.length}</span>
+                                                                    </Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-auto p-2" align="end">
+                                                                    <div className="flex flex-col gap-1">
+                                                                        {attachments.map((file: any, idx: number) => (
+                                                                            <Button
+                                                                                key={idx}
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="justify-start h-8 text-xs max-w-[200px]"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                }}
+                                                                                title={file.name}
+                                                                            >
+                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                                <span className="truncate">{file.name}</span>
+                                                                            </Button>
+                                                                        ))}
+                                                                    </div>
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        );
+                                                    } catch (e) {
+                                                        return null;
+                                                    }
+                                                })()}
+                                            </div>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-xs text-muted-foreground">사용:</span>
+                                                <span className="text-base font-bold text-primary">
+                                                    {(log.installLength || 0).toLocaleString()}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground ml-1">
+                                                    (잔여: {((log as any).afterRemaining || 0).toLocaleString()})
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
             </div>
 

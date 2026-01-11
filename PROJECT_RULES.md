@@ -155,12 +155,21 @@ const stock = await db.select()
 - 예: `const canWrite = checkPermission("inventory", "write");`
 
 ### D. 데이터 전송 최적화 (Data Transfer Optimization) ⭐ **NEW**
-- **원칙**: 목록 조회 API(`GET /api/list`)에서는 **대용량 데이터(Base64 이미지, 긴 텍스트 등)를 제외**하고 메타데이터만 전송해야 합니다.
-- **구현 패턴**:
-  - `storage` 계층에서 `attributes` JSON 파싱 후 `data`(파일 내용) 필드 제거 (`delete attr.data`)
-  - 상세 조회 API(`GET /api/item/:id`)에서만 전체 데이터 반환
-  - 프론트엔드는 목록에서 썸네일/다운로드 아이콘 표시 시, 실제 다운로드 클릭 시점에 상세 데이터를 페치(`fetchQuery`)하거나 별도 다운로드 API를 호출.
-- **목적**: 불필요한 네트워크 트래픽(Egress) 방지 및 로딩 속도 향상.
+### D. 데이터 전송 최적화 (Data Transfer Optimization) ⭐ **NEW**
+- **원칙**: 목록 조회 API(`GET /api/list`)에서는 **반드시 DB 쿼리 레벨(SQL)에서 대용량 데이터(`data`, `attachment`)를 제외**하고 메타데이터만 전송해야 합니다.
+- **Node.js 레벨 처리 금지**: `db.select`로 전체 데이터를 가져온 후 Node.js에서 `Map`이나 `delete`로 필드를 지우는 방식은 금지합니다. (메모리 사용량 폭증 및 GC 부하 원인)
+- **구현 패턴 (PostgreSQL/Drizzle)**:
+  - `jsonb_set`, `jsonb_agg`, `-` 연산자를 사용하여 DB에서 직접 무거운 필드를 제거한 JSON 문자열을 생성합니다.
+  - 예시:
+    ```typescript
+    attributes: sql<string>`(
+      CASE 
+        WHEN length(${table.attributes}) < 1000 THEN ${table.attributes}::jsonb
+        ELSE ${table.attributes}::jsonb - 'data' - 'attachment'
+      END
+    )`
+    ```
+- **목적**: 불필요한 네트워크 트래픽(Egress) 방지, Node.js 힙 메모리 보호, 로딩 속도 향상.
 
 ### E. 개발 가이드라인 (Development Guidelines)
 - **재사용 원칙**: 새로운 UI나 기능을 구현할 때, 프로젝트 내에 유사한 기능이나 디자인이 이미 존재한다면 이를 최대한 활용하고 스타일을 통일합니다. (예: 첨부파일 UI, 테이블 레이아웃 등)

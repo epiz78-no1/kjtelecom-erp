@@ -137,27 +137,32 @@ export class InventoryStorage {
     async getIncomingRecords(tenantId: string): Promise<IncomingRecord[]> {
         const records = await db.select({
             ...getTableColumns(incomingRecords),
-            createdByName: users.name
+            createdByName: users.name,
+            attributes: sql<string>`(
+                CASE 
+                    WHEN length(${incomingRecords.attributes}) < 1000 THEN ${incomingRecords.attributes}::jsonb
+                    WHEN ${incomingRecords.attributes}::jsonb ? 'attachments' THEN
+                        jsonb_set(
+                            ${incomingRecords.attributes}::jsonb,
+                            '{attachments}',
+                            COALESCE(
+                                (
+                                    SELECT jsonb_agg(element - 'data')
+                                    FROM jsonb_array_elements(${incomingRecords.attributes}::jsonb -> 'attachments') AS element
+                                ),
+                                '[]'::jsonb
+                            )
+                        )
+                    ELSE ${incomingRecords.attributes}::jsonb
+                END
+            ) - 'data' - 'attachment'`
         })
             .from(incomingRecords)
             .leftJoin(users, eq(incomingRecords.createdBy, users.id))
             .where(eq(incomingRecords.tenantId, tenantId))
             .orderBy(desc(incomingRecords.date), desc(incomingRecords.id));
 
-        return records.map(record => {
-            if (record.attributes) {
-                try {
-                    const attr = JSON.parse(record.attributes);
-                    if (attr && attr.data) {
-                        delete attr.data;
-                        return { ...record, attributes: JSON.stringify(attr) };
-                    }
-                } catch (e) {
-                    // ignore parse errors
-                }
-            }
-            return record as IncomingRecord;
-        });
+        return records as IncomingRecord[];
     }
 
     async getIncomingRecord(id: number, tenantId: string): Promise<IncomingRecord | undefined> {
@@ -253,29 +258,32 @@ export class InventoryStorage {
     async getOutgoingRecords(tenantId: string): Promise<OutgoingRecord[]> {
         const records = await db.select({
             ...getTableColumns(outgoingRecords),
-            createdByName: users.name
+            createdByName: users.name,
+            attributes: sql<string>`(
+                CASE 
+                    WHEN length(${outgoingRecords.attributes}) < 1000 THEN ${outgoingRecords.attributes}::jsonb
+                    WHEN ${outgoingRecords.attributes}::jsonb ? 'attachments' THEN
+                        jsonb_set(
+                            ${outgoingRecords.attributes}::jsonb,
+                            '{attachments}',
+                            COALESCE(
+                                (
+                                    SELECT jsonb_agg(element - 'data')
+                                    FROM jsonb_array_elements(${outgoingRecords.attributes}::jsonb -> 'attachments') AS element
+                                ),
+                                '[]'::jsonb
+                            )
+                        )
+                    ELSE ${outgoingRecords.attributes}::jsonb
+                END
+            ) - 'data' - 'attachment'`
         })
             .from(outgoingRecords)
             .leftJoin(users, eq(outgoingRecords.createdBy, users.id))
             .where(eq(outgoingRecords.tenantId, tenantId))
             .orderBy(desc(outgoingRecords.date), desc(outgoingRecords.id));
 
-        // Post-process to remove large data from attributes if necessary
-        return records.map(record => {
-            if (record.attributes) {
-                try {
-                    const attr = JSON.parse(record.attributes);
-                    // If 'data' exists (base64 file), remove it for the list view
-                    if (attr && attr.data) {
-                        delete attr.data;
-                        return { ...record, attributes: JSON.stringify(attr) };
-                    }
-                } catch (e) {
-                    // ignore parse errors
-                }
-            }
-            return record as OutgoingRecord;
-        });
+        return records as OutgoingRecord[];
     }
 
     async getOutgoingRecord(id: number, tenantId: string): Promise<OutgoingRecord | undefined> {
@@ -337,28 +345,35 @@ export class InventoryStorage {
 
         const records = await db.select({
             ...getTableColumns(materialUsageRecords),
-            createdByName: users.name
+            createdByName: users.name,
+            attributes: sql<string>`(
+                CASE 
+                    WHEN length(${materialUsageRecords.attributes}) < 1000 THEN ${materialUsageRecords.attributes}::jsonb
+                    WHEN ${materialUsageRecords.attributes}::jsonb ? 'attachments' THEN
+                        jsonb_set(
+                            ${materialUsageRecords.attributes}::jsonb,
+                            '{attachments}',
+                            COALESCE(
+                                (
+                                    SELECT jsonb_agg(element - 'data')
+                                    FROM jsonb_array_elements(${materialUsageRecords.attributes}::jsonb -> 'attachments') AS element
+                                ),
+                                '[]'::jsonb
+                            )
+                        )
+                    ELSE ${materialUsageRecords.attributes}::jsonb
+                END
+            ) - 'data' - 'attachment'`
         })
             .from(materialUsageRecords)
             .leftJoin(users, eq(materialUsageRecords.createdBy, users.id))
             .where(and(...conditions))
             .orderBy(desc(materialUsageRecords.date), desc(materialUsageRecords.id));
 
-        return records.map(record => {
-            if (record.attributes) {
-                try {
-                    const attrs = JSON.parse(record.attributes);
-                    if (attrs.data) {
-                        delete attrs.data;
-                        return { ...record, attributes: JSON.stringify(attrs) };
-                    }
-                } catch (e) {
-                    // Ignore parse errors
-                }
-            }
-            return record as MaterialUsageRecord;
-        });
+        return records as MaterialUsageRecord[];
     }
+
+
 
     async getMaterialUsageRecord(id: number, tenantId: string): Promise<MaterialUsageRecord | undefined> {
         return await db.query.materialUsageRecords.findFirst({
@@ -400,7 +415,8 @@ export class InventoryStorage {
     async getTeamItemStock(tenantId: string, teamCategory: string, inventoryItemId: number): Promise<number> {
         // 1. Calculate Total Outgoing to this team
         const outgoing = await db.select({
-            total: sql<number>`sum(${outgoingRecords.quantity})`
+            total: sql<number>`sum(${outgoingRecords.quantity
+                })`
         })
             .from(outgoingRecords)
             .where(and(
@@ -411,7 +427,8 @@ export class InventoryStorage {
 
         // 2. Calculate Total Usage by this team
         const usage = await db.select({
-            total: sql<number>`sum(${materialUsageRecords.quantity})`
+            total: sql<number>`sum(${materialUsageRecords.quantity
+                })`
         })
             .from(materialUsageRecords)
             .where(and(

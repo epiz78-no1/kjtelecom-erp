@@ -231,7 +231,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* 첫 번째 행: 날짜, 사용팀, 사용자 */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>사용일 <span className="text-red-500">*</span></Label>
                             <Popover>
@@ -317,7 +317,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     </div>
 
                     {/* 두 번째 행: 사용 드럼 선택, 설치 길이, 자투리 */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>사용 드럼 선택 <span className="text-red-500">*</span></Label>
                             <Select
@@ -373,7 +373,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     )}
 
                     {/* 세 번째 행: 공사번호, 공사명 */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>공사번호</Label>
                             <Input
@@ -391,9 +391,9 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     </div>
 
                     {/* 첨부파일 */}
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-right pt-2">첨부파일</Label>
-                        <div className="col-span-3">
+                    <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                        <Label className="md:text-right pt-2">첨부파일</Label>
+                        <div className="col-span-1 md:col-span-3">
                             <div className="relative">
                                 <Input
                                     id="optical-usage-file-upload"

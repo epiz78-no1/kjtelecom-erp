@@ -192,10 +192,13 @@ export default function TeamMaterialUsage() {
     ? teams.find(t => t.id === currentTenantData.teamId)?.name
     : null;
 
+  const shouldFetch = !isFieldTeam || (isFieldTeam && !!currentTeamName);
+
   const { data: records = [], isLoading } = useQuery<MaterialUsageRecord[]>({
     queryKey: isFieldTeam && currentTeamName
       ? ["/api/material-usage", { teamCategory: currentTeamName }]
       : ["/api/material-usage"],
+    enabled: shouldFetch,
     queryFn: async () => {
       const url = isFieldTeam && currentTeamName
         ? `/api/material-usage?teamCategory=${encodeURIComponent(currentTeamName)}`
@@ -735,7 +738,11 @@ export default function TeamMaterialUsage() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
-  if (isLoading) {
+  // Check if we are waiting for team data to resolve
+  const isTeamResolving = !!currentTenantData?.teamId && !teams.find(t => t.id === currentTenantData.teamId);
+  const showLoading = isLoading || isTeamResolving;
+
+  if (showLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

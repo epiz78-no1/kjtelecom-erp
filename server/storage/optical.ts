@@ -5,7 +5,7 @@ import {
     opticalCables, opticalCableLogs, teams
 } from "../../shared/schema.js";
 import { db } from "../db.js";
-import { eq, and, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, inArray, getTableColumns, sql } from "drizzle-orm";
 
 export class OpticalStorage {
     async getOpticalCables(tenantId: string): Promise<(OpticalCable & { currentTeam: Team | null })[]> {
@@ -61,64 +61,68 @@ export class OpticalStorage {
             ));
     }
 
-    // Logs
     async getOpticalCableLogs(cableId: string, tenantId: string): Promise<OpticalCableLog[]> {
-        const logs = await db.query.opticalCableLogs.findMany({
-            where: and(
+        const { users } = await import('../../shared/schema.js'); // Dynamic import to avoid circular dependency if any, though schema is usually safe. 
+        // Actually schema imports are at top level in original file.
+        // We need leftJoin here.
+
+        const logs = await db.select({
+            ...getTableColumns(opticalCableLogs),
+            createdByName: users.name,
+            attributes: sql<string>`
+                CASE 
+                    WHEN length(${opticalCableLogs.attributes}) < 1000 THEN ${opticalCableLogs.attributes}
+                    ELSE 
+                        (
+                            SELECT jsonb_set(
+                                jsonb_set(
+                                    ${opticalCableLogs.attributes}::jsonb,
+                                    '{attachments}',
+                                    COALESCE(
+                                        (
+                                            SELECT jsonb_agg(elem - 'data')
+                                            FROM jsonb_array_elements(
+                                                CASE 
+                                                    WHEN ${opticalCableLogs.attributes}::jsonb ? 'attachments' 
+                                                    THEN ${opticalCableLogs.attributes}::jsonb -> 'attachments'
+                                                    ELSE '[]'::jsonb 
+                                                END
+                                            ) elem
+                                        ),
+                                        '[]'::jsonb
+                                    )
+                                ),
+                                '{wastePhotos}',
+                                COALESCE(
+                                    (
+                                        SELECT jsonb_agg(elem - 'data')
+                                        FROM jsonb_array_elements(
+                                            CASE 
+                                                WHEN ${opticalCableLogs.attributes}::jsonb ? 'wastePhotos' 
+                                                THEN ${opticalCableLogs.attributes}::jsonb -> 'wastePhotos'
+                                                ELSE '[]'::jsonb 
+                                            END
+                                        ) elem
+                                    ),
+                                    '[]'::jsonb
+                                )
+                            ) - 'data' - 'attachment'
+                        )::text
+                END`
+        })
+            .from(opticalCableLogs)
+            .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
+            .where(and(
                 eq(opticalCableLogs.cableId, cableId),
                 eq(opticalCableLogs.tenantId, tenantId)
-            ),
-            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.createdAt)]
-        });
+            ))
+            .orderBy(desc(opticalCableLogs.usageDate), desc(opticalCableLogs.createdAt));
 
-        const userIds = logs.map(log => log.createdBy).filter(Boolean) as string[];
-        const uniqueUserIds = Array.from(new Set(userIds));
-        let userMap = new Map<string, string>();
-
-        if (uniqueUserIds.length > 0) {
-            const { users } = await import('../../shared/schema.js');
-            const { inArray } = await import('drizzle-orm');
-
-            const usersData = await db.select({
-                id: users.id,
-                name: users.name
-            }).from(users).where(inArray(users.id, uniqueUserIds));
-
-            userMap = new Map(usersData.map(u => [u.id, u.name]));
-        }
-
-        return logs.map(log => {
-            let attributes = log.attributes;
-            if (attributes) {
-                try {
-                    const attr = JSON.parse(attributes);
-                    // Remove large data fields for list view optimization
-                    if (attr && attr.data) {
-                        delete attr.data;
-                    }
-                    // Remove data field from wastePhotos array
-                    if (attr && attr.wastePhotos && Array.isArray(attr.wastePhotos)) {
-                        attr.wastePhotos = attr.wastePhotos.map((photo: any) => ({
-                            name: photo.name,
-                            size: photo.size,
-                            type: photo.type
-                        }));
-                    }
-                    attributes = JSON.stringify(attr);
-                } catch (e) {
-                    // ignore
-                }
-            }
-            return {
-                ...log,
-                attributes,
-                createdByName: log.createdBy ? userMap.get(log.createdBy) || null : null
-            };
-        });
+        return logs as OpticalCableLog[];
     }
 
     // For unified log view
-    async getAllOpticalCableLogs(tenantId: string, filters?: { type?: string, teamId?: string }): Promise<(OpticalCableLog & { cable: OpticalCable | null, createdByName?: string | null })[]> {
+    async getAllOpticalCableLogs(tenantId: string, filters?: { type?: string, teamId?: string }): Promise<(OpticalCableLog & { cable: OpticalCable | null })[]> {
         const conditions = [eq(opticalCableLogs.tenantId, tenantId)];
 
         if (filters?.type) {
@@ -129,68 +133,75 @@ export class OpticalStorage {
             conditions.push(eq(opticalCableLogs.teamId, filters.teamId));
         }
 
-        const logs = await db.query.opticalCableLogs.findMany({
-            where: and(...conditions),
-            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.createdAt)],
-            with: {
-                cable: true
-            }
-        });
-
-        // Fetch user names for createdBy
-        const userIds = logs.map(log => log.createdBy).filter(Boolean) as string[];
-        const uniqueUserIds = Array.from(new Set(userIds));
-
-        if (uniqueUserIds.length === 0) {
-            return logs.map(log => ({ ...log, createdByName: null }));
-        }
-
         const { users } = await import('../../shared/schema.js');
-        const { inArray } = await import('drizzle-orm');
 
-        const usersData = await db.select({
-            id: users.id,
-            name: users.name
-        }).from(users).where(inArray(users.id, uniqueUserIds));
+        // Note: db.select with joins returns a flat object by default unless we structure it. 
+        // But the original return type expects nested 'cable' object. 
+        // Drizzle's db.select doesn't easily support nested object mapping without some manual work or using aggregate functions.
+        // However, we MUST use db.select for the SQL projection of attributes.
+        // Alternatively, we can join and map manually. 
 
-        const userMap = new Map(usersData.map(u => [u.id, u.name]));
+        const rows = await db.select({
+            log: getTableColumns(opticalCableLogs),
+            cable: getTableColumns(opticalCables),
+            createdByName: users.name,
+            attributes: sql<string>`
+                CASE 
+                    WHEN length(${opticalCableLogs.attributes}) < 1000 THEN ${opticalCableLogs.attributes}
+                    ELSE 
+                        (
+                            SELECT jsonb_set(
+                                jsonb_set(
+                                    ${opticalCableLogs.attributes}::jsonb,
+                                    '{attachments}',
+                                    COALESCE(
+                                        (
+                                            SELECT jsonb_agg(elem - 'data')
+                                            FROM jsonb_array_elements(
+                                                CASE 
+                                                    WHEN ${opticalCableLogs.attributes}::jsonb ? 'attachments' 
+                                                    THEN ${opticalCableLogs.attributes}::jsonb -> 'attachments'
+                                                    ELSE '[]'::jsonb 
+                                                END
+                                            ) elem
+                                        ),
+                                        '[]'::jsonb
+                                    )
+                                ),
+                                '{wastePhotos}',
+                                COALESCE(
+                                    (
+                                        SELECT jsonb_agg(elem - 'data')
+                                        FROM jsonb_array_elements(
+                                            CASE 
+                                                WHEN ${opticalCableLogs.attributes}::jsonb ? 'wastePhotos' 
+                                                THEN ${opticalCableLogs.attributes}::jsonb -> 'wastePhotos'
+                                                ELSE '[]'::jsonb 
+                                            END
+                                        ) elem
+                                    ),
+                                    '[]'::jsonb
+                                )
+                            ) - 'data' - 'attachment'
+                        )::text
+                END`
+        })
+            .from(opticalCableLogs)
+            .leftJoin(opticalCables, eq(opticalCableLogs.cableId, opticalCables.id))
+            .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
+            .where(and(...conditions))
+            .orderBy(desc(opticalCableLogs.usageDate), desc(opticalCableLogs.createdAt));
 
-        return logs.map(log => {
-            let attributes = log.attributes;
-            if (attributes) {
-                try {
-                    const attr = JSON.parse(attributes);
-                    // Remove data field from old format
-                    if (attr && attr.data) {
-                        delete attr.data;
-                    }
-                    // Remove data field from new attachments array format
-                    if (attr && attr.attachments && Array.isArray(attr.attachments)) {
-                        attr.attachments = attr.attachments.map((att: any) => ({
-                            name: att.name,
-                            size: att.size
-                        }));
-                    }
-                    // Remove data from wastePhotos array
-                    if (attr && attr.wastePhotos && Array.isArray(attr.wastePhotos)) {
-                        attr.wastePhotos = attr.wastePhotos.map((photo: any) => ({
-                            name: photo.name,
-                            size: photo.size
-                        }));
-                    }
-                    attributes = JSON.stringify(attr);
-                } catch (e) {
-                    // ignore
-                }
-            }
-
-            return {
-                ...log,
-                attributes,
-                createdByName: log.createdBy ? userMap.get(log.createdBy) || null : null
-            };
-        });
+        return rows.map(row => ({
+            ...row.log,
+            attributes: row.attributes,
+            createdByName: row.createdByName,
+            cable: row.cable // This will be null if left join failed, but opticalCables should exist. If id is null, cable is null.
+        })) as (OpticalCableLog & { cable: OpticalCable | null })[];
     }
+
+
+
 
     async getOpticalCableLog(id: string, tenantId: string): Promise<OpticalCableLog | undefined> {
         return await db.query.opticalCableLogs.findFirst({
