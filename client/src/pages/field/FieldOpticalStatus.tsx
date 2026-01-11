@@ -24,6 +24,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { useColumnResize } from "@/hooks/useColumnResize";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -45,6 +46,18 @@ export default function FieldOpticalStatus() {
     const canManage = canWrite && !isFieldTeam;
     // 현장팀이거나 관리자면 반납/폐기 가능
     const canAction = canManage || isFieldTeam;
+
+    const { widths, startResizing } = useColumnResize({
+        division: 80,
+        teamCategory: 120,
+        productName: 120,
+        drumNo: 120,
+        spec: 150,
+        coreCount: 80,
+        remainingLength: 100,
+        status: 100,
+        actions: 50
+    });
 
     const { data: cables = [], isLoading } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
         queryKey: ["/api/optical-cables"],
@@ -74,7 +87,8 @@ export default function FieldOpticalStatus() {
             coreCount: cable.coreCount,
             productName: cable.productName,
             remainingLength: cable.remainingLength,
-            currentTeamId: cable.currentTeamId
+            currentTeamId: cable.currentTeamId,
+            returnRequestStatus: cable.returnRequestStatus // 반납 요청 상태 추가
         };
     });
 
@@ -216,19 +230,69 @@ export default function FieldOpticalStatus() {
                     <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                             <TableRow className="h-10">
-                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
-                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
-                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">제조번호</TableHead>
-                                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
-                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">코어</TableHead>
-                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">잔량(m)</TableHead>
-                                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
+                                    사업
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("division", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.teamCategory }}>
+                                    현장팀
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("teamCategory", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
+                                    품명
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("productName", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
+                                    제조번호
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("drumNo", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
+                                    규격
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("spec", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.coreCount }}>
+                                    코어
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("coreCount", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remainingLength }}>
+                                    잔량(m)
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("remainingLength", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.status }}>
+                                    상태
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("status", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredStock.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                         보유 중인 광케이블이 없습니다
                                     </TableCell>
                                 </TableRow>
@@ -237,12 +301,23 @@ export default function FieldOpticalStatus() {
                                     <TableRow key={item.id} className="h-10 hover:bg-muted/50">
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.productName}</TableCell>
+                                        <TableCell className="align-middle p-0">
+                                            <div className="w-full truncate text-center mx-auto" title={item.productName}>
+                                                {item.productName}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.drumNo}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.spec}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.coreCount}</TableCell>
                                         <TableCell className="text-center align-middle font-bold">
                                             {item.remainingLength.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle">
+                                            {item.returnRequestStatus === 'pending' && (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                    반납 대기
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-center align-middle">
                                             {canAction && (
@@ -256,13 +331,6 @@ export default function FieldOpticalStatus() {
                                                         <DropdownMenuItem onClick={() => handleOpenAction(item, 'return')}>
                                                             <ArrowLeftRight className="mr-2 h-4 w-4" />
                                                             사무실 반납
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleOpenAction(item, 'waste')}
-                                                            className="text-destructive"
-                                                        >
-                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                            폐기 처리
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>

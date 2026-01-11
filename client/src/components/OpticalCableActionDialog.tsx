@@ -57,6 +57,9 @@ export function OpticalCableActionDialog({
     const [wasteReason, setWasteReason] = useState("");
     const [wastePhotos, setWastePhotos] = useState<Array<{ name: string; data: string; size: number }>>([]);
 
+    // Usage attachments state
+    const [usageAttachments, setUsageAttachments] = useState<Array<{ name: string; data: string; size: number }>>([]);
+
     // 액션 타입에 따른 제목 및 설명
     const getTitle = () => {
         switch (actionType) {
@@ -95,6 +98,7 @@ export function OpticalCableActionDialog({
             // Reset waste-specific fields
             setWasteReason("");
             setWastePhotos([]);
+            setUsageAttachments([]);
         }
     }, [open, cable, actionType, form]);
 
@@ -140,6 +144,9 @@ export function OpticalCableActionDialog({
                 ...(wastePhotos.length > 0 && { wastePhotos })
             };
             data.attributes = JSON.stringify(attributes);
+        } else if (usageAttachments.length > 0) {
+            // For other actions with attachments
+            data.attributes = JSON.stringify({ attachments: usageAttachments });
         }
         mutation.mutate(data);
     };
@@ -306,6 +313,116 @@ export function OpticalCableActionDialog({
                                     </div>
                                 </div>
                             </>
+                        )}
+
+                        {/* 공사번호 (assign 제외) */}
+                        {actionType !== 'assign' && (
+                            <FormField
+                                control={form.control}
+                                name="projectCode"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>공사번호</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="공사번호 입력" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {/* 공사명 (assign 제외) */}
+                        {actionType !== 'assign' && (
+                            <FormField
+                                control={form.control}
+                                name="projectNameUsage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>공사명</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="공사명 입력" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {/* 첨부파일 (waste 제외) */}
+                        {actionType !== 'waste' && actionType !== 'assign' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    첨부파일 ({usageAttachments.length}/4)
+                                </label>
+                                <div className="space-y-2">
+                                    {usageAttachments.length < 4 && (
+                                        <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                                            <Upload className="h-5 w-5 text-primary" />
+                                            <span className="text-sm font-medium text-primary">
+                                                파일 선택 ({usageAttachments.length}/4)
+                                            </span>
+                                            <Input
+                                                type="file"
+                                                accept="image/*,.pdf"
+                                                multiple
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    const remainingSlots = 4 - usageAttachments.length;
+                                                    const filesToProcess = files.slice(0, remainingSlots);
+
+                                                    for (const file of filesToProcess) {
+                                                        try {
+                                                            let processedFile = file;
+                                                            if (file.type.startsWith('image/')) {
+                                                                const compressed = await compressImage(file, {
+                                                                    maxWidth: 1280,
+                                                                    maxHeight: 1280,
+                                                                    quality: 0.7,
+                                                                    maxSizeMB: 1
+                                                                });
+                                                                processedFile = compressed;
+                                                            }
+
+                                                            const reader = new FileReader();
+                                                            reader.onload = () => {
+                                                                setUsageAttachments(prev => [...prev, {
+                                                                    name: file.name,
+                                                                    data: reader.result as string,
+                                                                    size: processedFile.size
+                                                                }]);
+                                                            };
+                                                            reader.readAsDataURL(processedFile);
+                                                        } catch (error) {
+                                                            toast({
+                                                                title: "파일 처리 실패",
+                                                                description: `${file.name} 처리 중 오류가 발생했습니다.`,
+                                                                variant: "destructive"
+                                                            });
+                                                        }
+                                                    }
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                        </label>
+                                    )}
+
+                                    {usageAttachments.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                                            <span className="text-sm truncate">📎 {file.name} ({formatFileSize(file.size)})</span>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setUsageAttachments(prev => prev.filter((_, i) => i !== index))}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
 
                         {/* 공통: 작업일자 */}

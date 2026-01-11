@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useColumnResize } from "@/hooks/useColumnResize";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +77,22 @@ export default function TeamMaterialUsage() {
   const { user, tenants, currentTenant, checkPermission, divisions, teams } = useAppContext();
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
   const { downloadFile } = useDownload();
+
+  const { widths, startResizing } = useColumnResize({
+    checkbox: 40,
+    date: 100,
+    division: 80,
+    teamCategory: 80,
+    projectName: 200,
+    productName: 120,
+    specification: 120,
+    quantity: 70,
+    recipient: 80,
+    remark: 150,
+    createdBy: 80,
+    attachment: 50,
+    actions: 70
+  });
 
   /* useState 제거됨 */
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -175,10 +192,13 @@ export default function TeamMaterialUsage() {
     ? teams.find(t => t.id === currentTenantData.teamId)?.name
     : null;
 
+  const shouldFetch = !isFieldTeam || (isFieldTeam && !!currentTeamName);
+
   const { data: records = [], isLoading } = useQuery<MaterialUsageRecord[]>({
     queryKey: isFieldTeam && currentTeamName
       ? ["/api/material-usage", { teamCategory: currentTeamName }]
       : ["/api/material-usage"],
+    enabled: shouldFetch,
     queryFn: async () => {
       const url = isFieldTeam && currentTeamName
         ? `/api/material-usage?teamCategory=${encodeURIComponent(currentTeamName)}`
@@ -718,7 +738,11 @@ export default function TeamMaterialUsage() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
-  if (isLoading) {
+  // Check if we are waiting for team data to resolve
+  const isTeamResolving = !!currentTenantData?.teamId && !teams.find(t => t.id === currentTenantData.teamId);
+  const showLoading = isLoading || isTeamResolving;
+
+  if (showLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -821,7 +845,7 @@ export default function TeamMaterialUsage() {
           <table className="w-full caption-bottom text-sm table-fixed">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-8">
-                <TableHead className="w-[40px] text-center align-middle bg-background">
+                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
                   {isTenantOwner ? (
                     <Checkbox
                       checked={allSelected}
@@ -830,19 +854,85 @@ export default function TeamMaterialUsage() {
                     />
                   ) : null}
                 </TableHead>
-                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용팀</TableHead>
-                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">공사명</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">품명</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">규격</TableHead>
-                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">수량</TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
+                  사용일
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("date", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
+                  사업
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("division", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.teamCategory }}>
+                  사용팀
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("teamCategory", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
+                  공사명
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("projectName", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
+                  품명
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("productName", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.specification }}>
+                  규격
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("specification", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.quantity }}>
+                  수량
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("quantity", e)}
+                  />
+                </TableHead>
 
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사용자</TableHead>
-                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">비고</TableHead>
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입력자</TableHead>
-                <TableHead className="font-semibold w-[50px] text-center align-middle bg-background">첨부</TableHead>
-                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.recipient }}>
+                  사용자
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("recipient", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
+                  비고
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("remark", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.createdBy }}>
+                  입력자
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("createdBy", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.attachment }}>
+                  첨부
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("attachment", e)}
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -863,15 +953,31 @@ export default function TeamMaterialUsage() {
                   <TableCell className="text-center align-middle whitespace-nowrap">
                     {record.teamCategory || teams.find(t => t.id === record.teamId)?.name || ''}
                   </TableCell>
-                  <TableCell className="text-left align-middle max-w-[200px] truncate">{record.projectName}</TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.productName}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[120px] truncate">{record.specification}</TableCell>
+                  <TableCell className="align-middle p-0">
+                    <div className="w-full truncate text-left pl-2" title={record.projectName}>
+                      {record.projectName}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-middle p-0">
+                    <div className="w-full truncate text-center mx-auto whitespace-nowrap" title={record.productName}>
+                      {record.productName}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-middle p-0">
+                    <div className="w-full truncate text-center mx-auto" title={record.specification}>
+                      {record.specification}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center align-middle font-bold">
                     {Number(record.quantity).toLocaleString()}
                   </TableCell>
 
                   <TableCell className="text-center align-middle whitespace-nowrap">{record.recipient || ''}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[150px] truncate" title={record.remark || ""}>{record.remark}</TableCell>
+                  <TableCell className="align-middle p-0">
+                    <div className="w-full truncate text-center mx-auto" title={record.remark || ""}>
+                      {record.remark}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center align-middle whitespace-nowrap">{(record as any).createdByName || "-"}</TableCell>
                   <TableCell className="text-center align-middle">
                     {(() => {

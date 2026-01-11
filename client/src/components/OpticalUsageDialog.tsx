@@ -51,7 +51,6 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
         projectCode: "",
         projectNameUsage: "",
         workerName: user?.username || "",
-        requestReturn: false,
         attachments: [] as { name: string; data: string }[],
     });
 
@@ -60,41 +59,87 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
         enabled: open && !!formData.teamId,
     });
 
+    const { data: cableLogs = [] } = useQuery<OpticalCableLog[]>({
+        queryKey: [`/api/optical-cables/${formData.cableId}/logs`],
+        enabled: !!formData.cableId && !editingLog && open,
+    });
+
+    useEffect(() => {
+        // 다이얼로그가 열려있을 때만 자동 채우기 실행
+        if (open && !editingLog && formData.cableId && cableLogs.length > 0) {
+            // Find the latest 'assign' log
+            const lastAssignLog = cableLogs.find(log => log.logType === 'assign');
+            if (lastAssignLog) {
+                setFormData(prev => {
+                    // Avoid unnecessary updates if values are already set to what we want
+                    if (prev.projectCode === (lastAssignLog.projectCode || "") &&
+                        prev.projectNameUsage === (lastAssignLog.projectNameUsage || "")) {
+                        return prev;
+                    }
+                    return {
+                        ...prev,
+                        projectCode: lastAssignLog.projectCode || "",
+                        projectNameUsage: lastAssignLog.projectNameUsage || ""
+                    };
+                });
+            }
+        }
+    }, [open, cableLogs, formData.cableId, editingLog]);
+
     const { data: members = [] } = useQuery<any[]>({
         queryKey: ["/api/admin/members"],
         retry: false,
     });
+    // 다이얼로그가 열릴 때 초기화 로직
     useEffect(() => {
-        if (editingLog) {
-            setFormData({
-                cableId: editingLog.cableId,
-                teamId: editingLog.teamId || myTeamId || "",
-                usageDate: editingLog.usageDate || new Date(editingLog.createdAt).toISOString().split('T')[0],
-                installLength: editingLog.installLength || 0,
-                wasteLength: editingLog.wasteLength || 0,
-                projectCode: (editingLog as any).projectCode || "",
-                projectNameUsage: (editingLog as any).projectNameUsage || "",
-                workerName: (editingLog as any).workerName || user?.username || "",
-                requestReturn: false,
-                attachments: [],
-            });
-        } else {
-            setFormData({
-                cableId: "",
-                teamId: myTeamId || "",
-                usageDate: new Date().toISOString().split('T')[0],
-                installLength: 0,
-                wasteLength: 0,
-                projectCode: "",
-                projectNameUsage: "",
-                workerName: user?.username || "",
-                requestReturn: false,
-                attachments: [],
-            });
+        if (open) {
+            if (editingLog) {
+                let parsedAttachments: { name: string; data: string }[] = [];
+
+                if (editingLog.attributes) {
+                    try {
+                        const attr = JSON.parse(editingLog.attributes);
+                        if (attr.attachments && Array.isArray(attr.attachments)) {
+                            parsedAttachments = attr.attachments;
+                        }
+                    } catch (e) {
+                        // Ignore parse error
+                    }
+                }
+
+                setFormData({
+                    cableId: editingLog.cableId,
+                    teamId: editingLog.teamId || myTeamId || "",
+                    usageDate: editingLog.usageDate || new Date(editingLog.createdAt).toISOString().split('T')[0],
+                    installLength: editingLog.installLength || 0,
+                    wasteLength: editingLog.wasteLength || 0,
+                    projectCode: (editingLog as any).projectCode || "",
+                    projectNameUsage: (editingLog as any).projectNameUsage || "",
+                    workerName: (editingLog as any).workerName || user?.username || "",
+                    attachments: parsedAttachments,
+                });
+            } else {
+                // 신규 등록인 경우 항상 초기화 (이전 입력값 제거)
+                setFormData({
+                    cableId: "",
+                    teamId: myTeamId || "",
+                    usageDate: new Date().toISOString().split('T')[0],
+                    installLength: 0,
+                    wasteLength: 0,
+                    projectCode: "",
+                    projectNameUsage: "",
+                    workerName: user?.username || "",
+                    attachments: [],
+                });
+            }
         }
-    }, [editingLog, myTeamId, user, open]);
+    }, [open, editingLog, myTeamId, user]);
+
 
     const availableCables = cables.filter(c => {
+        // If editing, always include the currently selected cable
+        if (editingLog && c.id === editingLog.cableId) return true;
+
         if (c.status !== 'assigned') return false;
         if (isFieldTeam && myTeamId) {
             return c.currentTeamId === myTeamId;
@@ -105,20 +150,32 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
         return false; // 팀이 선택되지 않았으면 아무것도 보여주지 않음
     });
 
+
     const usageMutation = useMutation({
         mutationFn: async (data: any) => {
+            const attributes = JSON.stringify({
+                attachments: data.attachments
+            });
+
+            const payload = {
+                ...data,
+                attributes
+            };
+
             if (editingLog) {
-                return apiRequest("PATCH", `/api/optical-cable-logs/${editingLog.id}`, data);
+                return apiRequest("PATCH", `/api/optical-cable-logs/${editingLog.id}`, payload);
             } else {
                 return apiRequest("POST", `/api/optical-cables/${data.cableId}/usage`, {
-                    ...data,
+                    ...payload,
                     logType: "usage"
                 });
             }
         },
-        onSuccess: () => {
+        onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
+            // 특정 케이블의 이력도 무효화 (이력 다이얼로그 업데이트용)
+            queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${variables.cableId}/logs`] });
             toast({ title: editingLog ? "사용 내역이 수정되었습니다" : "사용 실적이 등록되었습니다" });
             onOpenChange(false);
         },
@@ -174,7 +231,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* 첫 번째 행: 날짜, 사용팀, 사용자 */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>사용일 <span className="text-red-500">*</span></Label>
                             <Popover>
@@ -260,7 +317,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     </div>
 
                     {/* 두 번째 행: 사용 드럼 선택, 설치 길이, 자투리 */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>사용 드럼 선택 <span className="text-red-500">*</span></Label>
                             <Select
@@ -316,7 +373,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     )}
 
                     {/* 세 번째 행: 공사번호, 공사명 */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>공사번호</Label>
                             <Input
@@ -334,9 +391,9 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     </div>
 
                     {/* 첨부파일 */}
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-right pt-2">첨부파일</Label>
-                        <div className="col-span-3">
+                    <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                        <Label className="md:text-right pt-2">첨부파일</Label>
+                        <div className="col-span-1 md:col-span-3">
                             <div className="relative">
                                 <Input
                                     id="optical-usage-file-upload"
@@ -449,19 +506,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                         </div>
                     </div>
 
-                    {/* 반납 요청 체크박스 */}
-                    <div className="flex items-center space-x-2 p-3 rounded-md bg-blue-50 border border-blue-200">
-                        <input
-                            type="checkbox"
-                            id="requestReturn"
-                            checked={formData.requestReturn || false}
-                            onChange={(e) => setFormData({ ...formData, requestReturn: e.target.checked })}
-                            className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label htmlFor="requestReturn" className="text-sm font-medium cursor-pointer">
-                            반납 요청 (관리자 승인 필요)
-                        </label>
-                    </div>
+
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

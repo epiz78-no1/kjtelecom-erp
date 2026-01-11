@@ -118,13 +118,13 @@ export default function OpticalDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{totalLength.toLocaleString()}m</div>
-                        <p className="text-xs text-muted-foreground">전체 보유 드럼 합계</p>
+                        <p className="text-xs text-muted-foreground">전체 보유 케이블 합계</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">보유 드럼</CardTitle>
+                        <CardTitle className="text-sm font-medium">보유 케이블</CardTitle>
                         <Cuboid className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -168,7 +168,7 @@ export default function OpticalDashboard() {
                             <TableHeader>
                                 <TableRow className="bg-muted/50 h-8">
                                     <TableHead>구분</TableHead>
-                                    <TableHead className="text-right">보유 드럼</TableHead>
+                                    <TableHead className="text-right">보유 케이블</TableHead>
                                     <TableHead className="text-right">총 잔여 길이</TableHead>
                                     <TableHead className="text-right">총 금액</TableHead>
                                 </TableRow>

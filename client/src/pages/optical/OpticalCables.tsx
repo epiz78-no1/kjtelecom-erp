@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, Download, Search, ArrowRightLeft, History, X, Filter, ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Download, Search, ArrowRightLeft, History, X, Filter, ChevronDown, ChevronUp, MoreHorizontal, Calendar, CalendarX, Send, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { Upload } from "lucide-react";
 import { OpticalCableFormDialog, type OpticalCableFormData } from "@/components/OpticalCableFormDialog";
 import { OpticalCableHistoryDialog } from "@/components/OpticalCableHistoryDialog";
+import { OpticalReserveDialog } from "@/components/OpticalReserveDialog";
 import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
 import {
     validateOpticalRow,
@@ -390,7 +391,7 @@ export default function OpticalCables() {
                         <h1 className="text-2xl font-bold flex items-center gap-2">
                             광케이블 관리
                         </h1>
-                        <p className="text-muted-foreground">광케이블 드럼 재고, 불출, 사용 이력을 관리합니다.</p>
+                        <p className="text-muted-foreground">광케이블 케이블 재고, 불출, 사용 이력을 관리합니다.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <Button
@@ -406,7 +407,7 @@ export default function OpticalCables() {
                             <DropdownMenuTrigger asChild>
                                 <Button>
                                     <Plus className="h-4 w-4 mr-2" />
-                                    드럼 등록
+                                    케이블 등록
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -478,8 +479,18 @@ export default function OpticalCables() {
 
 
 
-                        <div className="text-sm text-muted-foreground ml-auto whitespace-nowrap pl-2">
-                            총 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목
+
+                        <div className="text-sm text-muted-foreground ml-auto whitespace-nowrap pl-2 flex items-center gap-2">
+                            {/* 반납 요청 대기 건수 표시 - 작게 */}
+                            {cables.filter(c => c.returnRequestStatus === 'pending').length > 0 && (
+                                <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                                    <span className="text-yellow-700">반납 대기</span>
+                                    <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 bg-yellow-400 text-white text-[10px] font-bold rounded-full">
+                                        {cables.filter(c => c.returnRequestStatus === 'pending').length}
+                                    </span>
+                                </div>
+                            )}
+                            <span>총 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목</span>
                         </div>
                     </div>
 
@@ -741,14 +752,22 @@ export default function OpticalCables() {
                                         <TableCell className="text-center align-middle whitespace-nowrap">{cable.coreCount}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{cable.drumNo}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{cable.location}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{cable.productName}</TableCell>
+                                        <TableCell className="align-middle p-0">
+                                            <div className="w-full truncate text-center font-medium px-2" title={cable.productName}>
+                                                {cable.productName}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{((cable.remainingLength || 0) + (cable.usedLength || 0) + (cable.wasteLength || 0)).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{(cable.usedLength || 0).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{(cable.wasteLength || 0).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{(cable.remainingLength || 0).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{(cable.unitPrice || 0).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{(cable.totalAmount || 0).toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap" style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cable.remark}</TableCell>
+                                        <TableCell className="align-middle p-0">
+                                            <div className="w-full truncate text-center px-2" title={cable.remark || ""}>
+                                                {cable.remark}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-center align-middle">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -765,9 +784,33 @@ export default function OpticalCables() {
                                                         이력 보기
                                                     </DropdownMenuItem>
 
+                                                    {/* 예약 기능 */}
+                                                    {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
+                                                        <DropdownMenuItem onClick={() => {
+                                                            setSelectedReserveCable(cable);
+                                                            setReserveDialogOpen(true);
+                                                        }}>
+                                                            <Calendar className="mr-2 h-4 w-4" />
+                                                            자재 예약
+                                                        </DropdownMenuItem>
+                                                    )}
+
+                                                    {cable.reservationStatus === 'reserved' && (
+                                                        <DropdownMenuItem
+                                                            onClick={() => {
+                                                                setSelectedReserveCable(cable);
+                                                                setReserveDialogOpen(true);
+                                                            }}
+                                                            className="text-orange-600 focus:text-orange-600"
+                                                        >
+                                                            <CalendarX className="mr-2 h-4 w-4" />
+                                                            예약 해제
+                                                        </DropdownMenuItem>
+                                                    )}
+
                                                     {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
                                                         <DropdownMenuItem onClick={() => handleAction(cable, 'assign')}>
-                                                            <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                                            <Send className="mr-2 h-4 w-4" />
                                                             불출 (Assign)
                                                         </DropdownMenuItem>
                                                     )}
@@ -779,23 +822,23 @@ export default function OpticalCables() {
                                                                 onClick={() => handleReturnApproval(cable.id, 'approve')}
                                                                 className="text-green-600 focus:text-green-600"
                                                             >
-                                                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                                                <CheckCircle className="mr-2 h-4 w-4" />
                                                                 반납 승인
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem
                                                                 onClick={() => handleReturnApproval(cable.id, 'reject')}
                                                                 className="text-orange-600 focus:text-orange-600"
                                                             >
-                                                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                                                <XCircle className="mr-2 h-4 w-4" />
                                                                 반납 반려
                                                             </DropdownMenuItem>
                                                         </>
                                                     )}
 
-                                                    {/* Waste is available unless already wasted or used up or reserved */}
-                                                    {['in_stock', 'assigned', 'returned'].includes(cable.status) && cable.reservationStatus !== 'reserved' && (
-                                                        <DropdownMenuItem onClick={() => handleAction(cable, 'waste')} className="text-destructive focus:text-destructive">
-                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                    {/* Waste is available only when in stock or returned (not assigned to field) */}
+                                                    {['in_stock', 'returned'].includes(cable.status) && cable.reservationStatus !== 'reserved' && (
+                                                        <DropdownMenuItem onClick={() => handleAction(cable, 'waste')} className="text-yellow-600 focus:text-yellow-600">
+                                                            <AlertTriangle className="mr-2 h-4 w-4" />
                                                             폐기 (Waste)
                                                         </DropdownMenuItem>
                                                     )}
@@ -873,6 +916,12 @@ export default function OpticalCables() {
                     />
                 )
             }
+
+            <OpticalReserveDialog
+                open={reserveDialogOpen}
+                onOpenChange={setReserveDialogOpen}
+                cable={selectedReserveCable}
+            />
         </div >
     );
 };

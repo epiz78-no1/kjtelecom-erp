@@ -36,19 +36,27 @@ export function OpticalActionDialog({ open, onOpenChange, cable, actionType }: O
     const actionMutation = useMutation({
         mutationFn: async () => {
             if (!cable) return;
-            return apiRequest("POST", `/api/optical-cables/${cable.id}/log`, {
-                cableId: cable.id,
-                teamId: cable.currentTeamId, // 반납/폐기 주체 팀
-                logType: actionType,
-                usageDate,
-                attributes: JSON.stringify({ remark }), // 비고 저장
-                // installLength, wasteLength는 0
-            });
+
+            if (actionType === 'return') {
+                // 반납 요청 (승인 대기)
+                return apiRequest("POST", `/api/optical-cables/${cable.id}/request-return`, {});
+            } else {
+                // 폐기는 기존 로직 유지
+                return apiRequest("POST", `/api/optical-cables/${cable.id}/log`, {
+                    cableId: cable.id,
+                    teamId: cable.currentTeamId,
+                    logType: 'waste',
+                    usageDate,
+                    attributes: JSON.stringify({ remark }),
+                });
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
             toast({
-                title: actionType === 'return' ? "자재가 반납되었습니다" : "자재가 폐기 처리되었습니다"
+                title: actionType === 'return'
+                    ? "반납 신청이 완료되었습니다. 관리자 승인을 기다려주세요."
+                    : "자재가 폐기 처리되었습니다"
             });
             onOpenChange(false);
             setRemark("");
@@ -81,7 +89,7 @@ export function OpticalActionDialog({ open, onOpenChange, cable, actionType }: O
                     </DialogTitle>
                     <DialogDescription>
                         {isReturn
-                            ? "이 광케이블을 사무실(창고)로 반납 처리합니다."
+                            ? "이 광케이블의 반납을 신청합니다. 관리자 승인 후 반납 처리됩니다."
                             : "이 광케이블을 폐기 상태로 변경합니다. 잔량이 남아있어도 더 이상 사용할 수 없습니다."}
                     </DialogDescription>
                 </DialogHeader>
@@ -135,7 +143,7 @@ export function OpticalActionDialog({ open, onOpenChange, cable, actionType }: O
                                     처리중...
                                 </>
                             ) : (
-                                isReturn ? "반납 확인" : "폐기 처리"
+                                isReturn ? "반납 신청" : "폐기 처리"
                             )}
                         </Button>
                     </DialogFooter>
