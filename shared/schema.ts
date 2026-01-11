@@ -526,6 +526,7 @@ export const opticalCableLogs = pgTable("optical_cable_logs", {
   teamId: varchar("team_id").references(() => teams.id), // Team involved in this log (assignee or user)
   logType: text("log_type").notNull(), // assign (불출), usage (사용), return (반납), waste (폐기), create (입고), receive (입고)
   projectCode: text("project_code"), // 공사번호
+  sectionName: text("section_name"), // 구간명
   projectNameUsage: text("project_name_usage"), // 공사명 (사용 시)
   usedLength: integer("used_length").notNull().default(0), // Total usage in this action
   installLength: integer("install_length").default(0), // Net installed
