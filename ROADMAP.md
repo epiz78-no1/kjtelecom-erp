@@ -141,6 +141,9 @@
 ## 📋 Immediate Action Items (당장 할 일)
 1. **Phase 2 완료**: 광케이블 예약 시스템 UI 보완 (5% 남음)
 2. **리팩터링**: 광케이블 모듈 코드 간소화
+   - **Step 1 (Custom Hooks)**: `useOpticalCables`, `useOpticalActions` 분리
+   - **Step 2 (Components)**: `OpticalTable`, `OpticalStats`, `OpticalFilter` 분할
+   - **Step 3 (Optimization)**: 유틸리티 함수 분리 및 렌더링 최적화
 3. **Phase 2 배포**: 운영 서버 반영
 
 ## 🔜 Future Considerations (향후 검토)
