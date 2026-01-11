@@ -344,15 +344,27 @@ export default function OpticalIncoming() {
                                                 : format(new Date(log.createdAt), 'yyyy-MM-dd')}
                                         </TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectCode || ''}</TableCell>
-                                        <TableCell className="text-left align-middle whitespace-nowrap">{(log as any).projectNameUsage || log.cable?.projectName || ''}</TableCell>
+                                        <TableCell className="align-middle p-0 text-left">
+                                            <div className="w-full truncate px-2" title={(log as any).projectNameUsage || log.cable?.projectName || ''}>
+                                                {(log as any).projectNameUsage || log.cable?.projectName || ''}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufacturer || ''}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufactureYear || ''}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.spec || ''}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.coreCount || ''}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{log.cable?.drumNo || ''}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.location || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{String(log.cable?.productName || '')}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap" style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.cable?.remark || ''}</TableCell>
+                                        <TableCell className="align-middle p-0">
+                                            <div className="w-full truncate text-center font-medium px-2" title={String(log.cable?.productName || '')}>
+                                                {String(log.cable?.productName || '')}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="align-middle p-0">
+                                            <div className="w-full truncate text-center px-2" title={log.cable?.remark || ''}>
+                                                {log.cable?.remark || ''}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-center align-middle">
                                             {(log as any).createdByName || "-"}
                                         </TableCell>

@@ -13,7 +13,10 @@ export function registerOpticalRoutes(app: Express) {
 
     app.get("/api/optical-cables/logs", requireAuth, requireTenant, async (req, res) => {
         const tenantId = req.session!.tenantId!;
-        const result = await storage.getAllOpticalCableLogs(tenantId);
+        const type = req.query.type as string | undefined;
+        const teamId = req.query.teamId as string | undefined;
+
+        const result = await storage.getAllOpticalCableLogs(tenantId, { type, teamId });
         res.json(result);
     });
 
@@ -237,6 +240,23 @@ export function registerOpticalRoutes(app: Express) {
             } else {
                 return res.status(400).json({ error: "Invalid action" });
             }
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // 반납 요청 API (현장팀용)
+    app.post("/api/optical-cables/:id/request-return", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        const tenantId = req.session!.tenantId!;
+
+        try {
+            const cable = await storage.updateOpticalCable(id, {
+                returnRequestStatus: 'pending',
+                returnRequestedBy: req.session!.userId,
+                returnRequestedAt: new Date()
+            }, tenantId);
+            res.json(cable);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
         }

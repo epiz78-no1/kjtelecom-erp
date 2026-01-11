@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { useColumnResize } from "@/hooks/useColumnResize";
 import {
   Select,
   SelectContent,
@@ -40,6 +41,14 @@ export default function TeamOutgoing() {
   });
 
   const isLoading = outgoingLoading || usageLoading;
+
+  const { widths, startResizing } = useColumnResize({
+    division: 80,
+    teamCategory: 120,
+    productName: 200,
+    specification: 150,
+    quantity: 100
+  });
 
   // Aggregate stock
   const stockMap = new Map<string, any>();
@@ -230,11 +239,41 @@ export default function TeamOutgoing() {
           <table className="w-full caption-bottom text-sm table-fixed">
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow className="h-10">
-                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">사업</TableHead>
-                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">현장팀</TableHead>
-                <TableHead className="font-semibold w-[200px] text-center align-middle bg-background">품명</TableHead>
-                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">규격</TableHead>
-                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">보유 수량</TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.division }}>
+                  사업
+                  <div
+                    onMouseDown={(e) => startResizing('division', e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.teamCategory }}>
+                  현장팀
+                  <div
+                    onMouseDown={(e) => startResizing('teamCategory', e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.productName }}>
+                  품명
+                  <div
+                    onMouseDown={(e) => startResizing('productName', e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.specification }}>
+                  규격
+                  <div
+                    onMouseDown={(e) => startResizing('specification', e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                  />
+                </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.quantity }}>
+                  보유 수량
+                  <div
+                    onMouseDown={(e) => startResizing('quantity', e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                  />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -247,11 +286,19 @@ export default function TeamOutgoing() {
               ) : (
                 filteredStock.map((item) => (
                   <TableRow key={item.id} className="h-10 hover:bg-muted/50">
-                    <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
-                    <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
-                    <TableCell className="text-center align-middle whitespace-nowrap">{item.productName}</TableCell>
-                    <TableCell className="text-center align-middle whitespace-nowrap">{item.specification}</TableCell>
-                    <TableCell className="text-center align-middle font-bold">
+                    <TableCell className="text-center align-middle p-2">
+                      <div className="w-full truncate font-medium" title={item.division}>{item.division}</div>
+                    </TableCell>
+                    <TableCell className="text-center align-middle p-2">
+                      <div className="w-full truncate" title={item.teamCategory}>{item.teamCategory}</div>
+                    </TableCell>
+                    <TableCell className="text-center align-middle p-2">
+                      <div className="w-full truncate" title={item.productName}>{item.productName}</div>
+                    </TableCell>
+                    <TableCell className="text-center align-middle p-2">
+                      <div className="w-full truncate" title={item.specification}>{item.specification}</div>
+                    </TableCell>
+                    <TableCell className="text-center align-middle font-bold p-2">
                       {item.quantity.toLocaleString()}
                     </TableCell>
                   </TableRow>

@@ -60,6 +60,32 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
             toast({ title: "취소 실패", description: error.message, variant: "destructive" });
         }
     });
+
+    const returnApprovalMutation = useMutation({
+        mutationFn: async (action: 'approve' | 'reject') => {
+            if (!cableId) throw new Error('Cable ID is required');
+            return apiRequest("POST", `/api/optical-cables/${cableId}/approve-return`, { action });
+        },
+        onSuccess: (_, action) => {
+            toast({
+                title: action === 'approve' ? "반납이 승인되었습니다" : "반납이 반려되었습니다"
+            });
+            queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${cableId}`] });
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            // 승인 시 다이얼로그 닫기
+            if (action === 'approve') {
+                onOpenChange(false);
+            }
+        },
+        onError: (error: Error) => {
+            toast({ title: "처리 실패", description: error.message, variant: "destructive" });
+        }
+    });
+
+    const handleReturnApproval = (action: 'approve' | 'reject') => {
+        returnApprovalMutation.mutate(action);
+    };
+
     const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
     const previousStatusRef = useRef<string | undefined>();
 
@@ -135,8 +161,37 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                 )}
                             </>
                         )}
-                        {/* Tenant Owner-only Waste Button - hide when reserved */}
-                        {isTenantOwner && cable && cable.status !== 'waste' && cable?.reservationStatus !== 'reserved' && (
+                        {/* 반납 요청 대기 중인 경우 승인/반려 버튼 표시 */}
+                        {cable?.returnRequestStatus === 'pending' && (
+                            <>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    className="h-7 text-xs border-green-300 text-green-700 hover:bg-green-50"
+                                    onClick={() => {
+                                        if (confirm('반납을 승인하시겠습니까?')) {
+                                            handleReturnApproval('approve');
+                                        }
+                                    }}
+                                >
+                                    반납 승인
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                                    onClick={() => {
+                                        if (confirm('반납을 반려하시겠습니까?')) {
+                                            handleReturnApproval('reject');
+                                        }
+                                    }}
+                                >
+                                    반납 반려
+                                </Button>
+                            </>
+                        )}
+                        {/* Tenant Owner-only Waste Button - hide when reserved or not in stock/returned */}
+                        {isTenantOwner && cable && ['in_stock', 'returned'].includes(cable.status) && cable?.reservationStatus !== 'reserved' && (
                             <Button
                                 size="sm"
                                 variant="destructive"

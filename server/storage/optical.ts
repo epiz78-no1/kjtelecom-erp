@@ -1,21 +1,21 @@
 import {
     type OpticalCable, type InsertOpticalCable,
     type OpticalCableLog, type InsertOpticalCableLog,
+    type Team,
     opticalCables, opticalCableLogs, teams
 } from "../../shared/schema.js";
 import { db } from "../db.js";
 import { eq, and, desc, asc, inArray } from "drizzle-orm";
 
 export class OpticalStorage {
-    async getOpticalCables(tenantId: string): Promise<(OpticalCable & { logs: OpticalCableLog[] })[]> {
+    async getOpticalCables(tenantId: string): Promise<(OpticalCable & { currentTeam: Team | null })[]> {
         return await db.query.opticalCables.findMany({
             where: eq(opticalCables.tenantId, tenantId),
             orderBy: [desc(opticalCables.receivedDate), desc(opticalCables.createdAt)],
             with: {
-                logs: true,
                 currentTeam: true
             }
-        }) as (OpticalCable & { logs: OpticalCableLog[] })[];
+        }) as (OpticalCable & { currentTeam: Team | null })[];
     }
 
     async getOpticalCable(id: string, tenantId: string): Promise<OpticalCable | undefined> {
@@ -68,7 +68,7 @@ export class OpticalStorage {
                 eq(opticalCableLogs.cableId, cableId),
                 eq(opticalCableLogs.tenantId, tenantId)
             ),
-            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)]
+            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.createdAt)]
         });
 
         const userIds = logs.map(log => log.createdBy).filter(Boolean) as string[];
@@ -118,10 +118,20 @@ export class OpticalStorage {
     }
 
     // For unified log view
-    async getAllOpticalCableLogs(tenantId: string): Promise<(OpticalCableLog & { cable: OpticalCable | null, createdByName?: string | null })[]> {
+    async getAllOpticalCableLogs(tenantId: string, filters?: { type?: string, teamId?: string }): Promise<(OpticalCableLog & { cable: OpticalCable | null, createdByName?: string | null })[]> {
+        const conditions = [eq(opticalCableLogs.tenantId, tenantId)];
+
+        if (filters?.type) {
+            conditions.push(eq(opticalCableLogs.logType, filters.type));
+        }
+
+        if (filters?.teamId) {
+            conditions.push(eq(opticalCableLogs.teamId, filters.teamId));
+        }
+
         const logs = await db.query.opticalCableLogs.findMany({
-            where: eq(opticalCableLogs.tenantId, tenantId),
-            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)],
+            where: and(...conditions),
+            orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.createdAt)],
             with: {
                 cable: true
             }
@@ -150,10 +160,25 @@ export class OpticalStorage {
             if (attributes) {
                 try {
                     const attr = JSON.parse(attributes);
+                    // Remove data field from old format
                     if (attr && attr.data) {
                         delete attr.data;
-                        attributes = JSON.stringify(attr);
                     }
+                    // Remove data field from new attachments array format
+                    if (attr && attr.attachments && Array.isArray(attr.attachments)) {
+                        attr.attachments = attr.attachments.map((att: any) => ({
+                            name: att.name,
+                            size: att.size
+                        }));
+                    }
+                    // Remove data from wastePhotos array
+                    if (attr && attr.wastePhotos && Array.isArray(attr.wastePhotos)) {
+                        attr.wastePhotos = attr.wastePhotos.map((photo: any) => ({
+                            name: photo.name,
+                            size: photo.size
+                        }));
+                    }
+                    attributes = JSON.stringify(attr);
                 } catch (e) {
                     // ignore
                 }
@@ -303,7 +328,10 @@ export class OpticalStorage {
             if (!cable) throw new Error("Cable not found");
 
             // 3. Rollback logic based on log type
-            let updates: any = { updatedAt: new Date() };
+            let updates: any = {
+                updatedAt: new Date(),
+                returnRequestStatus: 'none' // Reset return request status when deleting a log
+            };
             if (log.logType === 'assign') {
                 // 출고 취소 -> 반납됨(창고로 복귀) 상태로 변경이 아니라, 아예 출고가 없던 상태로 복구
                 updates.status = 'in_stock';
@@ -319,8 +347,13 @@ export class OpticalStorage {
                 // currentTeamId는 유지 (이미 불출된 상태였으므로)
                 updates.status = restoredRemaining > 0 ? 'assigned' : 'used_up';
                 // teamId 복구: 로그에 기록된 팀으로 복구
+                // teamId 복구: 로그에 기록된 팀으로 복구하되,
+                // 현재 다른 팀이 사용 중이라면('assigned' 상태이고 currentTeamId가 다름) 덮어쓰지 않음.
+                // 즉, 'used_up' 상태였거나, 주인이 없는 상태('in_stock' 등??), 또는 주인이 같은 경우에만 복구.
                 if (log.teamId && restoredRemaining > 0) {
-                    updates.currentTeamId = log.teamId;
+                    if (cable.status === 'used_up' || !cable.currentTeamId || cable.currentTeamId === log.teamId) {
+                        updates.currentTeamId = log.teamId;
+                    }
                 }
             } else if (log.logType === 'return') {
                 // 반납 취소 -> 다시 assigned 상태로, 팀도 복구해야 함.

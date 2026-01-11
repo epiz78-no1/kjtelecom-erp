@@ -367,7 +367,11 @@ export default function OpticalOutgoing() {
                                                     : format(new Date(log.createdAt), 'yyyy-MM-dd')}
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectCode || ''}</TableCell>
-                                            <TableCell className="text-left align-middle whitespace-nowrap">{(log as any).projectNameUsage || log.cable?.projectName || ''}</TableCell>
+                                            <TableCell className="align-middle p-0 text-left">
+                                                <div className="w-full truncate px-2" title={(log as any).projectNameUsage || log.cable?.projectName || ''}>
+                                                    {(log as any).projectNameUsage || log.cable?.projectName || ''}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufacturer || ''}</TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufactureYear || ''}</TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.spec || ''}</TableCell>
@@ -378,15 +382,22 @@ export default function OpticalOutgoing() {
                                                 {(log.afterRemaining || 0).toLocaleString()}
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).workerName || ''}</TableCell>
-                                            <TableCell className="text-center align-middle">
-                                                {(() => {
+                                            <TableCell className="align-middle p-0">
+                                                <div className="w-full truncate text-center px-2" title={(() => {
                                                     try {
                                                         const attrs = JSON.parse((log as any).attributes || "{}");
                                                         return attrs.remark || "";
-                                                    } catch {
-                                                        return "";
-                                                    }
-                                                })()}
+                                                    } catch { return ""; }
+                                                })()}>
+                                                    {(() => {
+                                                        try {
+                                                            const attrs = JSON.parse((log as any).attributes || "{}");
+                                                            return attrs.remark || "";
+                                                        } catch {
+                                                            return "";
+                                                        }
+                                                    })()}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-center align-middle">
                                                 {(log as any).createdByName || "-"}

@@ -525,9 +525,8 @@ export const opticalCableLogs = pgTable("optical_cable_logs", {
   cableId: varchar("cable_id").notNull().references(() => opticalCables.id, { onDelete: "cascade" }),
   teamId: varchar("team_id").references(() => teams.id), // Team involved in this log (assignee or user)
   logType: text("log_type").notNull(), // assign (불출), usage (사용), return (반납), waste (폐기), create (입고), receive (입고)
-  projectCode: text("project_code"), // 공사코드
+  projectCode: text("project_code"), // 공사번호
   projectNameUsage: text("project_name_usage"), // 공사명 (사용 시)
-  sectionName: text("section_name"), // 구간명
   usedLength: integer("used_length").notNull().default(0), // Total usage in this action
   installLength: integer("install_length").default(0), // Net installed
   wasteLength: integer("waste_length").default(0), // Wasted
@@ -547,7 +546,6 @@ export const apiInsertOpticalCableLogSchema = z.object({
   logType: z.enum(['assign', 'usage', 'return', 'waste']),
   projectCode: z.string().optional(),
   projectNameUsage: z.string().optional(),
-  sectionName: z.string().optional(),
   installLength: z.number().min(0).optional(),
   wasteLength: z.number().min(0).optional(),
   usageDate: z.string(),

@@ -18,6 +18,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { useColumnResize } from "@/hooks/useColumnResize";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -43,6 +44,13 @@ import {
 } from "@/components/ui/select";
 import { useAppContext } from "@/contexts/AppContext";
 import { OpticalUsageDialog } from "@/components/OpticalUsageDialog";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { useDownload } from "@/hooks/useDownload";
+import { Paperclip } from "lucide-react";
 
 export default function FieldOpticalUsage() {
     const { toast } = useToast();
@@ -51,38 +59,84 @@ export default function FieldOpticalUsage() {
 
     const canWrite = checkPermission("usage", "write");
     const currentTenantData = tenants.find(t => t.id === currentTenant);
-    const isFieldTeam = currentTenantData?.permissions &&
-        currentTenantData.permissions.usage === 'write' &&
-        currentTenantData.permissions.incoming === 'none' &&
-        currentTenantData.permissions.outgoing === 'none' &&
-        currentTenantData.permissions.inventory === 'none';
+    const isFieldTeam = teams.find(t => t.id === currentTenant)?.type === 'field';
+    const { downloadFile } = useDownload();
 
     const canManage = canWrite && !isFieldTeam;
     const canRegister = true;
 
-    const { data: cables = [], isLoading } = useQuery<OpticalCable[]>({
-        queryKey: ["/api/optical-cables"],
+    const { widths, startResizing } = useColumnResize({
+        checkbox: 40,
+        date: 100,
+        division: 50,
+        teamCategory: 80,
+        projectCode: 100,
+        projectName: 200, // 공사명 길어짐
+        drumNo: 120,
+        spec: 100,
+        installLength: 70,
+        wasteLength: 70,
+        remainingLength: 70,
+        attachment: 60,
+        user: 80,
+        creator: 80,
+        actions: 50
     });
 
+
     // 모든 광케이블의 사용 로그를 개별적으로 조회
-    const { data: allCableLogs = [] } = useQuery<OpticalCableLog[]>({
-        queryKey: ["/api/optical-cables/logs"],
-        enabled: cables.length > 0,
+    // 최적화: logType='usage'인 것만, 그리고 필요 시 teamId로 필터링하여 가져옴
+    const { data: allCableLogs = [], isLoading } = useQuery<OpticalCableLog[]>({
+        queryKey: ["/api/optical-cables/logs", isFieldTeam && currentTenant ? currentTenant : undefined], // Filter by team if field team
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            params.append('type', 'usage');
+            if (isFieldTeam && currentTenant) {
+                // currentTenant is the teamId in this context (for field teams logic in AppContext?)
+                // Wait, currentTenant is tenantId usually. 'teams' array has filtering logic.
+                // Let's check existing logic.
+                // In AppContext, currentTenant is just the tenant ID selected.
+                // In generic logic, if user is field team, they are bound to a team via currentTenant usually?
+                // Actually, let's verify if `currentTenant` is `teamId`.
+                // Looking at line 62: const isFieldTeam = teams.find(t => t.id === currentTenant)?.type === 'field';
+                // Yes, currentTenant acts as teamId context here.
+                params.append('teamId', currentTenant);
+            }
+            const res = await apiRequest("GET", `/api/optical-cables/logs?${params.toString()}`);
+            return res.json();
+        }
     });
 
     // Extract all usage logs
+    // Already filtered by server, but we keep the structure
     const allLogs = useMemo(() => {
         const logs: (OpticalCableLog & { cable: OpticalCable })[] = [];
         allCableLogs
-            .filter(log => log.logType === 'usage')
+            .filter(log => log.logType === 'usage') // Double check, though server filters it
             .forEach(log => {
-                const cable = cables.find(c => c.id === log.cableId);
-                if (cable) {
-                    logs.push({ ...log, cable });
+                // Find cable info
+                // We need cable info. getAllOpticalCableLogs joins cable info!
+                // So log.cable should be populated if we updated the interface.
+                // But wait, the client type `OpticalCableLog` might not have `cable` property?
+                // The server returns `OpticalCableLog & { cable: OpticalCable ... }`.
+                // Let's use `any` cast or trust the response.
+                // But previously `allCableLogs` was just logs and we mapped it to cables?
+                // No, the previous code filtered `allCableLogs`.
+                // Let's check how `allCableLogs` is used.
+
+                // Existing logic:
+                // allCableLogs.filter(...)
+                // The server implementation of getAllOpticalCableLogs ALREADY includes `cable` relation.
+                // See: `with: { cable: true }` in storage.
+                // So we can just use it.
+
+                const logWithCable = log as OpticalCableLog & { cable: OpticalCable };
+                if (logWithCable.cable) {
+                    logs.push(logWithCable);
                 }
             });
         return logs.sort((a, b) => new Date(b.usageDate || b.createdAt).getTime() - new Date(a.usageDate || a.createdAt).getTime());
-    }, [cables, allCableLogs]);
+    }, [allCableLogs]);
 
     const {
         searchQuery,
@@ -187,13 +241,23 @@ export default function FieldOpticalUsage() {
                 "사업": log.cable.division,
                 "팀": teamName,
                 "공사명": (log as any).projectNameUsage || log.cable.projectName || '',
-                "구간명": (log as any).sectionName || '',
+                "공사번호": (log as any).projectCode || '',
                 "제조번호": log.cable.drumNo,
                 "규격": log.cable.spec,
                 "설치(m)": log.installLength || 0,
                 "폐기(m)": log.wasteLength || 0,
                 "합계(m)": (log.installLength || 0) + (log.wasteLength || 0),
-                "작업자": (log as any).workerName || '',
+                "잔량(m)": (log as any).afterRemaining || 0,
+                "첨부": (() => {
+                    try {
+                        const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
+                        if (!attr) return '';
+                        if (attr.attachments && Array.isArray(attr.attachments) && attr.attachments.length > 0) return `📎 ${attr.attachments.length}`;
+                        if (attr.attachment) return '📎 1';
+                        return '';
+                    } catch { return ''; }
+                })(),
+                "사용자": (log as any).workerName || '',
                 "입력자": (log as any).createdByName || ''
             };
         });
@@ -253,7 +317,7 @@ export default function FieldOpticalUsage() {
                         <div className="relative max-w-sm">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
-                                placeholder="제조번호, 규격, 공사명, 구간명 검색..."
+                                placeholder="제조번호, 규격, 공사번호, 공사명 검색..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-10"
@@ -282,7 +346,8 @@ export default function FieldOpticalUsage() {
                     <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                             <TableRow className="h-8">
-                                <TableHead className="w-[40px] text-center align-middle bg-background">
+
+                                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
                                     {isTenantOwner ? (
                                         <Checkbox
                                             checked={allSelected}
@@ -290,24 +355,104 @@ export default function FieldOpticalUsage() {
                                         />
                                     ) : null}
                                 </TableHead>
-                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">사용일</TableHead>
-                                <TableHead className="font-semibold w-[60px] text-center align-middle bg-background">사업</TableHead>
-                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">팀</TableHead>
-                                <TableHead className="font-semibold w-[150px] text-center align-middle bg-background">공사명</TableHead>
-                                <TableHead className="font-semibold w-[120px] text-center align-middle bg-background">구간명</TableHead>
-                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">제조번호</TableHead>
-                                <TableHead className="font-semibold w-[100px] text-center align-middle bg-background">규격</TableHead>
-                                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">설치(m)</TableHead>
-                                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background">폐기(m)</TableHead>
-                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">작업자</TableHead>
-                                <TableHead className="font-semibold w-[80px] text-center align-middle bg-background">입력자</TableHead>
-                                <TableHead className="font-semibold w-[70px] text-center align-middle bg-background"></TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
+                                    사용일
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("date", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
+                                    사업
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("division", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.teamCategory }}>
+                                    팀
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("teamCategory", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectCode }}>
+                                    공사번호
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("projectCode", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
+                                    공사명
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("projectName", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
+                                    제조번호
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("drumNo", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
+                                    규격
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("spec", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.installLength }}>
+                                    설치(m)
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("installLength", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.wasteLength }}>
+                                    폐기(m)
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("wasteLength", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remainingLength }}>
+                                    잔량(m)
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("remainingLength", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.attachment }}>
+                                    첨부
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("attachment", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.user }}>
+                                    사용자
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("user", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.creator }}>
+                                    입력자
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                                        onMouseDown={(e) => startResizing("creator", e)}
+                                    />
+                                </TableHead>
+                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredLogs.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
                                         사용 내역이 없습니다
                                     </TableCell>
                                 </TableRow>
@@ -329,11 +474,15 @@ export default function FieldOpticalUsage() {
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{log.cable.division}</TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">{teamName}</TableCell>
-                                            <TableCell className="text-left align-middle max-w-[150px] truncate">
-                                                {(log as any).projectNameUsage || log.cable.projectName || ''}
+                                            <TableCell className="align-middle p-0">
+                                                <div className="w-full truncate text-center mx-auto" title={(log as any).projectCode || ""}>
+                                                    {(log as any).projectCode || ""}
+                                                </div>
                                             </TableCell>
-                                            <TableCell className="text-center align-middle max-w-[120px] truncate">
-                                                {(log as any).sectionName || ''}
+                                            <TableCell className="align-middle p-0">
+                                                <div className="w-full truncate text-left pl-2" title={(log as any).projectNameUsage || log.cable.projectName || ''}>
+                                                    {(log as any).projectNameUsage || log.cable.projectName || ''}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap font-medium">
                                                 {log.cable.drumNo}
@@ -344,6 +493,81 @@ export default function FieldOpticalUsage() {
                                             </TableCell>
                                             <TableCell className="text-right align-middle whitespace-nowrap">
                                                 {(log.wasteLength || 0).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-right align-middle whitespace-nowrap font-medium text-primary">
+                                                {((log as any).afterRemaining || 0).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-center align-middle whitespace-nowrap">
+                                                {(() => {
+                                                    try {
+                                                        const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
+                                                        if (!attr) return '-';
+
+                                                        const attachments: { name: string }[] = [];
+                                                        if (attr.attachments && Array.isArray(attr.attachments)) {
+                                                            attachments.push(...attr.attachments);
+                                                        } else if (attr.attachment && typeof attr.attachment === 'object') {
+                                                            attachments.push(attr.attachment);
+                                                        }
+
+                                                        if (attachments.length === 0) return "-";
+
+                                                        if (attachments.length === 1) {
+                                                            return (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    }}
+                                                                    title={attachments[0].name}
+                                                                >
+                                                                    <Download className="h-4 w-4" />
+                                                                </Button>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 gap-1 px-2"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <Paperclip className="h-4 w-4" />
+                                                                        <span className="text-xs font-medium">{attachments.length}</span>
+                                                                    </Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-auto p-2" align="end">
+                                                                    <div className="flex flex-col gap-1">
+                                                                        {attachments.map((file: any, idx: number) => (
+                                                                            <Button
+                                                                                key={idx}
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="justify-start h-8 text-xs max-w-[200px]"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                }}
+                                                                                title={file.name}
+                                                                            >
+                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                                <span className="truncate">{file.name}</span>
+                                                                            </Button>
+                                                                        ))}
+                                                                    </div>
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        );
+                                                    } catch (e) {
+                                                        return '-';
+                                                    }
+                                                })()}
                                             </TableCell>
                                             <TableCell className="text-center align-middle whitespace-nowrap">
                                                 {(log as any).workerName || ''}
@@ -385,8 +609,8 @@ export default function FieldOpticalUsage() {
             </div>
 
             {/* Dialogs */}
-            {/* Dialogs */}
             <OpticalUsageDialog
+                key={editingLog ? editingLog.id : dialogOpen ? 'new' : 'closed'}
                 open={dialogOpen}
                 onOpenChange={(open) => !open && closeDialog()}
                 editingLog={editingLog}

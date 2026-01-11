@@ -2,6 +2,9 @@
 
 이 문서는 현재 구축된 시스템(`client/src/pages/general/Inventory.tsx` 등)을 기준으로 한 **표준 UI 가이드라이**입니다. 일관된 사용자 경험을 위해 아래 패턴을 준수해야 합니다.
 
+> **[중요] 디자인 재사용 원칙**
+> 새로운 페이지나 컴포넌트를 생성할 때, 반드시 기존에 구현된 유사한 화면(예: 입/출고 관리, 자재 사용 등록)의 디자인과 레이아웃을 확인하고 이를 그대로 따르십시오. 임의의 새로운 스타일보다 일관성을 최우선으로 합니다.
+
 ## 1. 표준 페이지 레이아웃 (Standard Page Layout)
 
 모든 데이터 관리 페이지는 다음 구조를 따릅니다.
@@ -199,9 +202,10 @@
 - **다운로드 UI (테이블 내)**:
   - **단일 파일**: 아이콘(`Download`) 클릭 시 즉시 다운로드.
   - **다중 파일**: 
-    - 표시: `📎(개수)` 형태의 텍스트 또는 뱃지.
+    - 표시: `📎 {count}` 텍스트가 포함된 `Button` (variant="ghost", size="sm").
     - 상호작용: 클릭 시 `Popover`로 파일 목록 표시.
-    - 구현: `client/src/pages/general/OutgoingRecords.tsx` 등의 구현 참조.
+    - 파일 목록 아이템: `Download` 아이콘 + 파일명, 클릭 시 다운로드.
+    - 구현 참조: `client/src/pages/optical/OpticalOutgoing.tsx`
     ```tsx
     <Popover>
       <PopoverTrigger asChild>
