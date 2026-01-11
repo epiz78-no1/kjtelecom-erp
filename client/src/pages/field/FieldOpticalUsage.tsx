@@ -115,10 +115,11 @@ export default function FieldOpticalUsage() {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            return apiRequest("DELETE", `/api/optical-cable-logs/${id}`, {});
+            return apiRequest("DELETE", `/api/optical-cables/logs/${id}`, {});
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            queryClient.resetQueries({ queryKey: ["/api/optical-cables/logs"] });
             toast({ title: "사용 내역이 삭제되었습니다" });
             setDeleteLog(null);
         },
@@ -133,10 +134,11 @@ export default function FieldOpticalUsage() {
 
     const bulkDeleteMutation = useMutation({
         mutationFn: async (ids: string[]) => {
-            return Promise.all(ids.map(id => apiRequest("DELETE", `/api/optical-cable-logs/${id}`, {})));
+            return Promise.all(ids.map(id => apiRequest("DELETE", `/api/optical-cables/logs/${id}`, {})));
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            queryClient.resetQueries({ queryKey: ["/api/optical-cables/logs"] });
             toast({ title: `${selectedIds.size}건의 사용 내역이 삭제되었습니다` });
             setSelectedIds(new Set());
             setBulkDeleteOpen(false);

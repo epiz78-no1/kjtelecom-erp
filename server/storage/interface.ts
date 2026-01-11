@@ -112,4 +112,5 @@ export interface IStorage {
     updateOpticalCableLog(id: string, updates: Partial<InsertOpticalCableLog>, tenantId: string): Promise<OpticalCableLog | undefined>;
     deleteOpticalCableLog(id: string, tenantId: string): Promise<boolean>;
     bulkDeleteOpticalCableLogs(ids: string[], tenantId: string): Promise<void>;
+    updateCableReservation(id: string, action: 'reserve' | 'release', projectName: string | undefined, userId: string, tenantId: string): Promise<OpticalCable>;
 }

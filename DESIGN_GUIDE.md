@@ -73,6 +73,50 @@
 - **Label**: `text-sm font-medium`
 - **Input**: `shadcn/ui`의 `<Input />`
 - **Validation**: 클라이언트 측 검증 후 `toast`로 피드백.
+- **File Upload (Standard Pattern)**: 
+  - **Layout**: `grid-cols-4` (Label 1, Input 3)
+  - **Style**: Dashed border box (`border-2 border-dashed border-primary/30`)
+  - **Interaction**:
+    - `hover:bg-primary/5` effect
+    - Click to select files
+    - Hide upload button when max limit reached
+  - **Features**:
+    - Multiple file selection
+    - Client-side image compression (`compressImage`)
+    - File size limit (10MB) & count limit (4)
+    - File list with delete button (`Trash2`)
+  ```tsx
+  {/* Grid Layout */}
+  <div className="grid grid-cols-4 items-start gap-4">
+      <Label className="text-right pt-2">첨부파일</Label>
+      <div className="col-span-3">
+          {/* File Input */}
+          <div className="relative">
+              <Input type="file" className="hidden" multiple onChange={...} />
+              {/* Dashed Upload Button */}
+              {count < 4 && (
+                  <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                      <Upload className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-medium text-primary">
+                          파일 선택 ({count}/4) - 이미지, PDF, 엑셀
+                      </span>
+                  </label>
+              )}
+          </div>
+          {/* File List */}
+          <div className="space-y-2 mt-2">
+              {files.map(file => (
+                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                      <span className="truncate">📎 {file.name}</span>
+                      <Button variant="ghost" size="sm" onClick={remove}>
+                          <Trash2 className="h-4 w-4" />
+                      </Button>
+                  </div>
+              ))}
+          </div>
+      </div>
+  </div>
+  ```
 
 ### C. 피드백 (Toast)
 - **Success**: `toast({ title: "성공 메시지" })`
@@ -143,3 +187,31 @@
 
 **중요**: 새로운 페이지를 추가하거나 기존 페이지를 수정할 때, 위 표준 너비와 높이를 준수하여 일관된 UI를 유지합니다.
 
+---
+
+## 8. 첨부파일 UI 표준 (Attachment UI)
+- **업로드 UI**:
+  - `Input[type="file"]`을 직접 노출하지 않고, 점선 테두리(`border-dashed`) 박스를 사용합니다.
+  - 파일 선택 전: "파일 선택 또는 드래그" 문구와 업로드 아이콘(`Upload`, lucide-react) 표시.
+  - 파일 선택 후: 회색 박스(`bg-muted/50`) 내에 파일명(`📎 filename`)과 삭제 버튼(`Trash2` red color)을 표시합니다.
+  - **다중 업로드**: 최대 4개 제한, 개별 삭제 가능.
+
+- **다운로드 UI (테이블 내)**:
+  - **단일 파일**: 아이콘(`Download`) 클릭 시 즉시 다운로드.
+  - **다중 파일**: 
+    - 표시: `📎(개수)` 형태의 텍스트 또는 뱃지.
+    - 상호작용: 클릭 시 `Popover`로 파일 목록 표시.
+    - 구현: `client/src/pages/general/OutgoingRecords.tsx` 등의 구현 참조.
+    ```tsx
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm">
+          <Paperclip className="h-4 w-4 mr-1" />
+          <span>({count})</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent>
+         {/* File List */}
+      </PopoverContent>
+    </Popover>
+    ```

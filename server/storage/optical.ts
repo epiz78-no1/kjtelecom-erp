@@ -4,14 +4,18 @@ import {
     opticalCables, opticalCableLogs, teams
 } from "../../shared/schema.js";
 import { db } from "../db.js";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, inArray } from "drizzle-orm";
 
 export class OpticalStorage {
-    async getOpticalCables(tenantId: string): Promise<OpticalCable[]> {
+    async getOpticalCables(tenantId: string): Promise<(OpticalCable & { logs: OpticalCableLog[] })[]> {
         return await db.query.opticalCables.findMany({
             where: eq(opticalCables.tenantId, tenantId),
-            orderBy: [desc(opticalCables.createdAt)]
-        });
+            orderBy: [desc(opticalCables.receivedDate), desc(opticalCables.createdAt)],
+            with: {
+                logs: true,
+                currentTeam: true
+            }
+        }) as (OpticalCable & { logs: OpticalCableLog[] })[];
     }
 
     async getOpticalCable(id: string, tenantId: string): Promise<OpticalCable | undefined> {
@@ -67,19 +71,49 @@ export class OpticalStorage {
             orderBy: [desc(opticalCableLogs.usageDate), desc(opticalCableLogs.id)]
         });
 
+        const userIds = logs.map(log => log.createdBy).filter(Boolean) as string[];
+        const uniqueUserIds = Array.from(new Set(userIds));
+        let userMap = new Map<string, string>();
+
+        if (uniqueUserIds.length > 0) {
+            const { users } = await import('../../shared/schema.js');
+            const { inArray } = await import('drizzle-orm');
+
+            const usersData = await db.select({
+                id: users.id,
+                name: users.name
+            }).from(users).where(inArray(users.id, uniqueUserIds));
+
+            userMap = new Map(usersData.map(u => [u.id, u.name]));
+        }
+
         return logs.map(log => {
-            if (log.attributes) {
+            let attributes = log.attributes;
+            if (attributes) {
                 try {
-                    const attr = JSON.parse(log.attributes);
+                    const attr = JSON.parse(attributes);
+                    // Remove large data fields for list view optimization
                     if (attr && attr.data) {
                         delete attr.data;
-                        return { ...log, attributes: JSON.stringify(attr) };
                     }
+                    // Remove data field from wastePhotos array
+                    if (attr && attr.wastePhotos && Array.isArray(attr.wastePhotos)) {
+                        attr.wastePhotos = attr.wastePhotos.map((photo: any) => ({
+                            name: photo.name,
+                            size: photo.size,
+                            type: photo.type
+                        }));
+                    }
+                    attributes = JSON.stringify(attr);
                 } catch (e) {
                     // ignore
                 }
             }
-            return log;
+            return {
+                ...log,
+                attributes,
+                createdByName: log.createdBy ? userMap.get(log.createdBy) || null : null
+            };
         });
     }
 
@@ -140,11 +174,51 @@ export class OpticalStorage {
     }
 
     async updateOpticalCableLog(id: string, updates: Partial<InsertOpticalCableLog>, tenantId: string): Promise<OpticalCableLog | undefined> {
-        const [updated] = await db.update(opticalCableLogs)
-            .set(updates)
-            .where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)))
-            .returning();
-        return updated;
+        return await db.transaction(async (tx) => {
+            // 1. Get old log to calculate delta
+            const [oldLog] = await tx.select().from(opticalCableLogs).where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)));
+            if (!oldLog) return undefined;
+
+            // 2. Update log
+            const [updatedLog] = await tx.update(opticalCableLogs)
+                .set({ ...updates })
+                .where(eq(opticalCableLogs.id, id))
+                .returning();
+
+            // 3. If usage/waste changed, update cable
+            // Only relevant for 'usage' type logs for now
+            if (oldLog.logType === 'usage') {
+                const oldUsage = (oldLog.installLength || 0) + (oldLog.wasteLength || 0);
+                const newUsage = (updatedLog.installLength || 0) + (updatedLog.wasteLength || 0);
+
+                if (oldUsage !== newUsage) {
+                    const diff = newUsage - oldUsage; // Positive means MORE used
+
+                    const [cable] = await tx.select().from(opticalCables).where(eq(opticalCables.id, oldLog.cableId));
+                    if (cable) {
+                        let finalRemaining = (cable.remainingLength || 0) - diff;
+                        let finalUsed = (cable.usedLength || 0) + diff;
+                        let newStatus = cable.status;
+
+                        if (finalRemaining <= 0) {
+                            newStatus = 'used_up';
+                        } else if (cable.status === 'used_up' && finalRemaining > 0) {
+                            // Recovered from used_up
+                            newStatus = cable.currentTeamId ? 'assigned' : 'in_stock';
+                        }
+
+                        await tx.update(opticalCables).set({
+                            remainingLength: finalRemaining,
+                            usedLength: finalUsed,
+                            status: newStatus,
+                            updatedAt: new Date()
+                        }).where(eq(opticalCables.id, cable.id));
+                    }
+                }
+            }
+
+            return updatedLog;
+        });
     }
 
     async bulkDeleteOpticalCableLogs(ids: string[], tenantId: string): Promise<void> {
@@ -166,9 +240,10 @@ export class OpticalStorage {
             // Use any to avoid Partial<Insert> excluding updatedAt
             let updates: any = { updatedAt: new Date() };
             let finalUsed = cable.usedLength || 0;
-            // totalLength is text in schema, parse it.
-            let totalLen = parseFloat(cable.totalLength) || 0;
-            let finalRemaining = cable.remainingLength || 0;
+            let finalRemaining = cable.remainingLength;
+            // If remainingLength is undefined, we assume 0.
+            if (finalRemaining === undefined || finalRemaining === null) finalRemaining = 0;
+
             if (log.logType === 'assign') {
                 // 불출: 팀 할당, 상태 변경
                 if (!log.teamId) throw new Error("Team ID is required for assignment");
@@ -179,11 +254,11 @@ export class OpticalStorage {
                 updates.currentTeamId = null;
                 updates.status = 'in_stock';
             } else if (log.logType === 'usage') {
-                // 사용: 길이 차감
-                // 설치 길이와 폐기 길이를 합쳐서 총 사용량 계산
+                // 사용: 잔량 차감 (Incremental)
                 const usageAmount = (log.installLength || 0) + (log.wasteLength || 0);
+
                 finalUsed += usageAmount;
-                finalRemaining = totalLen - finalUsed;
+                finalRemaining = finalRemaining - usageAmount;
 
                 updates.usedLength = finalUsed;
                 updates.remainingLength = finalRemaining;
@@ -241,7 +316,12 @@ export class OpticalStorage {
                 updates.usedLength = restoredUsed;
                 updates.remainingLength = restoredRemaining;
                 // 잔량이 생기면 다시 assigned 상태로 (팀 보유 중이었을 테니)
+                // currentTeamId는 유지 (이미 불출된 상태였으므로)
                 updates.status = restoredRemaining > 0 ? 'assigned' : 'used_up';
+                // teamId 복구: 로그에 기록된 팀으로 복구
+                if (log.teamId && restoredRemaining > 0) {
+                    updates.currentTeamId = log.teamId;
+                }
             } else if (log.logType === 'return') {
                 // 반납 취소 -> 다시 assigned 상태로, 팀도 복구해야 함.
                 if (log.teamId) {
@@ -306,6 +386,29 @@ export class OpticalStorage {
                 .set(updates)
                 .where(eq(opticalCables.id, id))
                 .returning();
+
+            // Create log entry only for reservation (not for release)
+            if (action === 'reserve') {
+                await tx.insert(opticalCableLogs).values({
+                    cableId: id,
+                    logType: 'reserve',
+                    projectNameUsage: projectName,
+                    usageDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+                    usedLength: 0,
+                    afterRemaining: cable.remainingLength,
+                    tenantId,
+                    createdBy: userId
+                });
+            } else {
+                // Delete existing reservation log when releasing
+                await tx.delete(opticalCableLogs).where(
+                    and(
+                        eq(opticalCableLogs.cableId, id),
+                        eq(opticalCableLogs.logType, 'reserve'),
+                        eq(opticalCableLogs.tenantId, tenantId)
+                    )
+                );
+            }
 
             return updatedCable;
         });

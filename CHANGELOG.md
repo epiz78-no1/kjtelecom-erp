@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.2.12 (2026-01-11) - 첨부파일 처리 고도화 및 안정성 강화
+
+### ✨ Features (기능 고도화)
+- **다중 첨부파일 완벽 지원**:
+  - 일반 자재 입/출고 및 광케이블 출고 시 최대 4개까지 파일 첨부 가능.
+  - UI 개선: 드래그 앤 드롭 지원 점선 박스 UI 및 파일 목록 미리보기 적용.
+  - 레거시 호환성 유지: 다중 파일(`attachments`) 저장 시 첫 번째 파일을 `attachment` 필드에도 자동 동기화.
+
+- **광케이블 출고 UI 전면 개편**:
+  - 기존 단일 파일 업로드만 가능하던 UI를 다중 파일 지원 UI로 업그레이드.
+  - 파일 삭제 및 미리보기 기능 추가.
+
+### 🐛 Bug Fixes & Optimization
+- **입고 등록 실패(Failed to fetch) 해결**:
+  - 원인: 고해상도 이미지 다중 전송 시 Request Body Size Limit(4.5MB) 초과.
+  - 해결: 클라이언트 측 이미지 압축 로직 최적화 (Max 5MB → 1MB, Quality 0.8 → 0.7).
+  - 적용 범위: 입고(`IncomingDialog`), 출고(`OutgoingDialog`), 광케이블(`OpticalAssignmentDialog`) 전체 적용.
+
+### 📝 Documentation
+- `DESIGN_GUIDE.md`: 첨부파일 UI 표준(Popover, Upload Zone) 가이드 추가.
+- `PROJECT_RULES.md`: 파일 처리 및 데이터 전송 최적화 정책 신설.
+
 ## v1.2.11 (2026-01-10) - 성능 최적화 및 데이터 비용 절감
 
 ### ⚡️ Performance (성능 최적화)

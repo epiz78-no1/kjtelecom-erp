@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Search, Cable, History, ArrowRightLeft, MoreHorizontal, Pencil } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Download, Search, ArrowRightLeft, History, X, Filter, ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAppContext } from "@/contexts/AppContext";
-import { Trash2, Download, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { OpticalCableFormDialog, type OpticalCableFormData } from "@/components/OpticalCableFormDialog";
 import { OpticalCableHistoryDialog } from "@/components/OpticalCableHistoryDialog";
 import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
@@ -90,17 +90,20 @@ export default function OpticalCables() {
     const [minRemaining, setMinRemaining] = useState<string>('');
     const [maxRemaining, setMaxRemaining] = useState<string>('');
     const [selectedCoreCount, setSelectedCoreCount] = useState<string>('전체');
+    const [selectedStatus, setSelectedStatus] = useState<string>('전체');
+    const [filterOpen, setFilterOpen] = useState(false);
     // Action Dialog State
     const [actionDialogOpen, setActionDialogOpen] = useState(false);
     const [selectedActionCable, setSelectedActionCable] = useState<OpticalCable | null>(null);
-    const [actionType, setActionType] = useState<'assign' | 'usage' | 'return' | 'waste'>('assign');
+    const [actionType, setActionType] = useState<'assign' | 'waste'>('assign');
+    const [showWaste, setShowWaste] = useState(false);
 
     const { data: teams = [] } = useQuery<any[]>({
         queryKey: ["/api/teams"],
         enabled: actionDialogOpen && actionType === 'assign'
     });
 
-    const handleAction = (cable: OpticalCable, type: 'assign' | 'usage' | 'return' | 'waste') => {
+    const handleAction = (cable: OpticalCable, type: 'assign' | 'waste') => {
         setSelectedActionCable(cable);
         setActionType(type);
         setActionDialogOpen(true);
@@ -113,6 +116,24 @@ export default function OpticalCables() {
         if (maxRemaining && cable.remainingLength > Number(maxRemaining)) return false;
         // 코어 수 필터
         if (selectedCoreCount !== '전체' && cable.coreCount !== Number(selectedCoreCount)) return false;
+
+        // 상태 필터
+        if (selectedStatus !== '전체') {
+            if (selectedStatus === '창고') {
+                // 창고 보관: in_stock이면서 예약 아님
+                if (cable.status !== 'in_stock' || cable.reservationStatus === 'reserved') return false;
+            } else if (selectedStatus === '예약') {
+                // 예약 중: in_stock이면서 예약됨
+                if (cable.status !== 'in_stock' || cable.reservationStatus !== 'reserved') return false;
+            } else if (selectedStatus === '불출') {
+                if (cable.status !== 'assigned') return false;
+            } else if (selectedStatus === '반납') {
+                if (cable.status !== 'returned') return false;
+            }
+        }
+
+        // 폐기 케이블 숨김 처리
+        if (!showWaste && cable.status === 'waste') return false;
         return true;
     });
 
@@ -127,7 +148,7 @@ export default function OpticalCables() {
         coreCount: 50,          // 코어
         drumNo: 70,             // 제조번호 (최대 6자리)
         location: 70,           // 위치
-        totalLength: 90,        // 케이블용량
+        productName: 90,        // 품명
         incomingLength: 75,     // 입고량
         usedLength: 75,         // 사용량
         wasteLength: 65,        // 폐기량
@@ -145,11 +166,41 @@ export default function OpticalCables() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "광케이블 드럼이 등록되었습니다" });
+            toast({ title: "광케이블 품명이 등록되었습니다" });
             closeDialog();
         },
         onError: (error: Error) => {
             toast({ title: "등록 실패", description: error.message, variant: "destructive" });
+        }
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: OpticalCableFormData }) => {
+            const res = await apiRequest("PATCH", `/api/optical-cables/${id}`, data);
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            toast({ title: "광케이블 정보가 수정되었습니다" });
+            closeDialog();
+        },
+        onError: (error: Error) => {
+            toast({ title: "수정 실패", description: error.message, variant: "destructive" });
+        }
+    });
+
+    // Delete Mutation (Permanent)
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            // Using bulk-delete with single ID for now as explicit single delete route might not exist or use same logic
+            return apiRequest("POST", "/api/optical-cables/bulk-delete", { ids: [id] });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            toast({ title: "광케이블이 삭제되었습니다" });
+        },
+        onError: (error: Error) => {
+            toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
         }
     });
 
@@ -195,9 +246,9 @@ export default function OpticalCables() {
             "코어": item.coreCount,
             "제조번호": item.drumNo,
             "위치": item.location,
+            "품명": item.productName,
             "비고": item.remark,
-            "케이블용량": item.totalLength,
-            "입고량": item.totalLength, // Assuming initial same as total
+            "입고량": (item.remainingLength || 0) + (item.usedLength || 0) + (item.wasteLength || 0),
             "사용량": item.usedLength,
             "폐기": item.wasteLength,
             "잔량": item.remainingLength,
@@ -246,6 +297,70 @@ export default function OpticalCables() {
             case 'waste': return 'bg-red-100 text-red-800';
             default: return 'bg-slate-100 text-slate-800';
         }
+    };
+
+    const returnApprovalMutation = useMutation({
+        mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
+            return apiRequest("POST", `/api/optical-cables/${id}/approve-return`, { action });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            toast({ title: "반납 처리가 완료되었습니다" });
+        },
+        onError: (error: Error) => {
+            toast({ title: "처리 실패", description: error.message, variant: "destructive" });
+        }
+    });
+
+    const handleReturnApproval = (id: string, action: 'approve' | 'reject') => {
+        const actionText = action === 'approve' ? '승인' : '반려';
+        if (confirm(`반납을 ${actionText}하시겠습니까?`)) {
+            returnApprovalMutation.mutate({ id, action });
+        }
+    };
+
+    // Helper functions for filter management
+    const getActiveFilters = () => {
+        const filters: Array<{ key: string; label: string }> = [];
+
+        if (selectedCategory !== '전체') {
+            filters.push({ key: 'category', label: selectedCategory });
+        }
+        if (selectedCoreCount !== '전체') {
+            filters.push({ key: 'core', label: `${selectedCoreCount}c` });
+        }
+        if (selectedStatus !== '전체') {
+            filters.push({ key: 'status', label: selectedStatus });
+        }
+        if (minRemaining || maxRemaining) {
+            filters.push({
+                key: 'range',
+                label: `${minRemaining || 0}~${maxRemaining || '∞'}m`
+            });
+        }
+
+
+        return filters;
+    };
+
+    const removeFilter = (key: string) => {
+        if (key === 'category') setSelectedCategory('전체');
+        else if (key === 'core') setSelectedCoreCount('전체');
+        else if (key === 'status') setSelectedStatus('전체');
+        else if (key === 'range') {
+            setMinRemaining('');
+            setMaxRemaining('');
+        }
+
+    };
+
+    const resetFilters = () => {
+        setSelectedCategory('전체');
+        setSelectedCoreCount('전체');
+        setSelectedStatus('전체');
+        setMinRemaining('');
+        setMaxRemaining('');
+        setShowWaste(false);
     };
 
     const calculateStatusLabel = (status: string) => {
@@ -310,99 +425,194 @@ export default function OpticalCables() {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="relative max-w-sm">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                {/* Search and Filter Section */}
+                {/* Search and Filter Section */}
+                <div className="space-y-2">
+                    {/* Search Bar and Filter Button */}
+                    {/* Search Bar and Filter Button */}
+                    <div className="flex items-center gap-2">
+                        <div className="relative w-64 md:w-72 lg:w-80 shrink-0">
+                            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 placeholder="드럼번호, 규격 검색..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
+                                className="pl-9 h-8 text-sm"
                             />
                         </div>
-                        <div className="w-48">
-                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="구분 선택" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="전체">구분 (전체)</SelectItem>
-                                    {categories.filter(c => c !== "전체").map(category => (
-                                        <SelectItem key={String(category)} value={String(category)}>
-                                            {String(category)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
 
-                        <div className="w-32">
-                            <Select value={selectedCoreCount} onValueChange={setSelectedCoreCount}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="용량(코어)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="전체">코어 (전체)</SelectItem>
-                                    <SelectItem value="24">24c</SelectItem>
-                                    <SelectItem value="48">48c</SelectItem>
-                                    <SelectItem value="72">72c</SelectItem>
-                                    <SelectItem value="96">96c</SelectItem>
-                                    <SelectItem value="144">144c</SelectItem>
-                                    <SelectItem value="288">288c</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setFilterOpen(!filterOpen)}
+                            className="gap-2 h-8 shrink-0"
+                        >
+                            <Filter className="h-3.5 w-3.5" />
+                            필터
+                            {filterOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </Button>
 
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">잔량:</span>
-                            <Input
-                                type="number"
-                                placeholder="최소"
-                                value={minRemaining}
-                                onChange={(e) => setMinRemaining(e.target.value)}
-                                className="w-20"
-                            />
-                            <span className="text-muted-foreground">~</span>
-                            <Input
-                                type="number"
-                                placeholder="최대"
-                                value={maxRemaining}
-                                onChange={(e) => setMaxRemaining(e.target.value)}
-                                className="w-20"
-                            />
-                            {(minRemaining || maxRemaining || selectedCoreCount !== '전체') && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setMinRemaining('');
-                                        setMaxRemaining('');
-                                        setSelectedCoreCount('전체');
-                                    }}
-                                    className="h-8 px-2"
-                                >
-                                    초기화
-                                </Button>
-                            )}
-                        </div>
-
-                        {selectedIds.size > 0 && isTenantOwner && (
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={handleBulkDelete}
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                선택 삭제 ({selectedIds.size})
-                            </Button>
+                        {/* Active Filter Chips - Moved Here Inline */}
+                        {getActiveFilters().length > 0 && (
+                            <div className="flex-1 flex flex-wrap items-center gap-1.5 overflow-hidden h-8">
+                                <div className="h-4 w-[1px] bg-border mx-1 shrink-0" />
+                                {getActiveFilters().map(filter => (
+                                    <Badge
+                                        key={filter.key}
+                                        variant="secondary"
+                                        className="gap-1 pr-1 py-0 h-6 text-xs font-normal shrink-0"
+                                    >
+                                        {filter.label}
+                                        <button
+                                            onClick={() => removeFilter(filter.key)}
+                                            className="ml-0.5 hover:bg-muted-foreground/20 rounded-full p-0.5"
+                                        >
+                                            <X className="h-2.5 w-2.5" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
                         )}
+
+                        {/* Spacer to push button to right if no chips or few chips */}
+
+
+
+                        <div className="text-sm text-muted-foreground ml-auto whitespace-nowrap pl-2">
+                            총 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목
+                        </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                        총 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목
-                    </div>
+
+                    {/* Collapsible Filter Panel */}
+                    {filterOpen && (
+                        <div className="p-3 border rounded-lg bg-muted/30">
+                            <div className="flex flex-wrap items-end gap-2">
+                                {/* Category Filter */}
+                                <div className="w-[110px]">
+                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">구분</label>
+                                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="구분" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="전체">전체</SelectItem>
+                                            {categories.filter(c => c !== "전체").map(category => (
+                                                <SelectItem key={String(category)} value={String(category)}>
+                                                    {String(category)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Core Count Filter */}
+                                <div className="w-[100px]">
+                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">코어</label>
+                                    <Select value={selectedCoreCount} onValueChange={setSelectedCoreCount}>
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="코어" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="전체">전체</SelectItem>
+                                            <SelectItem value="24">24c</SelectItem>
+                                            <SelectItem value="48">48c</SelectItem>
+                                            <SelectItem value="72">72c</SelectItem>
+                                            <SelectItem value="96">96c</SelectItem>
+                                            <SelectItem value="144">144c</SelectItem>
+                                            <SelectItem value="288">288c</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Status Filter */}
+                                <div className="w-[110px]">
+                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">상태</label>
+                                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="상태" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="전체">전체</SelectItem>
+                                            <SelectItem value="창고">창고 보관</SelectItem>
+                                            <SelectItem value="예약">예약 중</SelectItem>
+                                            <SelectItem value="불출">현장 불출</SelectItem>
+                                            <SelectItem value="반납">반납됨</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Remaining Length Range */}
+                                <div className="w-[180px]">
+                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">잔량 (m)</label>
+                                    <div className="flex items-center gap-1.5">
+                                        <Input
+                                            type="number"
+                                            placeholder="최소"
+                                            value={minRemaining}
+                                            onChange={(e) => setMinRemaining(e.target.value)}
+                                            className="h-8 text-xs px-2"
+                                        />
+                                        <span className="text-muted-foreground font-light text-xs">~</span>
+                                        <Input
+                                            type="number"
+                                            placeholder="최대"
+                                            value={maxRemaining}
+                                            onChange={(e) => setMaxRemaining(e.target.value)}
+                                            className="h-8 text-xs px-2"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Divider for mobile / Spacer */}
+                                <div className="flex-1 min-w-[10px]" />
+
+                                {/* Waste Checkbox and Action Buttons */}
+                                <div className="flex items-center gap-4 mt-2 sm:mt-0">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="show-waste"
+                                            checked={showWaste}
+                                            onCheckedChange={(checked) => setShowWaste(checked as boolean)}
+                                            className="h-3.5 w-3.5"
+                                        />
+                                        <label
+                                            htmlFor="show-waste"
+                                            className="text-xs font-medium leading-none cursor-pointer"
+                                        >
+                                            폐기 포함
+                                        </label>
+                                    </div>
+                                    <div className="flex gap-1.5">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={resetFilters}
+                                            className="h-8 text-xs px-3"
+                                        >
+                                            초기화
+                                        </Button>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+
                 </div>
+
+                {selectedIds.size > 0 && isTenantOwner && (
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                    >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        선택 삭제 ({selectedIds.size})
+                    </Button>
+                )}
             </div>
+
 
             <div className="flex-1 rounded-md border overflow-hidden">
                 <div className="h-full overflow-auto relative pb-20">
@@ -453,9 +663,9 @@ export default function OpticalCables() {
                                     위치
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("location", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.totalLength }}>
-                                    케이블용량
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("totalLength", e)} />
+                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
+                                    품명
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("productName", e)} />
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.incomingLength }}>
                                     입고량
@@ -499,11 +709,15 @@ export default function OpticalCables() {
                                 rangeFilteredCables.map((cable) => (
                                     <TableRow
                                         key={cable.id}
-                                        className={`h-6 [&_td]:py-0 cursor-pointer hover:bg-muted/50 ${cable.reservationStatus === 'reserved'
-                                            ? 'bg-orange-100/40 hover:bg-orange-100/60'
-                                            : cable.status === 'assigned'
-                                                ? 'bg-blue-100/30'
-                                                : ''
+                                        className={`h-6 [&_td]:py-0 cursor-pointer hover:bg-muted/50 ${cable.returnRequestStatus === 'pending'
+                                            ? 'bg-yellow-100/50 hover:bg-yellow-100/70'
+                                            : cable.reservationStatus === 'reserved'
+                                                ? 'bg-orange-100/40 hover:bg-orange-100/60'
+                                                : cable.status === 'assigned'
+                                                    ? 'bg-blue-100/30'
+                                                    : cable.status === 'waste'
+                                                        ? 'bg-red-100 hover:bg-red-200 text-red-900'
+                                                        : ''
                                             }`}
                                         onDoubleClick={() => {
                                             setHistoryItem(cable);
@@ -527,8 +741,8 @@ export default function OpticalCables() {
                                         <TableCell className="text-center align-middle whitespace-nowrap">{cable.coreCount}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{cable.drumNo}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{cable.location}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{String(cable.totalLength || '')}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{(cable.remainingLength || 0).toLocaleString()}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{cable.productName}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{((cable.remainingLength || 0) + (cable.usedLength || 0) + (cable.wasteLength || 0)).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{(cable.usedLength || 0).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{(cable.wasteLength || 0).toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{(cable.remainingLength || 0).toLocaleString()}</TableCell>
@@ -551,28 +765,35 @@ export default function OpticalCables() {
                                                         이력 보기
                                                     </DropdownMenuItem>
 
-                                                    {cable.status === 'in_stock' && (
+                                                    {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
                                                         <DropdownMenuItem onClick={() => handleAction(cable, 'assign')}>
                                                             <ArrowRightLeft className="mr-2 h-4 w-4" />
                                                             불출 (Assign)
                                                         </DropdownMenuItem>
                                                     )}
 
-                                                    {cable.status === 'assigned' && (
+                                                    {/* 반납 대기 중인 경우 승인/반려 버튼 표시 */}
+                                                    {cable.returnRequestStatus === 'pending' && (
                                                         <>
-                                                            <DropdownMenuItem onClick={() => handleAction(cable, 'usage')}>
-                                                                <Cable className="mr-2 h-4 w-4" />
-                                                                사용 등록 (Usage)
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => handleAction(cable, 'return')}>
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleReturnApproval(cable.id, 'approve')}
+                                                                className="text-green-600 focus:text-green-600"
+                                                            >
                                                                 <ArrowRightLeft className="mr-2 h-4 w-4" />
-                                                                반납 (Return)
+                                                                반납 승인
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleReturnApproval(cable.id, 'reject')}
+                                                                className="text-orange-600 focus:text-orange-600"
+                                                            >
+                                                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                                                반납 반려
                                                             </DropdownMenuItem>
                                                         </>
                                                     )}
 
-                                                    {/* Waste is available unless already wasted or used up */}
-                                                    {['in_stock', 'assigned', 'returned'].includes(cable.status) && (
+                                                    {/* Waste is available unless already wasted or used up or reserved */}
+                                                    {['in_stock', 'assigned', 'returned'].includes(cable.status) && cable.reservationStatus !== 'reserved' && (
                                                         <DropdownMenuItem onClick={() => handleAction(cable, 'waste')} className="text-destructive focus:text-destructive">
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             폐기 (Waste)
@@ -583,6 +804,19 @@ export default function OpticalCables() {
                                                         <Pencil className="mr-2 h-4 w-4" />
                                                         수정
                                                     </DropdownMenuItem>
+                                                    {isTenantOwner && (
+                                                        <DropdownMenuItem
+                                                            className="text-red-600 focus:text-red-600"
+                                                            onClick={() => {
+                                                                if (confirm("정말 삭제하시겠습니까? (복구 불가)")) {
+                                                                    deleteMutation.mutate(cable.id);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            완전 삭제
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -594,13 +828,19 @@ export default function OpticalCables() {
                 </div>
             </div>
 
+            {/* Dialogs */}
             <OpticalCableFormDialog
                 open={dialogOpen}
                 onOpenChange={(open) => !open && closeDialog()}
-                onSubmit={(data) => createMutation.mutate(data)}
+                onSubmit={(data) => {
+                    if (editingItem) {
+                        updateMutation.mutate({ id: editingItem.id, data });
+                    } else {
+                        createMutation.mutate(data);
+                    }
+                }}
                 editingItem={editingItem}
             />
-
             <GenericBulkUploadDialog
                 open={bulkUploadOpen}
                 onOpenChange={setBulkUploadOpen}
@@ -635,4 +875,4 @@ export default function OpticalCables() {
             }
         </div >
     );
-}
+};

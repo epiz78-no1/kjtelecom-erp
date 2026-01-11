@@ -72,6 +72,7 @@ export default function FieldOpticalStatus() {
             drumNo: cable.drumNo,
             spec: cable.spec,
             coreCount: cable.coreCount,
+            productName: cable.productName,
             remainingLength: cable.remainingLength,
             currentTeamId: cable.currentTeamId
         };
@@ -236,6 +237,7 @@ export default function FieldOpticalStatus() {
                                     <TableRow key={item.id} className="h-10 hover:bg-muted/50">
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
+                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.productName}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.drumNo}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.spec}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.coreCount}</TableCell>

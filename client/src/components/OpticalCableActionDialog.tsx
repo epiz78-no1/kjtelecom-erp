@@ -4,6 +4,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiInsertOpticalCableLogSchema, type OpticalCable } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Upload, Trash2 } from "lucide-react";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import {
     Dialog,
     DialogContent,
@@ -25,7 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
-type ActionType = 'assign' | 'usage' | 'return' | 'waste';
+type ActionType = 'assign' | 'return' | 'waste';
 
 interface OpticalCableActionDialogProps {
     open: boolean;
@@ -50,11 +53,14 @@ export function OpticalCableActionDialog({
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
+    // Waste-specific state
+    const [wasteReason, setWasteReason] = useState("");
+    const [wastePhotos, setWastePhotos] = useState<Array<{ name: string; data: string; size: number }>>([]);
+
     // 액션 타입에 따른 제목 및 설명
     const getTitle = () => {
         switch (actionType) {
             case 'assign': return "광케이블 불출 (Assign)";
-            case 'usage': return "광케이블 사용 등록 (Usage)";
             case 'return': return "광케이블 반납 (Return)";
             case 'waste': return "광케이블 폐기 (Waste)";
             default: return "광케이블 작업";
@@ -83,9 +89,12 @@ export function OpticalCableActionDialog({
                 teamId: actionType === 'assign' ? undefined : cable.currentTeamId || undefined,
                 installLength: 0,
                 wasteLength: 0,
-                workerName: "", // 필요시 로그인 유저 이름 등을 넣을 수 있음
+                workerName: "",
                 usageDate: new Date().toISOString().split('T')[0]
             });
+            // Reset waste-specific fields
+            setWasteReason("");
+            setWastePhotos([]);
         }
     }, [open, cable, actionType, form]);
 
@@ -97,6 +106,9 @@ export function OpticalCableActionDialog({
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${cable.id}`] });
+            queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${cable.id}/logs`] });
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
             toast({
                 title: "처리 완료",
                 description: "광케이블 작업이 성공적으로 처리되었습니다."
@@ -113,23 +125,24 @@ export function OpticalCableActionDialog({
     });
 
     const onSubmit = (data: FormData) => {
-        // 유효성 검사 추가 로직이 필요하다면 여기서 수행
-        if (actionType === 'usage') {
-            const usage = (data.installLength || 0) + (data.wasteLength || 0);
-            if (usage <= 0) {
-                toast({ title: "입력 오류", description: "사용량은 0보다 커야 합니다.", variant: "destructive" });
+        // For waste action, validate and encode wasteReason and wastePhotos into attributes
+        if (actionType === 'waste') {
+            if (!wasteReason.trim()) {
+                toast({
+                    title: "폐기 사유 필수",
+                    description: "폐기 사유를 입력해주세요.",
+                    variant: "destructive"
+                });
                 return;
             }
-            if (usage > cable.remainingLength) {
-                toast({ title: "입력 오류", description: "잔여 길이보다 많이 사용할 수 없습니다.", variant: "destructive" });
-                return;
-            }
+            const attributes = {
+                wasteReason,
+                ...(wastePhotos.length > 0 && { wastePhotos })
+            };
+            data.attributes = JSON.stringify(attributes);
         }
-
         mutation.mutate(data);
     };
-
-    const remainingAfterUsage = cable.remainingLength - ((form.watch('installLength') || 0) + (form.watch('wasteLength') || 0));
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -141,10 +154,18 @@ export function OpticalCableActionDialog({
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-                        {/* 공통 정보: 케이블 관리번호 */}
-                        <div className="text-sm text-muted-foreground mb-4">
-                            <p>관리번호: <span className="font-medium text-foreground">{cable.managementNo}</span></p>
-                            <p>현재 잔량: <span className="font-medium text-foreground">{cable.remainingLength}m</span></p>
+                        {/* 케이블 정보 헤더 */}
+                        <div className="p-3 rounded-md bg-muted/50 border">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                    <span className="text-muted-foreground">제조번호:</span>
+                                    <span className="ml-2 font-medium">{cable.drumNo}</span>
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground">현재 잔량:</span>
+                                    <span className="ml-2 font-bold text-primary">{cable.remainingLength}m</span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* ASSIGN: 팀 선택 */}
@@ -154,7 +175,7 @@ export function OpticalCableActionDialog({
                                 name="teamId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>불출 대상 팀</FormLabel>
+                                        <FormLabel>불출 대상 팀 *</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
@@ -175,78 +196,125 @@ export function OpticalCableActionDialog({
                             />
                         )}
 
-                        {/* USAGE: 길이 입력 */}
-                        {actionType === 'usage' && (
+                        {/* RETURN: 안내 메시지 */}
+                        {actionType === 'return' && (
+                            <div className="p-3 rounded-md bg-blue-50 border border-blue-200 text-sm text-blue-900">
+                                현재 할당된 팀 <strong>{teams.find(t => t.id === cable.currentTeamId)?.name || '알 수 없음'}</strong>에서 자재실로 반납 처리합니다.
+                            </div>
+                        )}
+
+                        {/* WASTE: 폐기 사유 및 사진 */}
+                        {actionType === 'waste' && (
                             <>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="installLength"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>설치 길이 (m)</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        {...field}
-                                                        onChange={e => field.onChange(Number(e.target.value))}
-                                                        min="0"
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="wasteLength"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>폐기/자투리 길이 (m)</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        {...field}
-                                                        onChange={e => field.onChange(Number(e.target.value))}
-                                                        min="0"
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+                                    ⚠️ 이 케이블 드럼을 폐기 처리합니다. 이 작업은 되돌릴 수 없습니다.
                                 </div>
-                                {/* 예상 잔량 표시 */}
-                                <div className={`p-4 rounded-md border ${remainingAfterUsage < 0 ? 'bg-destructive/10 border-destructive text-destructive' : 'bg-muted'}`}>
-                                    <div className="flex justify-between items-center text-sm font-medium">
-                                        <span>사용 후 예상 잔량:</span>
-                                        <span>{remainingAfterUsage}m</span>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            폐기 사유 *
+                                        </label>
+                                        <Textarea
+                                            placeholder="폐기 사유를 입력하세요"
+                                            className="resize-none mt-2"
+                                            rows={3}
+                                            value={wasteReason}
+                                            onChange={(e) => setWasteReason(e.target.value)}
+                                        />
+                                    </div>
+
+
+                                    <div>
+                                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            사진 첨부 ({wastePhotos.length}/4)
+                                        </label>
+                                        <div className="mt-2 space-y-2">
+                                            {/* Upload Button */}
+                                            {wastePhotos.length < 4 && (
+                                                <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                                                    <Upload className="h-5 w-5 text-primary" />
+                                                    <span className="text-sm font-medium text-primary">
+                                                        사진 선택 ({wastePhotos.length}/4) - 이미지 파일
+                                                    </span>
+                                                    <Input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        multiple
+                                                        className="hidden"
+                                                        onChange={async (e) => {
+                                                            const files = Array.from(e.target.files || []);
+                                                            const remainingSlots = 4 - wastePhotos.length;
+                                                            const filesToProcess = files.slice(0, remainingSlots);
+
+                                                            for (const file of filesToProcess) {
+                                                                if (file.size > 10 * 1024 * 1024) {
+                                                                    toast({
+                                                                        title: "파일 크기 초과",
+                                                                        description: `${file.name}은(는) 10MB를 초과합니다.`,
+                                                                        variant: "destructive"
+                                                                    });
+                                                                    continue;
+                                                                }
+
+                                                                try {
+                                                                    const compressed = await compressImage(file, {
+                                                                        maxWidth: 1920,
+                                                                        maxHeight: 1920,
+                                                                        quality: 0.8,
+                                                                        maxSizeMB: 5
+                                                                    });
+
+                                                                    setWastePhotos(prev => [...prev, compressed]);
+
+                                                                    const originalSize = formatFileSize(file.size);
+                                                                    const compressedSize = formatFileSize(compressed.size);
+                                                                    toast({
+                                                                        title: "이미지 압축 완료",
+                                                                        description: `${originalSize} → ${compressedSize}`,
+                                                                    });
+                                                                } catch (error) {
+                                                                    toast({
+                                                                        title: "압축 실패",
+                                                                        description: error instanceof Error ? error.message : "이미지 압축에 실패했습니다.",
+                                                                        variant: "destructive"
+                                                                    });
+                                                                }
+                                                            }
+                                                            // Reset input
+                                                            e.target.value = '';
+                                                        }}
+                                                    />
+                                                </label>
+                                            )}
+
+                                            {/* File List */}
+                                            {wastePhotos.map((photo, index) => (
+                                                <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                                                    <span className="text-sm truncate">📷 {photo.name} ({formatFileSize(photo.size)})</span>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setWastePhotos(prev => prev.filter((_, i) => i !== index))}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </>
                         )}
 
-                        {/* RETURN: 안내 메시지 */}
-                        {actionType === 'return' && (
-                            <div className="text-sm">
-                                현재 할당된 팀(<strong>{teams.find(t => t.id === cable.currentTeamId)?.name || 'Unknown'}</strong>)에서 자재실로 반납 처리합니다.
-                            </div>
-                        )}
-
-                        {/* WASTE: 안내 메시지 */}
-                        {actionType === 'waste' && (
-                            <div className="text-sm text-destructive">
-                                이 케이블 드럼 전체를 폐기 처리합니다. 이 작업은 되돌릴 수 없으며 잔량이 0으로 처리되지는 않지만 '폐기' 상태가 됩니다.
-                            </div>
-                        )}
-
-                        {/* 공통: 날짜 및 작업자 (Optional but good to have) */}
+                        {/* 공통: 작업일자 */}
                         <FormField
                             control={form.control}
                             name="usageDate"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>작업 일자</FormLabel>
+                                    <FormLabel>작업일자 *</FormLabel>
                                     <FormControl>
                                         <Input type="date" {...field} />
                                     </FormControl>
@@ -255,12 +323,12 @@ export function OpticalCableActionDialog({
                             )}
                         />
 
-                        <DialogFooter>
+                        <DialogFooter className="gap-2">
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                                 취소
                             </Button>
                             <Button type="submit" disabled={mutation.isPending}>
-                                {mutation.isPending ? "처리 중..." : "확인"}
+                                {mutation.isPending ? "처리 중..." : "등록"}
                             </Button>
                         </DialogFooter>
                     </form>

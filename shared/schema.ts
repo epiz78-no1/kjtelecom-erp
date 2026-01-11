@@ -468,7 +468,7 @@ export const opticalCables = pgTable("optical_cables", {
   spec: text("spec").notNull(), // 가공, 지중, 배선
   coreCount: integer("core_count").notNull(),
   drumNo: text("drum_no").notNull(), // Unique per tenant usually
-  totalLength: text("total_length").notNull(),
+  productName: text("total_length").notNull(),
   usedLength: integer("used_length").notNull().default(0),
   remainingLength: integer("remaining_length").notNull(),
   wasteLength: integer("waste_length").notNull().default(0),
@@ -483,6 +483,12 @@ export const opticalCables = pgTable("optical_cables", {
   reservedForProject: text("reserved_for_project"), // 예약된 공사명
   reservedBy: varchar("reserved_by").references(() => users.id), // 예약자
   reservedAt: timestamp("reserved_at"), // 예약 일시
+  // Return request fields
+  returnRequestStatus: text("return_request_status").notNull().default("none"), // 'none', 'pending', 'approved', 'rejected'
+  returnRequestedBy: varchar("return_requested_by").references(() => users.id), // 반납 요청자
+  returnRequestedAt: timestamp("return_requested_at"), // 반납 요청 일시
+  returnApprovedBy: varchar("return_approved_by").references(() => users.id), // 승인자
+  returnApprovedAt: timestamp("return_approved_at"), // 승인 일시
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -501,7 +507,7 @@ export const apiInsertOpticalCableSchema = z.object({
   spec: z.string(),
   coreCount: z.number().min(0),
   drumNo: z.string(),
-  totalLength: z.union([z.string(), z.number().min(0).transform(String)]),
+  productName: z.union([z.string(), z.number().min(0).transform(String)]),
   location: z.string().optional(),
   remark: z.string().optional(),
   wasteLength: z.number().min(0).optional(),

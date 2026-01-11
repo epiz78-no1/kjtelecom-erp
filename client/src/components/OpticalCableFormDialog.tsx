@@ -35,10 +35,22 @@ export interface OpticalCableFormData {
     drumNo: string;
     location: string;
     remark: string;
-    totalLength: number | "";
+    productName: string;
     unitPrice: number | "";
     totalAmount: number;
     projectCode: string;
+    // 'projectName' below is specifically for 'Project Name' field, unrelated to 'productName' (Cable Name)
+    // Wait, conflicts? `projectName` already exists in interface line 42?
+    // User requested "품명" (Product Name).
+    // Original code had `projectName: string;` line 42.
+    // I should rename `totalLength` to `productName`.
+    // BUT line 42 `projectName` might clutter?
+    // Let's check line 42. `projectName` is for "Project Name" (Work Name).
+    // `productName` is for "Material Name" (Cable Spec/Name).
+    // They are distinct.
+    // I will replace `totalLength` with `productName`.
+    // And to distinguish, maybe use `cableName`? No, user said `productName`.
+    // I will use `productName`.
     projectName: string;
 }
 
@@ -69,12 +81,13 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         drumNo: "",
         location: "",
         remark: "",
-        totalLength: "",
         unitPrice: "",
         totalAmount: 0,
         projectCode: "",
         projectName: "",
     });
+
+    const [incomingLength, setIncomingLength] = useState<number | "">("");
 
     useEffect(() => {
         if (editingItem) {
@@ -90,17 +103,20 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                 drumNo: editingItem.drumNo,
                 location: editingItem.location || "",
                 remark: editingItem.remark || "",
-                totalLength: editingItem.totalLength ? Number(editingItem.totalLength) : "",
+                productName: editingItem.productName || "",
                 unitPrice: editingItem.unitPrice || 0,
                 totalAmount: editingItem.totalAmount || 0,
                 projectCode: editingItem.projectCode || "",
                 projectName: editingItem.projectName || "",
             });
+            // Calculate initial incoming length (Remaining + Used + Waste)
+            const calculatedIncoming = (editingItem.remainingLength || 0) + (editingItem.usedLength || 0) + (editingItem.wasteLength || 0);
+            setIncomingLength(calculatedIncoming);
         } else {
             // Reset to clean state for new entry
             setFormData({
                 managementNo: `OPT-${new Date().getTime().toString().slice(-6)}`,
-                division: "",
+                division: "SKT", // Default
                 category: "",
                 receivedDate: new Date().toISOString().split('T')[0],
                 manufacturer: "",
@@ -110,12 +126,13 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                 drumNo: "",
                 location: "",
                 remark: "",
-                totalLength: "",
+                productName: "",
                 unitPrice: "",
                 totalAmount: 0,
                 projectCode: "",
                 projectName: "",
             });
+            setIncomingLength("");
         }
     }, [editingItem, open]);
 
@@ -125,30 +142,52 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         }
     };
 
+    const handleProductNameChange = (val: string) => {
+        setFormData(prev => ({ ...prev, productName: val }));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Calculate final remaining length
+        const currentIncoming = Number(incomingLength);
+        const used = editingItem ? (editingItem.usedLength || 0) : 0;
+        const waste = editingItem ? (editingItem.wasteLength || 0) : 0;
+        const finalRemaining = currentIncoming - used - waste;
 
         const payload = {
             ...formData,
             coreCount: Number(formData.coreCount),
-            totalLength: Number(formData.totalLength),
+            productName: String(formData.productName), // Ensure string
             unitPrice: Number(formData.unitPrice),
             division: formData.division || "SKT",
+            remainingLength: finalRemaining, // Send calculated remaining
         };
 
         if (onSubmit) {
-            onSubmit(payload as any);
+            // @ts-ignore
+            onSubmit(payload);
             normalizedOnOpenChange(false);
         }
     };
 
     const handleUnitPriceChange = (price: number | "") => {
         const numPrice = price === "" ? 0 : price;
-        const length = formData.totalLength === "" ? 0 : formData.totalLength;
+        const length = incomingLength === "" ? 0 : incomingLength;
         setFormData(prev => ({
             ...prev,
             unitPrice: price,
-            totalAmount: numPrice * length
+            totalAmount: numPrice * length // Restore calculation with incomingLength
+        }));
+    };
+
+    const handleIncomingLengthChange = (length: number | "") => {
+        setIncomingLength(length);
+        const numLength = length === "" ? 0 : length;
+        const price = formData.unitPrice === "" ? 0 : formData.unitPrice;
+        setFormData(prev => ({
+            ...prev,
+            totalAmount: price * numLength
         }));
     };
 
@@ -295,19 +334,32 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             </div>
                         </div>
 
-                        {/* 5. 케이블용량 & 위치 */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="totalLength">케이블용량 (m) <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="productName">품명 <span className="text-red-500">*</span></Label>
                                 <Input
-                                    id="totalLength"
+                                    id="productName"
+                                    value={formData.productName}
+                                    onChange={(e) => handleProductNameChange(e.target.value)}
+                                    required
+                                    placeholder="예: MT_72C"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="incomingLength">입고량(m) <span className="text-red-500">*</span></Label>
+                                <Input
+                                    id="incomingLength"
                                     type="number"
-                                    value={formData.totalLength}
-                                    onChange={(e) => handleLengthChange(e.target.value === "" ? "" : Number(e.target.value))}
+                                    value={incomingLength}
+                                    onChange={(e) => handleIncomingLengthChange(e.target.value === "" ? "" : Number(e.target.value))}
                                     required
                                     min="0"
                                 />
                             </div>
+                        </div>
+
+                        {/* 5-2. 보관장소 (Separate row now or keep combined?) */}
+                        <div className="grid grid-cols-1 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="location">보관장소 <span className="text-red-500">*</span></Label>
                                 <Input

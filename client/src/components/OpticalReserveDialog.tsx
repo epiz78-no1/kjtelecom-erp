@@ -43,7 +43,22 @@ export function OpticalReserveDialog({ open, onOpenChange, cable }: OpticalReser
             });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            // Invalidate and refetch only active queries (data-efficient)
+            queryClient.invalidateQueries({
+                queryKey: ["/api/optical-cables"],
+                refetchType: 'active' // Only refetch currently mounted queries
+            });
+            // Also invalidate the specific cable data to update buttons
+            if (cable) {
+                queryClient.invalidateQueries({
+                    queryKey: [`/api/optical-cables/${cable.id}`],
+                    refetchType: 'active'
+                });
+                queryClient.invalidateQueries({
+                    queryKey: [`/api/optical-cables/${cable.id}/logs`], // Changed from /log to /logs
+                    refetchType: 'active'
+                });
+            }
             toast({
                 title: isReserved ? "예약이 해제되었습니다" : "자재가 예약되었습니다"
             });
