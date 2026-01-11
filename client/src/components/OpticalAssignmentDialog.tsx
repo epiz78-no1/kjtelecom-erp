@@ -175,12 +175,12 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
             <DialogTrigger asChild>
                 {trigger || <Button>신규 출고 등록</Button>}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[700px] sm:max-h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>신규 출고 등록 (팀 할당)</DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-4">
+                <div className="flex-1 overflow-y-auto pr-2 space-y-4 py-1">
                     {/* Row 1: 출고일자, 수령팀, 수령자 */}
                     <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-2">
