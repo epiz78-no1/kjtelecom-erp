@@ -155,7 +155,7 @@ export class InventoryStorage {
                         )
                     ELSE ${incomingRecords.attributes}::jsonb
                 END
-            ) - 'data' - 'attachment'`
+            ) - 'data' #- '{attachment,data}'`
         })
             .from(incomingRecords)
             .leftJoin(users, eq(incomingRecords.createdBy, users.id))
@@ -276,7 +276,7 @@ export class InventoryStorage {
                         )
                     ELSE ${outgoingRecords.attributes}::jsonb
                 END
-            ) - 'data' - 'attachment'`
+            ) - 'data' #- '{attachment,data}'`
         })
             .from(outgoingRecords)
             .leftJoin(users, eq(outgoingRecords.createdBy, users.id))
@@ -363,7 +363,7 @@ export class InventoryStorage {
                         )
                     ELSE ${materialUsageRecords.attributes}::jsonb
                 END
-            ) - 'data' - 'attachment'`
+            ) - 'data' #- '{attachment,data}'`
         })
             .from(materialUsageRecords)
             .leftJoin(users, eq(materialUsageRecords.createdBy, users.id))
