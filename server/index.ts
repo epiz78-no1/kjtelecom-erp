@@ -160,6 +160,21 @@ app.get("/api/templates/:type", (req, res, next) => {
 
 // Register application routes (async but registers immediately since no awaits inside)
 // Register application routes
+// Debugging Endpoint
+app.post("/api/debug-log", async (req, res) => {
+  try {
+    const { message, data } = req.body;
+    const logEntry = `[CLIENT-LOG] ${new Date().toISOString()} ${message} : ${JSON.stringify(data)}\n`;
+    const fs = await import("fs");
+    fs.appendFileSync("debug_output.txt", logEntry); // Use sync for simplicity
+    console.log(logEntry.trim());
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Log failed", e);
+    res.status(500).json({ error: "Log failed" });
+  }
+});
+
 registerSystemRoutes(app);
 
 // Start DB Initialization in background (don't block server startup)

@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.20 (2026-01-13) - 광케이블 입고 수정 버그 해결 및 UI 폴리싱
+
+### 🐞 Bug Fixes
+- **광케이블 입고 첨부파일 수정 버그 해결**:
+  - **Backend**: `updateOpticalCable` 시 `opticalCableLogs`의 `attributes`가 동기화되지 않던 문제 해결.
+  - **Frontend**: `OpticalIncoming.tsx`에서 다이얼로그 닫힘 시 발생하는 Race Condition 해결.
+
+### 💄 UI/UX Improvements
+- **입고 내역 UI 수정**: "입고량" 컬럼에 "품명" 값이 표시되던 오류 수정 및 합계 방식 변경.
+
 ## v1.2.19 (2026-01-12) - 자재 사용 등록 UI 개선
 
 ### 💄 UI/UX Improvements

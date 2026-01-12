@@ -60,6 +60,8 @@ export function registerOpticalRoutes(app: Express) {
 
     app.patch("/api/optical-cables/:id", requireAuth, requireTenant, async (req, res) => {
         const { id } = req.params;
+
+
         const parseResult = apiInsertOpticalCableSchema.partial().safeParse(req.body);
 
         if (!parseResult.success) {
