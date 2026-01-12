@@ -1428,7 +1428,7 @@ export default function TeamMaterialUsage() {
                           .filter(inv => !formData.items.some((existingItem, i) => i !== index && existingItem.inventoryItemId === inv.inventoryItemId))
                           .map((inv) => (
                             <SelectItem key={inv.id} value={inv.id.toString()}>
-                              {inv.productName} ({inv.specification}) - 잔여: {inv.remaining.toLocaleString()}
+                              [{inv.division}] {inv.productName} ({inv.specification}) - 잔여: {inv.remaining.toLocaleString()}
                             </SelectItem>
                           ))}
                       </SelectContent>
