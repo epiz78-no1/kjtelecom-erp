@@ -469,6 +469,7 @@ export const opticalCables = pgTable("optical_cables", {
   coreCount: integer("core_count").notNull(),
   drumNo: text("drum_no").notNull(), // Unique per tenant usually
   productName: text("total_length").notNull(),
+  originalLength: integer("original_length"),
   usedLength: integer("used_length").notNull().default(0),
   remainingLength: integer("remaining_length").notNull(),
   wasteLength: integer("waste_length").notNull().default(0),
