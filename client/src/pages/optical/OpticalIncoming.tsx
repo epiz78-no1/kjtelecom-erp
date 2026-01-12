@@ -34,11 +34,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
-import { queryClient } from "@/lib/queryClient";
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { validateOpticalRow, transformOpticalRow, opticalColumns, downloadOpticalTemplate } from "@/lib/bulk-configs/optical";
+import { Upload } from "lucide-react";
 
 export default function OpticalIncoming() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -48,6 +50,27 @@ export default function OpticalIncoming() {
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
     const { open: dialogOpen, editingItem: editingCable, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCable>();
     const { downloadFile } = useDownload();
+    const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+
+    const bulkUploadMutation = useMutation({
+        mutationFn: async ({ items }: { items: any[] }) => {
+            const response = await apiRequest("POST", "/api/optical-cables/bulk", { items });
+            return await response.json();
+        },
+        onSuccess: (data: any[]) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            toast({ title: `${data.length}건의 광케이블이 일괄 등록되었습니다` });
+            setBulkUploadOpen(false);
+        },
+        onError: (error: Error) => {
+            toast({ title: "일괄등록 실패", description: error.message, variant: "destructive" });
+        }
+    });
+
+    const handleBulkUpload = (items: any[]) => {
+        bulkUploadMutation.mutate({ items });
+    };
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
@@ -96,9 +119,8 @@ export default function OpticalIncoming() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: async (data: any) => {
-            if (!editingCable) return;
-            const res = await apiRequest("PATCH", `/api/optical-cables/${editingCable.id}`, data);
+        mutationFn: async ({ id, data }: { id: string; data: any }) => {
+            const res = await apiRequest("PATCH", `/api/optical-cables/${id}`, data);
             return res.json();
         },
         onSuccess: () => {
@@ -147,7 +169,7 @@ export default function OpticalIncoming() {
         },
     });
 
-    const incomingLogs = logs.filter(l => l.logType === 'receive' || l.logType === 'create');
+    const incomingLogs = logs.filter(l => ['receive', 'create', 'incoming'].includes(l.logType));
 
     const {
         searchQuery,
@@ -205,13 +227,32 @@ export default function OpticalIncoming() {
                     </h1>
                     <p className="text-muted-foreground">광케이블 드럼의 입고 이력을 조회합니다.</p>
                 </div>
-                <OpticalCableFormDialog
-                    trigger={
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                         <Button className="gap-2">
                             <Plus className="h-4 w-4" />
-                            신규 입고 등록
+                            입고 등록
                         </Button>
-                    }
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => openDialog()}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            직접 등록
+                        </DropdownMenuItem>
+                        {isTenantOwner && (
+                            <DropdownMenuItem onSelect={() => setBulkUploadOpen(true)}>
+                                <Upload className="h-4 w-4 mr-2" />
+                                일괄 등록
+                            </DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <OpticalCableFormDialog
+                    open={dialogOpen}
+                    onOpenChange={(open) => {
+                        if (!open) closeDialog();
+                    }}
                     onSubmit={(data) => createMutation.mutate(data)}
                 />
             </div>
@@ -360,6 +401,9 @@ export default function OpticalIncoming() {
                                                 {String(log.cable?.productName || '')}
                                             </div>
                                         </TableCell>
+                                        <TableCell className="text-center align-middle font-bold">
+                                            {((log.cable?.remainingLength || 0) + (log.cable?.usedLength || 0) + (log.cable?.wasteLength || 0)).toLocaleString()}
+                                        </TableCell>
                                         <TableCell className="align-middle p-0">
                                             <div className="w-full truncate text-center px-2" title={log.cable?.remark || ''}>
                                                 {log.cable?.remark || ''}
@@ -482,12 +526,31 @@ export default function OpticalIncoming() {
             </div>
 
             <OpticalCableFormDialog
-                open={!!editingCable}
+                open={dialogOpen}
                 onOpenChange={(open) => {
                     if (!open) closeDialog();
                 }}
                 editingItem={editingCable}
-                onSubmit={(data) => updateMutation.mutate(data)}
+                onSubmit={(data) => {
+                    if (editingCable) {
+                        updateMutation.mutate({ id: editingCable.id, data });
+                    } else {
+                        createMutation.mutate(data);
+                    }
+                }}
+            />
+
+            <GenericBulkUploadDialog
+                open={bulkUploadOpen}
+                onOpenChange={setBulkUploadOpen}
+                title="광케이블 일괄등록"
+                description="CSV 파일을 업로드하여 여러 광케이블 드럼을 한번에 등록할 수 있습니다"
+                onDownloadTemplate={downloadOpticalTemplate}
+                templateFileName="optical_cable_template.csv"
+                validateRow={validateOpticalRow}
+                transformRow={transformOpticalRow}
+                columns={opticalColumns}
+                onUpload={handleBulkUpload}
             />
         </div>
     );

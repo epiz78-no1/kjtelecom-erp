@@ -18,10 +18,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Upload, Trash2, FileCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
+import { useToast } from "@/hooks/use-toast";
 
 export interface OpticalCableFormData {
     managementNo: string;
@@ -39,19 +41,8 @@ export interface OpticalCableFormData {
     unitPrice: number | "";
     totalAmount: number;
     projectCode: string;
-    // 'projectName' below is specifically for 'Project Name' field, unrelated to 'productName' (Cable Name)
-    // Wait, conflicts? `projectName` already exists in interface line 42?
-    // User requested "품명" (Product Name).
-    // Original code had `projectName: string;` line 42.
-    // I should rename `totalLength` to `productName`.
-    // BUT line 42 `projectName` might clutter?
-    // Let's check line 42. `projectName` is for "Project Name" (Work Name).
-    // `productName` is for "Material Name" (Cable Spec/Name).
-    // They are distinct.
-    // I will replace `totalLength` with `productName`.
-    // And to distinguish, maybe use `cableName`? No, user said `productName`.
-    // I will use `productName`.
     projectName: string;
+    attributes?: string; // JSON string for attachments
 }
 
 interface OpticalCableFormDialogProps {
@@ -64,6 +55,10 @@ interface OpticalCableFormDialogProps {
 
 export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: setControlledOpen, onSubmit, editingItem, trigger }: OpticalCableFormDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false);
+    const { toast } = useToast();
+
+    // ID 중복 방지를 위한 고유 ID 생성
+    const [uniqueId] = useState(`optical-upload-${Math.random().toString(36).slice(2)}`);
 
     const isControlled = controlledOpen !== undefined;
     const open = isControlled ? controlledOpen : internalOpen;
@@ -81,6 +76,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         drumNo: "",
         location: "",
         remark: "",
+        productName: "",
         unitPrice: "",
         totalAmount: 0,
         projectCode: "",
@@ -88,53 +84,86 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     });
 
     const [incomingLength, setIncomingLength] = useState<number | "">("");
+    const [attachments, setAttachments] = useState<{ name: string; data: string }[]>([]);
+
+    // 리렌더링 시 초기화 방지를 위한 ID 트래킹
+    const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (editingItem) {
-            setFormData({
-                managementNo: editingItem.managementNo || "",
-                division: editingItem.division || "",
-                category: editingItem.category || "",
-                receivedDate: editingItem.receivedDate || new Date().toISOString().split('T')[0],
-                manufacturer: editingItem.manufacturer || "",
-                manufactureYear: editingItem.manufactureYear || "",
-                spec: editingItem.spec,
-                coreCount: editingItem.coreCount,
-                drumNo: editingItem.drumNo,
-                location: editingItem.location || "",
-                remark: editingItem.remark || "",
-                productName: editingItem.productName || "",
-                unitPrice: editingItem.unitPrice || 0,
-                totalAmount: editingItem.totalAmount || 0,
-                projectCode: editingItem.projectCode || "",
-                projectName: editingItem.projectName || "",
-            });
-            // Calculate initial incoming length (Remaining + Used + Waste)
-            const calculatedIncoming = (editingItem.remainingLength || 0) + (editingItem.usedLength || 0) + (editingItem.wasteLength || 0);
-            setIncomingLength(calculatedIncoming);
+        if (open) {
+            const newItemId = editingItem ? String(editingItem.id) : "new";
+
+            // ID가 변경되었을 때만 초기화 로직 실행 (리렌더링 방어)
+            if (currentEditingId !== newItemId) {
+                if (editingItem) {
+                    setFormData({
+                        managementNo: editingItem.managementNo || "",
+                        division: editingItem.division || "",
+                        category: editingItem.category || "",
+                        receivedDate: editingItem.receivedDate || new Date().toISOString().split('T')[0],
+                        manufacturer: editingItem.manufacturer || "",
+                        manufactureYear: editingItem.manufactureYear || "",
+                        spec: editingItem.spec,
+                        coreCount: editingItem.coreCount,
+                        drumNo: editingItem.drumNo,
+                        location: editingItem.location || "",
+                        remark: editingItem.remark || "",
+                        productName: editingItem.productName || "",
+                        unitPrice: editingItem.unitPrice || 0,
+                        totalAmount: editingItem.totalAmount || 0,
+                        projectCode: editingItem.projectCode || "",
+                        projectName: editingItem.projectName || "",
+                    });
+                    // Calculate initial incoming length (Remaining + Used + Waste)
+                    const calculatedIncoming = (editingItem.remainingLength || 0) + (editingItem.usedLength || 0) + (editingItem.wasteLength || 0);
+                    setIncomingLength(calculatedIncoming);
+
+                    // Load attachments
+                    if (editingItem.attributes) {
+                        try {
+                            const attrs = JSON.parse(editingItem.attributes);
+                            if (attrs.attachments && Array.isArray(attrs.attachments)) {
+                                setAttachments(attrs.attachments);
+                            } else if (attrs.attachment) {
+                                setAttachments([attrs.attachment]);
+                            } else {
+                                setAttachments([]);
+                            }
+                        } catch (e) {
+                            setAttachments([]);
+                        }
+                    } else {
+                        setAttachments([]);
+                    }
+                } else {
+                    // Reset to clean state for new entry
+                    setFormData({
+                        managementNo: `OPT-${new Date().getTime().toString().slice(-6)}`,
+                        division: "SKT", // Default
+                        category: "",
+                        receivedDate: new Date().toISOString().split('T')[0],
+                        manufacturer: "",
+                        manufactureYear: "",
+                        spec: "",
+                        coreCount: "",
+                        drumNo: "",
+                        location: "",
+                        remark: "",
+                        productName: "",
+                        unitPrice: "",
+                        totalAmount: 0,
+                        projectCode: "",
+                        projectName: "",
+                    });
+                    setIncomingLength("");
+                    setAttachments([]);
+                }
+                setCurrentEditingId(newItemId);
+            }
         } else {
-            // Reset to clean state for new entry
-            setFormData({
-                managementNo: `OPT-${new Date().getTime().toString().slice(-6)}`,
-                division: "SKT", // Default
-                category: "",
-                receivedDate: new Date().toISOString().split('T')[0],
-                manufacturer: "",
-                manufactureYear: "",
-                spec: "",
-                coreCount: "",
-                drumNo: "",
-                location: "",
-                remark: "",
-                productName: "",
-                unitPrice: "",
-                totalAmount: 0,
-                projectCode: "",
-                projectName: "",
-            });
-            setIncomingLength("");
+            setCurrentEditingId(null); // 다이얼로그 닫히면 ID 초기화
         }
-    }, [editingItem, open]);
+    }, [editingItem, open, currentEditingId]);
 
     const normalizedOnOpenChange = (newOpen: boolean) => {
         if (onOpenChange) {
@@ -144,6 +173,85 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
 
     const handleProductNameChange = (val: string) => {
         setFormData(prev => ({ ...prev, productName: val }));
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        const currentCount = attachments.length;
+        if (currentCount + files.length > 4) {
+            toast({
+                title: "파일 개수 초과",
+                description: `최대 4개까지 첨부할 수 있습니다. (현재 ${currentCount}개)`,
+                variant: "destructive"
+            });
+            e.target.value = ''; // Reset input
+            return;
+        }
+
+        const processedFiles: { name: string; data: string }[] = [];
+
+        for (const file of files) {
+            if (file.size > 10 * 1024 * 1024) { // 10MB
+                toast({
+                    title: "용량 초과",
+                    description: `${file.name} 파일이 10MB를 초과합니다.`,
+                    variant: "destructive"
+                });
+                continue;
+            }
+
+            try {
+                let processedFile: { name: string; data: string };
+
+                if (file.type.startsWith('image/')) {
+                    // 이미지 압축 적용
+                    const compressed = await compressImage(file, {
+                        maxWidth: 1280,
+                        maxHeight: 1280,
+                        quality: 0.7,
+                        maxSizeMB: 1
+                    });
+                    processedFile = compressed;
+
+                    const originalSize = formatFileSize(file.size);
+                    const compressedSize = formatFileSize(compressed.size);
+                    toast({
+                        title: "이미지 압축 완료",
+                        description: `${originalSize} → ${compressedSize}`,
+                    });
+                } else {
+                    // Excel, PDF 등은 Base64로 변환
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    processedFile = { name: file.name, data: base64 };
+                }
+
+                processedFiles.push(processedFile);
+
+            } catch (error: any) {
+                console.error("File processing error:", error);
+                toast({
+                    title: "파일 처리 실패",
+                    description: `${file.name}: ${error.message}`,
+                    variant: "destructive"
+                });
+            }
+        }
+
+        // 함수형 업데이트로 안전하게 상태 반영
+        setAttachments(prev => [...prev, ...processedFiles]);
+        e.target.value = ''; // Reset for next selection
+    };
+
+    const removeAttachment = (index: number) => {
+        const newAttachments = attachments.filter((_, i) => i !== index);
+        setAttachments(newAttachments);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -162,6 +270,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
             unitPrice: Number(formData.unitPrice),
             division: formData.division || "SKT",
             remainingLength: finalRemaining, // Send calculated remaining
+            attributes: JSON.stringify({ attachments }), // Serialize attachments
         };
 
         if (onSubmit) {
@@ -191,16 +300,6 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         }));
     };
 
-    const handleLengthChange = (length: number | "") => {
-        const numLength = length === "" ? 0 : length;
-        const price = formData.unitPrice === "" ? 0 : formData.unitPrice;
-        setFormData(prev => ({
-            ...prev,
-            totalLength: length,
-            totalAmount: price * numLength
-        }));
-    };
-
     const handleSpecChange = (val: string) => {
         setFormData(prev => ({ ...prev, spec: val }));
     };
@@ -214,7 +313,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{editingItem ? "광케이블 드럼 수정" : "광케이블 드럼 등록"}</DialogTitle>
                     <DialogDescription>
@@ -358,7 +457,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             </div>
                         </div>
 
-                        {/* 5-2. 보관장소 (Separate row now or keep combined?) */}
+                        {/* 5-2. 보관장소 */}
                         <div className="grid grid-cols-1 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="location">보관장소 <span className="text-red-500">*</span></Label>
@@ -404,6 +503,53 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                 value={formData.remark}
                                 onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
                             />
+                        </div>
+
+                        {/* 8. 첨부파일 */}
+                        <div className="grid grid-cols-4 items-start gap-4 border-t pt-4">
+                            <Label className="text-right pt-2">첨부파일 (최대 4개)</Label>
+                            <div className="col-span-3">
+                                <div className="relative">
+                                    <Input
+                                        id={uniqueId}
+                                        type="file"
+                                        accept="image/*,application/pdf,.xlsx,.xls"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                    />
+                                    {attachments.length < 4 && (
+                                        <label
+                                            htmlFor={uniqueId}
+                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                        >
+                                            <Upload className="h-5 w-5 text-primary" />
+                                            <span className="text-sm font-medium text-primary">
+                                                파일 선택 ({attachments.length}/4) - 이미지, PDF, 엑셀
+                                            </span>
+                                        </label>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2 mt-2">
+                                    {attachments.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                                            <span className="text-sm text-muted-foreground truncate flex-1">
+                                                📎 {file.name}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                onClick={() => removeAttachment(index)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
                     </div>

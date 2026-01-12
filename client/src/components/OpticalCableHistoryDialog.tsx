@@ -6,6 +6,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { Paperclip } from "lucide-react";
+import {
     Table,
     TableBody,
     TableCell,
@@ -24,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { format } from "date-fns";
 import { useAppContext } from "@/contexts/AppContext";
+import { useDownload } from "@/hooks/useDownload";
 
 // ... existing code ...
 
@@ -45,6 +52,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
 
     // Check if user is tenant owner
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
+    const { downloadFile } = useDownload();
 
     const deleteLogMutation = useMutation({
         mutationFn: async (logId: string) => {
@@ -265,10 +273,18 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                                 <TableCell className="text-center text-muted-foreground">{(log as any).createdByName || ''}</TableCell>
                                                 {/* Attachment Icon */}
                                                 <TableCell className="text-center">
-                                                    {log.logType === 'waste' && log.attributes && (() => {
+                                                    {(() => {
+                                                        if (!log.attributes) return null;
                                                         try {
-                                                            const attr = JSON.parse(log.attributes);
-                                                            if (attr.wastePhotos && attr.wastePhotos.length > 0) {
+                                                            let attr: any = {};
+                                                            if (typeof log.attributes === 'string') {
+                                                                attr = JSON.parse(log.attributes);
+                                                            } else {
+                                                                attr = log.attributes;
+                                                            }
+
+                                                            // 1. Waste Photos (Legacy Logic)
+                                                            if (log.logType === 'waste' && attr.wastePhotos && attr.wastePhotos.length > 0) {
                                                                 return (
                                                                     <button
                                                                         className="inline-flex items-center justify-center text-primary hover:text-primary/80"
@@ -282,10 +298,67 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                                                     </button>
                                                                 );
                                                             }
+
+                                                            // 2. Attachments (Incoming/Create logs)
+                                                            const attachments = attr.attachments || (attr.attachment ? [attr.attachment] : []);
+
+                                                            if (attachments.length === 0) return null;
+
+                                                            if (attachments.length === 1) {
+                                                                return (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 w-8 p-0"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                        }}
+                                                                        title={attachments[0].name}
+                                                                    >
+                                                                        <Download className="h-4 w-4" />
+                                                                    </Button>
+                                                                );
+                                                            }
+
+                                                            return (
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-8 gap-1 px-2"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <Paperclip className="h-4 w-4" />
+                                                                            <span className="text-xs font-medium">{attachments.length}</span>
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-2" align="end">
+                                                                        <div className="flex flex-col gap-1">
+                                                                            {attachments.map((file: any, idx: number) => (
+                                                                                <Button
+                                                                                    key={idx}
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="justify-start h-8 text-xs max-w-[200px]"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                    }}
+                                                                                    title={file.name}
+                                                                                >
+                                                                                    <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                                    <span className="truncate">{file.name}</span>
+                                                                                </Button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            );
                                                         } catch (e) {
-                                                            // ignore
+                                                            return null;
                                                         }
-                                                        return null;
                                                     })()}
                                                 </TableCell>
                                                 {/* Delete/Cancel Button */}

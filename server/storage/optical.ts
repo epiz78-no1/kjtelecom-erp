@@ -25,19 +25,53 @@ export class OpticalStorage {
     }
 
     async createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable> {
-        const [newCable] = await db.insert(opticalCables).values({
-            ...cable,
-            tenantId
-        }).returning();
-        return newCable;
+        return await db.transaction(async (tx) => {
+            const [newCable] = await tx.insert(opticalCables).values({
+                ...cable,
+                tenantId
+            }).returning();
+
+            // Create incoming log entry
+            await tx.insert(opticalCableLogs).values({
+                cableId: newCable.id,
+                logType: 'create', // Change to 'create' to match OpticalIncoming.tsx filter
+                usageDate: newCable.receivedDate || new Date().toISOString().split('T')[0],
+                afterRemaining: newCable.remainingLength,
+                attributes: newCable.attributes, // Copy attributes (attachments) to log
+                tenantId,
+                createdBy: cable.createdBy // ensure createdBy follows the cable creator
+            });
+
+            return newCable;
+        });
     }
 
     async updateOpticalCable(id: string, updates: Partial<InsertOpticalCable>, tenantId: string): Promise<OpticalCable | undefined> {
-        const [updated] = await db.update(opticalCables)
-            .set(updates)
-            .where(and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId)))
-            .returning();
-        return updated;
+
+
+        return await db.transaction(async (tx) => {
+            const [updated] = await tx.update(opticalCables)
+                .set(updates)
+                .where(and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId)))
+                .returning();
+
+            if (updated && updates.attributes !== undefined) {
+                // Sync attributes to 'create' or 'incoming' logs to ensure UI reflects changes
+
+
+                const result = await tx.update(opticalCableLogs)
+                    .set({ attributes: updates.attributes })
+                    .where(and(
+                        eq(opticalCableLogs.cableId, id),
+                        eq(opticalCableLogs.tenantId, tenantId),
+                        sql`${opticalCableLogs.logType} IN ('create', 'incoming', 'receive')`
+                    ))
+                    .returning({ id: opticalCableLogs.id });
+
+
+            }
+            return updated;
+        });
     }
 
     async createOpticalCablesBulk(cables: InsertOpticalCable[], tenantId: string): Promise<OpticalCable[]> {

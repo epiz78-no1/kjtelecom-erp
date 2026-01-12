@@ -478,6 +478,7 @@ export const opticalCables = pgTable("optical_cables", {
   unitPrice: integer("unit_price").notNull().default(0),
   totalAmount: integer("total_amount").notNull().default(0),
   currentTeamId: varchar("current_team_id").references(() => teams.id), // Currently assigned team
+  attributes: text("attributes"), // JSON for extended data (attachments, etc.)
   // Reservation fields
   reservationStatus: text("reservation_status").notNull().default("none"), // 'none', 'reserved'
   reservedForProject: text("reserved_for_project"), // 예약된 공사명
@@ -514,6 +515,7 @@ export const apiInsertOpticalCableSchema = z.object({
   unitPrice: z.number().min(0).optional(),
   totalAmount: z.number().min(0).optional(),
   remainingLength: z.number().min(0).optional(),
+  attributes: z.string().optional(),
 });
 export type InsertOpticalCable = z.infer<typeof insertOpticalCableSchema>;
 export type OpticalCable = typeof opticalCables.$inferSelect;
