@@ -106,7 +106,7 @@ export class OpticalStorage {
                                     ),
                                     '[]'::jsonb
                                 )
-                            ) - 'data' - 'attachment'
+                            ) - 'data' #- '{attachment,data}'
                         )::text
                 END`
         })
@@ -182,7 +182,7 @@ export class OpticalStorage {
                                     ),
                                     '[]'::jsonb
                                 )
-                            ) - 'data' - 'attachment'
+                            ) - 'data' #- '{attachment,data}'
                         )::text
                 END`
         })
