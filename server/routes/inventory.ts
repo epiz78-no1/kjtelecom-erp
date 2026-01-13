@@ -290,6 +290,20 @@ export function registerInventoryRoutes(app: Express) {
 
     // ... (bulk upload omitted for brevity, logic is similar if needed later)
 
+    app.get("/api/material-usage", requireAuth, requireTenant, async (req, res) => {
+        const tenantId = req.session!.tenantId!;
+        const { teamCategory } = req.query;
+        const categoryFilter = typeof teamCategory === 'string' ? teamCategory : undefined;
+
+        try {
+            const records = await storage.getMaterialUsageRecords(tenantId, categoryFilter);
+            res.json(records);
+        } catch (error) {
+            console.error("Fetch material usage records error:", error);
+            res.status(500).json({ error: "사용 내역을 가져오는 중 오류가 발생했습니다" });
+        }
+    });
+
     app.post("/api/material-usage", requireAuth, requireTenant, async (req, res) => {
         try {
             const parseResult = apiInsertMaterialUsageRecordSchema.safeParse(req.body);
