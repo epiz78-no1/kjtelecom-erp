@@ -153,6 +153,7 @@ export default function TeamMaterialUsage() {
       remark: ""
     }] as Array<{
       id: string;
+      division: string;
       category: string;
       productName: string;
       specification: string;
@@ -510,6 +511,7 @@ export default function TeamMaterialUsage() {
       attachments: [],
       items: [{
         id: Date.now().toString(),
+        division: "",
         category: "",
         productName: "",
         specification: "",
@@ -546,6 +548,7 @@ export default function TeamMaterialUsage() {
       attachments: [],
       items: [{
         id: Date.now().toString(),
+        division: record.division,
         category: record.category || "",
         productName: record.productName,
         specification: record.specification,
@@ -612,6 +615,7 @@ export default function TeamMaterialUsage() {
       attachments: [],
       items: [{
         id: Date.now().toString(),
+        division: "",
         category: "",
         productName: "",
         specification: "",
@@ -637,6 +641,17 @@ export default function TeamMaterialUsage() {
       return;
     }
 
+    // 모든 아이템의 사업(division)이 동일한지 확인
+    const divisions = new Set(validItems.map(item => item.division));
+    if (divisions.size > 1) {
+      toast({
+        title: "등록 불가",
+        description: "한 번의 등록에 SKT와 SKB 자재를 혼합할 수 없습니다. 공사별로 구분하여 등록해주세요.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // 수정 모드: 기존 항목 수정 (items[0] 사용)
     if (editingRecord) {
       const item = validItems[0];
@@ -652,7 +667,7 @@ export default function TeamMaterialUsage() {
 
       const data = {
         date: format(selectedDate, "yyyy-MM-dd"),
-        division: "SKT",
+        division: item.division || "SKT",
         category: (item.category || "").trim(),
         teamCategory: formData.teamCategory.trim(),
         teamId: formData.teamId, // Ensure teamId is sent
@@ -695,7 +710,7 @@ export default function TeamMaterialUsage() {
 
         const data = {
           date: format(selectedDate, "yyyy-MM-dd"),
-          division: "SKT",
+          division: item.division || "SKT",
           category: (item.category || "").trim(),
           teamCategory: formData.teamCategory.trim(),
           teamId: formData.teamId,
@@ -1398,6 +1413,7 @@ export default function TeamMaterialUsage() {
                           const newItems = [...formData.items];
                           newItems[index] = {
                             ...newItems[index],
+                            division: selectedInventory.division,
                             category: selectedInventory.category,
                             productName: selectedInventory.productName,
                             specification: selectedInventory.specification,
@@ -1407,6 +1423,7 @@ export default function TeamMaterialUsage() {
                           if (index === formData.items.length - 1) {
                             newItems.push({
                               id: Date.now().toString(),
+                              division: "",
                               category: "",
                               productName: "",
                               specification: "",
@@ -1424,13 +1441,29 @@ export default function TeamMaterialUsage() {
                         <SelectValue placeholder={formData.teamCategory ? "자재를 선택하세요" : "팀을 먼저 선택하세요"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {teamInventory
-                          .filter(inv => !formData.items.some((existingItem, i) => i !== index && existingItem.inventoryItemId === inv.inventoryItemId))
-                          .map((inv) => (
-                            <SelectItem key={inv.id} value={inv.id.toString()}>
-                              [{inv.division}] {inv.productName} ({inv.specification}) - 잔여: {inv.remaining.toLocaleString()}
-                            </SelectItem>
-                          ))}
+                        {(() => {
+                          // 이미 선택된 아이템들 중 첫 번째로 유효한 사업 정보를 찾음
+                          const firstDivision = formData.items.find(i => i.division)?.division;
+
+                          return teamInventory
+                            .filter(inv => {
+                              // 1. 이미 선택된 아이템 제외
+                              const isAlreadySelected = formData.items.some((existingItem, i) =>
+                                i !== index && existingItem.inventoryItemId === inv.inventoryItemId
+                              );
+                              if (isAlreadySelected) return false;
+
+                              // 2. 다른 사업(SKT/SKB) 자재 제외 (첫 번째 선택이 있는 경우)
+                              if (firstDivision && inv.division !== firstDivision) return false;
+
+                              return true;
+                            })
+                            .map((inv) => (
+                              <SelectItem key={inv.id} value={inv.id.toString()}>
+                                [{inv.division}] {inv.productName} ({inv.specification}) - 잔여: {inv.remaining.toLocaleString()}
+                              </SelectItem>
+                            ));
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>
