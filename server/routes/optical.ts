@@ -41,9 +41,32 @@ export function registerOpticalRoutes(app: Express) {
             return res.status(400).json({ error: parseResult.error.message });
         }
         const tenantId = req.session!.tenantId!;
+
+        // Process attachments
+        let attributesObj: any = {};
+        if (parseResult.data.attributes) {
+            try {
+                const attrs = typeof parseResult.data.attributes === 'string'
+                    ? JSON.parse(parseResult.data.attributes)
+                    : parseResult.data.attributes;
+
+                if (attrs.attachments && Array.isArray(attrs.attachments)) {
+                    const uploadedFiles = await processAttachments(attrs.attachments);
+                    attributesObj.attachments = uploadedFiles;
+                    attributesObj.attachment = uploadedFiles[0];
+                } else if (attrs.attachment) {
+                    const uploadedFiles = await processAttachments([attrs.attachment]);
+                    attributesObj.attachment = uploadedFiles[0];
+                }
+            } catch (e) {
+                console.error('[OPTICAL CREATE] Attachment processing error:', e);
+            }
+        }
+
         try {
             const cable = await storage.createOpticalCable({
                 ...parseResult.data,
+                attributes: Object.keys(attributesObj).length > 0 ? JSON.stringify(attributesObj) : parseResult.data.attributes,
                 // productName이 숫자일 경우를 대비해 변환, 하지만 remainingLength가 필수라면 클라이언트에서 보내야 함.
                 // 스키마에 remainingLength가 optional로 되어있으므로 여기서 초기값 설정 필요.
                 // 단, productName은 이제 'Spec+Core' 스트링일 수 있으므로 numeric parsing 주의.
@@ -69,8 +92,34 @@ export function registerOpticalRoutes(app: Express) {
         }
 
         const tenantId = req.session!.tenantId!;
+        // Process attachments for update if present
+        let attributesObj: any = {};
+        if (parseResult.data.attributes) {
+            try {
+                const attrs = typeof parseResult.data.attributes === 'string'
+                    ? JSON.parse(parseResult.data.attributes)
+                    : parseResult.data.attributes;
+
+                if (attrs.attachments && Array.isArray(attrs.attachments)) {
+                    const uploadedFiles = await processAttachments(attrs.attachments);
+                    attributesObj.attachments = uploadedFiles;
+                    attributesObj.attachment = uploadedFiles[0];
+                } else if (attrs.attachment) {
+                    const uploadedFiles = await processAttachments([attrs.attachment]);
+                    attributesObj.attachment = uploadedFiles[0];
+                }
+            } catch (e) {
+                console.error('[OPTICAL UPDATE] Attachment processing error:', e);
+            }
+        }
+
         try {
-            const cable = await storage.updateOpticalCable(id, parseResult.data, tenantId);
+            const updates = { ...parseResult.data };
+            if (Object.keys(attributesObj).length > 0) {
+                updates.attributes = JSON.stringify(attributesObj);
+            }
+
+            const cable = await storage.updateOpticalCable(id, updates, tenantId);
             if (!cable) {
                 return res.status(404).json({ error: "Cable not found" });
             }
@@ -87,8 +136,37 @@ export function registerOpticalRoutes(app: Express) {
         }
 
         const tenantId = req.session!.tenantId!;
+
         try {
-            const cables = await storage.createOpticalCablesBulk(items, tenantId);
+            // Process attachments for each item in bulk
+            const processedItems = await Promise.all(items.map(async (item) => {
+                let attributesObj: any = {};
+                if (item.attributes) {
+                    try {
+                        const attrs = typeof item.attributes === 'string'
+                            ? JSON.parse(item.attributes)
+                            : item.attributes;
+
+                        if (attrs.attachments && Array.isArray(attrs.attachments)) {
+                            const uploadedFiles = await processAttachments(attrs.attachments);
+                            attributesObj.attachments = uploadedFiles;
+                            attributesObj.attachment = uploadedFiles[0];
+                        } else if (attrs.attachment) {
+                            const uploadedFiles = await processAttachments([attrs.attachment]);
+                            attributesObj.attachment = uploadedFiles[0];
+                        }
+                    } catch (e) {
+                        console.error('[OPTICAL BULK CREATE] Attachment processing error:', e);
+                    }
+                }
+
+                return {
+                    ...item,
+                    attributes: Object.keys(attributesObj).length > 0 ? JSON.stringify(attributesObj) : item.attributes
+                };
+            }));
+
+            const cables = await storage.createOpticalCablesBulk(processedItems, tenantId);
             res.status(201).json(cables);
         } catch (error: any) {
             console.error("Bulk optical cable upload error:", error);
