@@ -97,7 +97,7 @@ export interface IStorage {
     deleteInvitation(id: string, tenantId: string): Promise<boolean>;
 
     // Optical Cables
-    getOpticalCables(tenantId: string): Promise<(OpticalCable & { logs: OpticalCableLog[] })[]>;
+    getOpticalCables(tenantId: string): Promise<(OpticalCable & { currentTeam: Team | null })[]>;
     getOpticalCable(id: string, tenantId: string): Promise<OpticalCable | undefined>;
     createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable>;
     updateOpticalCable(id: string, updates: Partial<InsertOpticalCable>, tenantId: string): Promise<OpticalCable | undefined>;
