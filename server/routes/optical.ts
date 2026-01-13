@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { storage } from "../storage.js";
 import { apiInsertOpticalCableSchema, apiInsertOpticalCableLogSchema } from "../../shared/schema.js";
 import { requireAuth, requireTenant, requireAdmin } from "../middleware/auth.js";
+import { processAttachments } from "./inventory-helpers.js";
 
 export function registerOpticalRoutes(app: Express) {
     // Optical Cable Management API
