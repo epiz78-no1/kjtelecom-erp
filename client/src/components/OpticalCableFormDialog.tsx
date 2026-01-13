@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { OpticalCable } from "@shared/schema";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -362,12 +363,19 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="division">사업 <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="division"
+                                <Select
                                     value={formData.division}
-                                    onChange={(e) => setFormData({ ...formData, division: e.target.value })}
+                                    onValueChange={(value) => setFormData({ ...formData, division: value })}
                                     required
-                                />
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="사업 선택" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="SKT">SKT</SelectItem>
+                                        <SelectItem value="SKB">SKB</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 

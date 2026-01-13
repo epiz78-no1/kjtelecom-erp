@@ -253,6 +253,7 @@ export function OpticalCableActionDialog({
                                                             const files = Array.from(e.target.files || []);
                                                             const remainingSlots = 4 - wastePhotos.length;
                                                             const filesToProcess = files.slice(0, remainingSlots);
+                                                            let compressedCount = 0;
 
                                                             for (const file of filesToProcess) {
                                                                 if (file.size > 10 * 1024 * 1024) {
@@ -273,13 +274,7 @@ export function OpticalCableActionDialog({
                                                                     });
 
                                                                     setWastePhotos(prev => [...prev, compressed]);
-
-                                                                    const originalSize = formatFileSize(file.size);
-                                                                    const compressedSize = formatFileSize(compressed.size);
-                                                                    toast({
-                                                                        title: "이미지 압축 완료",
-                                                                        description: `${originalSize} → ${compressedSize}`,
-                                                                    });
+                                                                    compressedCount++;
                                                                 } catch (error) {
                                                                     toast({
                                                                         title: "압축 실패",
@@ -288,6 +283,14 @@ export function OpticalCableActionDialog({
                                                                     });
                                                                 }
                                                             }
+
+                                                            if (compressedCount > 0) {
+                                                                toast({
+                                                                    title: "이미지 압축 완료",
+                                                                    description: `${compressedCount}개 이미지가 압축되었습니다`,
+                                                                });
+                                                            }
+
                                                             // Reset input
                                                             e.target.value = '';
                                                         }}
@@ -371,6 +374,7 @@ export function OpticalCableActionDialog({
                                                     const files = Array.from(e.target.files || []);
                                                     const remainingSlots = 4 - usageAttachments.length;
                                                     const filesToProcess = files.slice(0, remainingSlots);
+                                                    let compressedCount = 0;
 
                                                     for (const file of filesToProcess) {
                                                         try {
@@ -383,6 +387,7 @@ export function OpticalCableActionDialog({
                                                                     maxSizeMB: 1
                                                                 });
                                                                 processedFile = compressed;
+                                                                compressedCount++;
                                                             }
 
                                                             const reader = new FileReader();
@@ -402,6 +407,14 @@ export function OpticalCableActionDialog({
                                                             });
                                                         }
                                                     }
+
+                                                    if (compressedCount > 0) {
+                                                        toast({
+                                                            title: "이미지 압축 완료",
+                                                            description: `${compressedCount}개 이미지가 압축되었습니다`,
+                                                        });
+                                                    }
+
                                                     e.target.value = '';
                                                 }}
                                             />

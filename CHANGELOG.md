@@ -1,6 +1,57 @@
 # Changelog
 
+## v1.2.22 (2026-01-13) - 광케이블 코드 리팩터링 (Phase 1-3 완료)
+
+### ♻️ Refactoring (코드 구조 개선)
+
+#### Phase 1: Custom Hooks 분리
+- **데이터 fetching 훅 통합** (`useOpticalCables.ts`):
+  - `useOpticalCables`, `useOpticalLogs`, `useOpticalCableHistory`, `useOpticalCableById` 4개 훅 생성
+  - 중복된 쿼리 로직 제거 및 재사용성 향상
+- **Mutation 훅 통합** (`useOpticalMutations.ts`):
+  - 9개 mutation 훅 생성 (생성, 수정, 삭제, 일괄 삭제, 일괄 업로드, 반납 승인 등)
+  - 18개 inline mutation → 9개 재사용 가능 훅으로 통합
+- **적용 범위**: `OpticalCables.tsx`, `OpticalIncoming.tsx`, `OpticalOutgoing.tsx`
+- **코드 감소**: ~230줄
+
+#### Phase 2: 테이블 컬럼 정의 공통화
+- **컬럼 정의 파일 생성** (`optical-table-columns.ts`):
+  - `OPTICAL_CABLE_COLUMNS` - 광케이블 메인 테이블용 (19개 컬럼)
+  - `OPTICAL_LOG_COLUMNS` - 입고 로그 테이블용 (17개 컬럼)
+  - `OPTICAL_OUTGOING_COLUMNS` - 출고 로그 테이블용 (15개 컬럼)
+  - `COLUMN_LABELS` - 컬럼 레이블 매핑
+- **중복 코드 제거**: 37줄 (OpticalCables 19줄 + OpticalIncoming 18줄)
+- **유지보수성**: 컬럼 width 변경 시 한 곳만 수정
+
+#### Phase 3: 필터 로직 통합
+- **필터 훅 생성** (`useOpticalFilters.ts`):
+  - 범위 필터 (잔량 min/max)
+  - 코어 수 필터
+  - 상태 필터 (창고/예약/불출/반납)
+  - 폐기 포함/제외 토글
+  - 활성 필터 관리 (getActiveFilters, removeFilter, resetFilters)
+- **적용**: `OpticalCables.tsx`에서 80+줄의 필터 로직을 단일 훅 호출로 대체
+- **코드 감소**: 41줄
+
+#### 📊 전체 성과
+- **중복 코드 제거**: 308줄
+- **재사용 가능한 훅**: 3개 생성 (212줄)
+- **순 코드 감소**: 96줄
+- **유지보수성**: 대폭 향상 (한 곳 수정 → 모든 페이지 반영)
+
+### ✨ Features (기능 개선)
+- **이미지 압축 요약 메시지**: 개별 파일마다 토스트 대신 압축 완료 후 요약 표시
+- **광케이블 입고 공사번호 업데이트**: `projectCode`와 `projectName`이 로그에도 동기화되도록 수정
+- **사용 드럼 선택 UI 개선**: 드럼 선택 드롭다운에 `[SKT]`, `[SKB]` 사업 구분 표시
+- **자동 폐기 처리**: 잔량이 0 이하가 되면 `used_up` 대신 `waste` 상태로 자동 전환
+- **중복 등록 방지**: 같은 사업(division) + 제조번호(drumNo) 조합 등록 차단
+- **사업 필드 제한**: 광케이블 등록 시 사업 필드를 Select로 변경 (SKT/SKB만 선택 가능)
+
+### 💄 UI/UX Improvements
+- **현장팀 보유재고 테이블 행 높이 표준화**: `h-10` → `h-6` (24px)로 변경하여 디자인 가이드 준수
+
 ## v1.2.21 (2026-01-13) - 일반자재 사용등록 편의성 및 정합성 개선
+
 
 ### ✨ Features (기능 고도화)
 - **일반자재 사용등록 '사업' 필드 자동화**:
