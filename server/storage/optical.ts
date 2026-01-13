@@ -26,6 +26,20 @@ export class OpticalStorage {
 
     async createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable> {
         return await db.transaction(async (tx) => {
+            // 중복 체크: 같은 사업(division) + 제조번호(drumNo) 조합이 이미 존재하는지 확인
+            const existing = await tx.select()
+                .from(opticalCables)
+                .where(and(
+                    eq(opticalCables.tenantId, tenantId),
+                    eq(opticalCables.division, cable.division || ''),
+                    eq(opticalCables.drumNo, cable.drumNo)
+                ))
+                .limit(1);
+
+            if (existing.length > 0) {
+                throw new Error(`이미 등록된 제조번호입니다. [${cable.division}] ${cable.drumNo}`);
+            }
+
             const [newCable] = await tx.insert(opticalCables).values({
                 ...cable,
                 tenantId
@@ -55,21 +69,33 @@ export class OpticalStorage {
                 .where(and(eq(opticalCables.id, id), eq(opticalCables.tenantId, tenantId)))
                 .returning();
 
-            if (updated && updates.attributes !== undefined) {
-                // Sync attributes to 'create' or 'incoming' logs to ensure UI reflects changes
+            // Sync relevant fields to 'create', 'incoming', or 'receive' logs
+            const logUpdates: any = {};
+            let hasLogUpdates = false;
 
+            if (updates.attributes !== undefined) {
+                logUpdates.attributes = updates.attributes;
+                hasLogUpdates = true;
+            }
+            if (updates.projectCode !== undefined) {
+                logUpdates.projectCode = updates.projectCode;
+                hasLogUpdates = true;
+            }
+            if (updates.projectName !== undefined) {
+                logUpdates.projectNameUsage = updates.projectName;
+                hasLogUpdates = true;
+            }
 
-                const result = await tx.update(opticalCableLogs)
-                    .set({ attributes: updates.attributes })
+            if (updated && hasLogUpdates) {
+                await tx.update(opticalCableLogs)
+                    .set(logUpdates)
                     .where(and(
                         eq(opticalCableLogs.cableId, id),
                         eq(opticalCableLogs.tenantId, tenantId),
                         sql`${opticalCableLogs.logType} IN ('create', 'incoming', 'receive')`
-                    ))
-                    .returning({ id: opticalCableLogs.id });
-
-
+                    ));
             }
+
             return updated;
         });
     }
@@ -333,9 +359,9 @@ export class OpticalStorage {
                 updates.usedLength = finalUsed;
                 updates.remainingLength = finalRemaining;
 
-                // 잔량이 0 이하면 사용 완료 처리
+                // 잔량이 0 이하면 자동 폐기 처리
                 if (finalRemaining <= 0) {
-                    updates.status = 'used_up';
+                    updates.status = 'waste';
                 }
             } else if (log.logType === 'waste') {
                 // 폐기: 상태 변경

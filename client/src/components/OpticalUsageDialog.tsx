@@ -337,7 +337,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                 <SelectContent>
                                     {availableCables.map((cable) => (
                                         <SelectItem key={cable.id} value={cable.id.toString()}>
-                                            {cable.drumNo} ({cable.productName} / 잔량: {cable.remainingLength.toLocaleString()}m)
+                                            {cable.division ? `[${cable.division}] ` : ""}{cable.drumNo} ({cable.productName} / 잔량: {cable.remainingLength.toLocaleString()}m)
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -417,6 +417,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                         }
 
                                         const newAttachments = [...formData.attachments];
+                                        let compressedCount = 0;
 
                                         for (const file of files) {
                                             if (file.size > 10 * 1024 * 1024) {
@@ -439,13 +440,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                         maxSizeMB: 5
                                                     });
                                                     processedFile = compressed;
-
-                                                    const originalSize = formatFileSize(file.size);
-                                                    const compressedSize = formatFileSize(compressed.size);
-                                                    toast({
-                                                        title: "이미지 압축 완료",
-                                                        description: `${originalSize} → ${compressedSize}`,
-                                                    });
+                                                    compressedCount++;
                                                 } else {
                                                     const base64 = await new Promise<string>((resolve, reject) => {
                                                         const reader = new FileReader();
@@ -464,6 +459,13 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                     variant: "destructive"
                                                 });
                                             }
+                                        }
+
+                                        if (compressedCount > 0) {
+                                            toast({
+                                                title: "이미지 압축 완료",
+                                                description: `${compressedCount}개 이미지가 압축되었습니다`,
+                                            });
                                         }
 
                                         setFormData({ ...formData, attachments: newAttachments });

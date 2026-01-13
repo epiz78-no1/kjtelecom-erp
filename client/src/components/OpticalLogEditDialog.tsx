@@ -165,7 +165,7 @@ export function OpticalLogEditDialog({ open, onOpenChange, log, onSubmit }: Prop
                             name="projectCode"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>공사코드</FormLabel>
+                                    <FormLabel>공사번호</FormLabel>
                                     <FormControl>
                                         <Input {...field} />
                                     </FormControl>

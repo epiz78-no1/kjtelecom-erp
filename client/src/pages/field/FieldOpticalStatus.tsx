@@ -229,7 +229,7 @@ export default function FieldOpticalStatus() {
                 <div className="h-full overflow-auto">
                     <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-10">
+                            <TableRow className="h-8">
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
                                     사업
                                     <div
@@ -298,7 +298,7 @@ export default function FieldOpticalStatus() {
                                 </TableRow>
                             ) : (
                                 filteredStock.map((item) => (
-                                    <TableRow key={item.id} className="h-10 hover:bg-muted/50">
+                                    <TableRow key={item.id} className="h-6 [&_td]:py-0 hover:bg-muted/50">
                                         <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
                                         <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
                                         <TableCell className="align-middle p-0">

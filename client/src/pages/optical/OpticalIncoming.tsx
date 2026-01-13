@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from "@tanstack/react-query";
 import { Loader2, ArrowDownToLine, Search, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
 import {
     Popover,
@@ -30,10 +29,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { OpticalCableFormDialog } from "@/components/OpticalCableFormDialog";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
+import { useOpticalLogs } from "@/hooks/useOpticalCables";
+import {
+    useCreateOpticalCable,
+    useUpdateOpticalCable,
+    useDeleteOpticalLog,
+    useBulkDeleteOpticalLogs,
+    useBulkUploadOpticalCables
+} from "@/hooks/useOpticalMutations";
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
@@ -41,133 +46,34 @@ import { useTableFilters } from "@/hooks/useTableFilters";
 import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
 import { validateOpticalRow, transformOpticalRow, opticalColumns, downloadOpticalTemplate } from "@/lib/bulk-configs/optical";
 import { Upload } from "lucide-react";
+import { OPTICAL_LOG_COLUMNS } from "@/lib/optical-table-columns";
 
 export default function OpticalIncoming() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const { toast } = useToast();
-    const queryClient = useQueryClient();
     const { tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
     const { open: dialogOpen, editingItem: editingCable, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCable>();
     const { downloadFile } = useDownload();
     const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
-    const bulkUploadMutation = useMutation({
-        mutationFn: async ({ items }: { items: any[] }) => {
-            const response = await apiRequest("POST", "/api/optical-cables/bulk", { items });
-            return await response.json();
-        },
-        onSuccess: (data: any[]) => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: `${data.length}건의 광케이블이 일괄 등록되었습니다` });
-            setBulkUploadOpen(false);
-        },
-        onError: (error: Error) => {
-            toast({ title: "일괄등록 실패", description: error.message, variant: "destructive" });
-        }
-    });
+    const bulkUploadMutation = useBulkUploadOpticalCables();
 
     const handleBulkUpload = (items: any[]) => {
         bulkUploadMutation.mutate({ items });
     };
 
-    const { widths, startResizing } = useColumnResize({
-        checkbox: 40,
-        division: 60,           // 사업
-        category: 50,           // 구분
-        receivedDate: 95,       // 입고일자
-        projectCode: 120,       // 공사코드 (T210177093003 형식)
-        projectName: 250,       // 공사명 (긴 텍스트)
-        manufacturer: 90,       // 제조사
-        manufactureYear: 70,    // 제조연도
-        spec: 50,               // 규격
-        coreCount: 50,          // 코어
-        drumNo: 70,             // 제조번호
-        location: 70,           // 위치
-        totalLength: 90,        // 총길이
-        remark: 80,             // 비고
-        createdBy: 80,          // 입력자
-        attachment: 60,         // 첨부
-        actions: 50             // 작업
-    });
+    const { widths, startResizing } = useColumnResize(OPTICAL_LOG_COLUMNS);
 
-    const { data: logs = [], isLoading } = useQuery<(OpticalCableLog & { cable: OpticalCable | null })[]>({
-        queryKey: ["/api/optical-cables/logs"],
-    });
+    const { data: logs = [], isLoading } = useOpticalLogs();
 
-    const createMutation = useMutation({
-        mutationFn: async (data: any) => {
-            const res = await apiRequest("POST", "/api/optical-cables", data);
-            return res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({
-                title: "입고 완료",
-                description: "새로운 광케이블 드럼이 등록되었습니다.",
-            });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: "입고 실패",
-                description: error.message,
-                variant: "destructive",
-            });
-        }
-    });
+    const createMutation = useCreateOpticalCable();
 
-    const updateMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: any }) => {
-            const res = await apiRequest("PATCH", `/api/optical-cables/${id}`, data);
-            return res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({
-                title: "수정 완료",
-                description: "광케이블 정보가 수정되었습니다.",
-            });
-            closeDialog();
-        },
-        onError: (error: Error) => {
-            toast({
-                title: "수정 실패",
-                description: error.message,
-                variant: "destructive",
-            });
-        }
-    });
+    const updateMutation = useUpdateOpticalCable();
 
-    const bulkDeleteMutation = useMutation({
-        mutationFn: async (ids: string[]) => {
-            return apiRequest("POST", "/api/optical-cables/logs/bulk-delete", { ids });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            toast({ title: `${selectedIds.size}개 항목이 삭제되었습니다` });
-            setSelectedIds(new Set());
-        },
-        onError: () => {
-            toast({ title: "삭제 실패", variant: "destructive" });
-        },
-    });
+    const bulkDeleteMutation = useBulkDeleteOpticalLogs();
 
-    const deleteMutation = useMutation({
-        mutationFn: async (id: string) => {
-            return apiRequest("DELETE", `/api/optical-cables/logs/${id}`);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "입고 내역이 삭제되었습니다" });
-        },
-        onError: () => {
-            toast({ title: "삭제 실패", variant: "destructive" });
-        },
-    });
+    const deleteMutation = useDeleteOpticalLog();
 
     const incomingLogs = logs.filter(l => ['receive', 'create', 'incoming'].includes(l.logType));
 
@@ -305,7 +211,7 @@ export default function OpticalIncoming() {
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("receivedDate", e)} />
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectCode }}>
-                                    공사코드
+                                    공사번호
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectCode", e)} />
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>

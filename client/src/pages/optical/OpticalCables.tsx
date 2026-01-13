@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useColumnResize } from "@/hooks/useColumnResize";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useOpticalCables } from "@/hooks/useOpticalCables";
+import {
+    useCreateOpticalCable,
+    useUpdateOpticalCable,
+    useDeleteOpticalCable,
+    useBulkDeleteOpticalCables,
+    useBulkUploadOpticalCables,
+    useReturnApproval
+} from "@/hooks/useOpticalMutations";
 import { Loader2, Plus, Pencil, Trash2, Download, Search, ArrowRightLeft, History, X, Filter, ChevronDown, ChevronUp, MoreHorizontal, Calendar, CalendarX, Send, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,15 +56,15 @@ import {
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { OPTICAL_CABLE_COLUMNS } from "@/lib/optical-table-columns";
+import { useOpticalFilters } from "@/hooks/useOpticalFilters";
 
 export default function OpticalCables() {
     const { toast } = useToast();
     const { user, tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
-    const { data: cables = [], isLoading } = useQuery<OpticalCable[]>({
-        queryKey: ["/api/optical-cables"],
-    });
+    const { data: cables = [], isLoading } = useOpticalCables();
 
     const {
         searchQuery,
@@ -87,17 +95,24 @@ export default function OpticalCables() {
     const [reserveDialogOpen, setReserveDialogOpen] = useState(false);
     const [selectedReserveCable, setSelectedReserveCable] = useState<OpticalCable | null>(null);
 
-    // Range Filter State
-    const [minRemaining, setMinRemaining] = useState<string>('');
-    const [maxRemaining, setMaxRemaining] = useState<string>('');
-    const [selectedCoreCount, setSelectedCoreCount] = useState<string>('전체');
-    const [selectedStatus, setSelectedStatus] = useState<string>('전체');
-    const [filterOpen, setFilterOpen] = useState(false);
+    // Optical Filters Hook
+    const {
+        minRemaining, setMinRemaining,
+        maxRemaining, setMaxRemaining,
+        selectedCoreCount, setSelectedCoreCount,
+        selectedStatus, setSelectedStatus,
+        filterOpen, setFilterOpen,
+        showWaste, setShowWaste,
+        filteredCables: rangeFilteredCables,
+        getActiveFilters,
+        removeFilter,
+        resetFilters
+    } = useOpticalFilters(filteredCables);
+
     // Action Dialog State
     const [actionDialogOpen, setActionDialogOpen] = useState(false);
     const [selectedActionCable, setSelectedActionCable] = useState<OpticalCable | null>(null);
     const [actionType, setActionType] = useState<'assign' | 'waste'>('assign');
-    const [showWaste, setShowWaste] = useState(false);
 
     const { data: teams = [] } = useQuery<any[]>({
         queryKey: ["/api/teams"],
@@ -110,129 +125,16 @@ export default function OpticalCables() {
         setActionDialogOpen(true);
     };
 
-    // Apply range filters
-    const rangeFilteredCables = filteredCables.filter(cable => {
-        // 잔량 범위 필터
-        if (minRemaining && cable.remainingLength < Number(minRemaining)) return false;
-        if (maxRemaining && cable.remainingLength > Number(maxRemaining)) return false;
-        // 코어 수 필터
-        if (selectedCoreCount !== '전체' && cable.coreCount !== Number(selectedCoreCount)) return false;
 
-        // 상태 필터
-        if (selectedStatus !== '전체') {
-            if (selectedStatus === '창고') {
-                // 창고 보관: in_stock이면서 예약 아님
-                if (cable.status !== 'in_stock' || cable.reservationStatus === 'reserved') return false;
-            } else if (selectedStatus === '예약') {
-                // 예약 중: in_stock이면서 예약됨
-                if (cable.status !== 'in_stock' || cable.reservationStatus !== 'reserved') return false;
-            } else if (selectedStatus === '불출') {
-                if (cable.status !== 'assigned') return false;
-            } else if (selectedStatus === '반납') {
-                if (cable.status !== 'returned') return false;
-            }
-        }
 
-        // 폐기 케이블 숨김 처리
-        if (!showWaste && cable.status === 'waste') return false;
-        return true;
-    });
+    const { widths, startResizing } = useColumnResize(OPTICAL_CABLE_COLUMNS);
 
-    const { widths, startResizing } = useColumnResize({
-        checkbox: 40,
-        division: 60,           // 사업 (SKT/SKB) - 디자인 가이드 표준
-        category: 50,           // 구분 (광케이블/철거/구매) - 디자인 가이드 표준
-        receivedDate: 95,       // 입고일자 (YYYY-MM-DD)
-        manufacturer: 90,       // 제조사
-        manufactureYear: 70,    // 제조연도
-        spec: 50,               // 규격
-        coreCount: 50,          // 코어
-        drumNo: 70,             // 제조번호 (최대 6자리)
-        location: 70,           // 위치
-        productName: 90,        // 품명
-        incomingLength: 75,     // 입고량
-        usedLength: 75,         // 사용량
-        wasteLength: 65,        // 폐기량
-        remainingLength: 75,    // 잔량
-        unitPrice: 85,          // 단가
-        totalAmount: 100,       // 금액
-        remark: 80,             // 비고
-        actions: 50             // 작업
-    });
-
-    const createMutation = useMutation({
-        mutationFn: async (data: OpticalCableFormData) => {
-            const res = await apiRequest("POST", "/api/optical-cables", data);
-            return res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "광케이블 품명이 등록되었습니다" });
-            closeDialog();
-        },
-        onError: (error: Error) => {
-            toast({ title: "등록 실패", description: error.message, variant: "destructive" });
-        }
-    });
-
-    const updateMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: OpticalCableFormData }) => {
-            const res = await apiRequest("PATCH", `/api/optical-cables/${id}`, data);
-            return res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "광케이블 정보가 수정되었습니다" });
-            closeDialog();
-        },
-        onError: (error: Error) => {
-            toast({ title: "수정 실패", description: error.message, variant: "destructive" });
-        }
-    });
-
-    // Delete Mutation (Permanent)
-    const deleteMutation = useMutation({
-        mutationFn: async (id: string) => {
-            // Using bulk-delete with single ID for now as explicit single delete route might not exist or use same logic
-            return apiRequest("POST", "/api/optical-cables/bulk-delete", { ids: [id] });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "광케이블이 삭제되었습니다" });
-        },
-        onError: (error: Error) => {
-            toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
-        }
-    });
-
-    const bulkDeleteMutation = useMutation({
-        mutationFn: async (ids: string[]) => {
-            return apiRequest("POST", "/api/optical-cables/bulk-delete", { ids });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: `${selectedIds.size}개 항목이 삭제되었습니다` });
-            setSelectedIds(new Set());
-        },
-        onError: () => {
-            toast({ title: "삭제 실패", variant: "destructive" });
-        },
-    });
-
-    const bulkUploadMutation = useMutation({
-        mutationFn: async (items: any[]) => {
-            const res = await apiRequest("POST", "/api/optical-cables/bulk", { items });
-            return res.json();
-        },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: `${data.length}개 항목이 일괄 등록되었습니다` });
-            // setBulkUploadOpen(false) handled by dialog immediately
-        },
-        onError: (error: Error) => {
-            toast({ title: "일괄 등록 실패", description: error.message, variant: "destructive" });
-        }
-    });
+    const createMutation = useCreateOpticalCable();
+    const updateMutation = useUpdateOpticalCable();
+    const deleteMutation = useDeleteOpticalCable();
+    const bulkDeleteMutation = useBulkDeleteOpticalCables();
+    const bulkUploadMutation = useBulkUploadOpticalCables();
+    const returnApprovalMutation = useReturnApproval();
 
     // Filter logic removed (handled by hook)
 
@@ -300,18 +202,6 @@ export default function OpticalCables() {
         }
     };
 
-    const returnApprovalMutation = useMutation({
-        mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
-            return apiRequest("POST", `/api/optical-cables/${id}/approve-return`, { action });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "반납 처리가 완료되었습니다" });
-        },
-        onError: (error: Error) => {
-            toast({ title: "처리 실패", description: error.message, variant: "destructive" });
-        }
-    });
 
     const handleReturnApproval = (id: string, action: 'approve' | 'reject') => {
         const actionText = action === 'approve' ? '승인' : '반려';
@@ -320,48 +210,26 @@ export default function OpticalCables() {
         }
     };
 
-    // Helper functions for filter management
-    const getActiveFilters = () => {
-        const filters: Array<{ key: string; label: string }> = [];
-
+    // Helper function for filter management (category filter only)
+    const getAllActiveFilters = () => {
+        const filters = getActiveFilters();
         if (selectedCategory !== '전체') {
-            filters.push({ key: 'category', label: selectedCategory });
+            filters.unshift({ key: 'category', label: selectedCategory });
         }
-        if (selectedCoreCount !== '전체') {
-            filters.push({ key: 'core', label: `${selectedCoreCount}c` });
-        }
-        if (selectedStatus !== '전체') {
-            filters.push({ key: 'status', label: selectedStatus });
-        }
-        if (minRemaining || maxRemaining) {
-            filters.push({
-                key: 'range',
-                label: `${minRemaining || 0}~${maxRemaining || '∞'}m`
-            });
-        }
-
-
         return filters;
     };
 
-    const removeFilter = (key: string) => {
-        if (key === 'category') setSelectedCategory('전체');
-        else if (key === 'core') setSelectedCoreCount('전체');
-        else if (key === 'status') setSelectedStatus('전체');
-        else if (key === 'range') {
-            setMinRemaining('');
-            setMaxRemaining('');
+    const handleRemoveFilter = (key: string) => {
+        if (key === 'category') {
+            setSelectedCategory('전체');
+        } else {
+            removeFilter(key);
         }
-
     };
 
-    const resetFilters = () => {
+    const handleResetFilters = () => {
         setSelectedCategory('전체');
-        setSelectedCoreCount('전체');
-        setSelectedStatus('전체');
-        setMinRemaining('');
-        setMaxRemaining('');
-        setShowWaste(false);
+        resetFilters();
     };
 
     const calculateStatusLabel = (status: string) => {
@@ -454,10 +322,10 @@ export default function OpticalCables() {
                         </Button>
 
                         {/* Active Filter Chips - Moved Here Inline */}
-                        {getActiveFilters().length > 0 && (
+                        {getAllActiveFilters().length > 0 && (
                             <div className="flex-1 flex flex-wrap items-center gap-1.5 overflow-hidden h-8">
                                 <div className="h-4 w-[1px] bg-border mx-1 shrink-0" />
-                                {getActiveFilters().map(filter => (
+                                {getAllActiveFilters().map(filter => (
                                     <Badge
                                         key={filter.key}
                                         variant="secondary"
@@ -465,7 +333,7 @@ export default function OpticalCables() {
                                     >
                                         {filter.label}
                                         <button
-                                            onClick={() => removeFilter(filter.key)}
+                                            onClick={() => handleRemoveFilter(filter.key)}
                                             className="ml-0.5 hover:bg-muted-foreground/20 rounded-full p-0.5"
                                         >
                                             <X className="h-2.5 w-2.5" />
@@ -597,7 +465,7 @@ export default function OpticalCables() {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={resetFilters}
+                                            onClick={handleResetFilters}
                                             className="h-8 text-xs px-3"
                                         >
                                             초기화

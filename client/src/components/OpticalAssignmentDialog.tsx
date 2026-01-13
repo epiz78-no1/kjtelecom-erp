@@ -378,6 +378,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                                     }
 
                                     const newAttachments = [...(formData.attachments || [])];
+                                    let compressedCount = 0;
 
                                     for (const file of files) {
                                         try {
@@ -400,7 +401,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                                                     maxSizeMB: 1
                                                 });
                                                 processedFile = compressed;
-                                                // Toast removed to reduce noise for multiple files
+                                                compressedCount++;
                                             } else {
                                                 const base64 = await new Promise<string>((resolve, reject) => {
                                                     const reader = new FileReader();
@@ -418,6 +419,13 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
                                                 variant: "destructive"
                                             });
                                         }
+                                    }
+
+                                    if (compressedCount > 0) {
+                                        toast({
+                                            title: "이미지 압축 완료",
+                                            description: `${compressedCount}개 이미지가 압축되었습니다`,
+                                        });
                                     }
 
                                     setFormData(prev => ({

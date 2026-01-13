@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from "@tanstack/react-query";
 import { Loader2, ArrowUpFromLine, Search, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
 import {
     Popover,
@@ -17,8 +16,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { Trash2 } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,6 +32,12 @@ import { useAppContext } from "@/contexts/AppContext";
 import OpticalAssignmentDialog from "@/components/OpticalAssignmentDialog";
 import { OpticalLogEditDialog } from "@/components/OpticalLogEditDialog";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
+import { useOpticalLogs } from "@/hooks/useOpticalCables";
+import {
+    useDeleteOpticalLog,
+    useBulkDeleteOpticalLogs,
+    useUpdateOpticalLog
+} from "@/hooks/useOpticalMutations";
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
@@ -43,7 +46,6 @@ import { useTableFilters } from "@/hooks/useTableFilters";
 export default function OpticalOutgoing() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const { toast } = useToast();
-    const queryClient = useQueryClient();
     const { teams, tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
     const { open: dialogOpen, editingItem: editingLog, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCableLog>();
@@ -54,7 +56,7 @@ export default function OpticalOutgoing() {
         division: 60,           // 사업
         category: 50,           // 구분
         date: 95,               // 출고일자
-        projectCode: 120,       // 공사코드 (T210177093003 형식)
+        projectCode: 120,       // 공사번호 (T210177093003 형식)
         projectName: 250,       // 공사명 (긴 텍스트)
         manufacturer: 90,       // 제조사
         manufactureYear: 70,    // 제조연도
@@ -70,54 +72,13 @@ export default function OpticalOutgoing() {
         actions: 50             // 작업
     });
 
-    const { data: logs = [], isLoading } = useQuery<(OpticalCableLog & { cable: OpticalCable | null })[]>({
-        queryKey: ["/api/optical-cables/logs"],
-    });
+    const { data: logs = [], isLoading } = useOpticalLogs();
 
     const outgoingLogs = logs.filter(l => l.logType === 'assign');
 
-    const bulkDeleteMutation = useMutation({
-        mutationFn: async (ids: string[]) => {
-            return apiRequest("POST", "/api/optical-cables/logs/bulk-delete", { ids });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            toast({ title: `${selectedIds.size}개 항목이 삭제되었습니다` });
-            setSelectedIds(new Set());
-        },
-        onError: () => {
-            toast({ title: "삭제 실패", variant: "destructive" });
-        },
-    });
-
-    const deleteMutation = useMutation({
-        mutationFn: async (id: string) => {
-            return apiRequest("DELETE", `/api/optical-cables/logs/${id}`);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
-            toast({ title: "출고 내역이 삭제되었습니다" });
-        },
-        onError: () => {
-            toast({ title: "삭제 실패", variant: "destructive" });
-        },
-    });
-
-    const updateLogMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: any }) => {
-            const res = await apiRequest("PATCH", `/api/optical-cables/logs/${id}`, data);
-            return res.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
-            toast({ title: "내역이 수정되었습니다" });
-            closeDialog();
-        },
-        onError: (error: Error) => {
-            toast({ title: "수정 실패", description: error.message, variant: "destructive" });
-        },
-    });
+    const bulkDeleteMutation = useBulkDeleteOpticalLogs();
+    const deleteMutation = useDeleteOpticalLog();
+    const updateLogMutation = useUpdateOpticalLog();
 
     // 데이터를 평탄화하여 검색 및 필터링에 사용
     const searchableLogs = outgoingLogs.map(log => ({
@@ -245,7 +206,7 @@ export default function OpticalOutgoing() {
                                     />
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectCode }}>
-                                    공사코드
+                                    공사번호
                                     <div
                                         className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
                                         onMouseDown={(e) => startResizing("projectCode", e)}
