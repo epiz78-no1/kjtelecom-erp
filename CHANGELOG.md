@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.24 (2026-01-13) - 현장팀 사용 등록 내역 조회 버그 수정
+
+### 🐛 Bug Fixes
+- **API**: 누락되었던 `GET /api/material-usage` 엔드포인트를 복구하여 현장팀 사용 등록 내역이 정상적으로 조회되도록 수정.
+
 ## v1.2.23 (2026-01-13) - 운영 서버 파일 저장소(Storage) 완전 통합
 
 ### 🚀 Major Improvements
