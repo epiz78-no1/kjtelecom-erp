@@ -54,7 +54,7 @@ export default function OpticalOutgoing() {
         division: 60,           // 사업
         category: 50,           // 구분
         date: 95,               // 출고일자
-        projectCode: 120,       // 공사코드 (T210177093003 형식)
+        projectCode: 120,       // 공사번호 (T210177093003 형식)
         projectName: 250,       // 공사명 (긴 텍스트)
         manufacturer: 90,       // 제조사
         manufactureYear: 70,    // 제조연도
@@ -245,7 +245,7 @@ export default function OpticalOutgoing() {
                                     />
                                 </TableHead>
                                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectCode }}>
-                                    공사코드
+                                    공사번호
                                     <div
                                         className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
                                         onMouseDown={(e) => startResizing("projectCode", e)}

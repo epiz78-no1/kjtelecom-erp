@@ -6,6 +6,8 @@ export interface ParsedOpticalRow {
     category: string;
     managementNo: string;
     drumNo: string;
+    projectCode: string;
+    projectName: string;
     receivedDate: string;
     manufacturer: string;
     manufactureYear: string;
@@ -24,8 +26,8 @@ export interface ParsedOpticalRow {
 
 export const downloadOpticalTemplate = () => {
     // Minimal CSV content for template
-    const headers = ["사업", "구분", "입고일자", "제조사", "제조연도", "규격", "코어 수", "제조번호", "보관장소", "품명", "입고량", "사용량", "폐기", "잔량", "단가", "금액", "비고"];
-    const csvContent = headers.join(",") + "\n" + "SKT,실외용,2023-01-01,대한광통신,2023,SM 24C,24,DR-12345,자재창고,RS_288C,1000,0,0,1000,1500,1500000,비고내용";
+    const headers = ["사업", "구분", "입고일자", "공사번호", "공사명", "제조사", "제조연도", "규격", "코어 수", "제조번호", "보관장소", "입고량", "단가", "비고"];
+    const csvContent = headers.join(",") + "\n" + "SKT,실외용,2023-01-01,PJ-001,테스트공사,대한광통신,2023,SM 24C,24,DR-12345,자재창고,1000,1500,비고내용";
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -46,8 +48,8 @@ export const validateOpticalRow = (row: any, index: number): { valid: boolean; e
     if (!getValue("규격")) rowErrors.push(`${index + 2}행: 규격이 필요합니다`);
 
     // Check for length fields
-    const hasLength = getValue("품명") || getValue("입고량");
-    if (!hasLength) rowErrors.push(`${index + 2}행: 품명 또는 입고량이 필요합니다`);
+    const hasIncoming = getValue("입고량");
+    if (!hasIncoming) rowErrors.push(`${index + 2}행: 입고량이 필요합니다`);
 
     return { valid: rowErrors.length === 0, errors: rowErrors };
 };
@@ -117,6 +119,8 @@ export const transformOpticalRow = (row: any, index: number): ParsedOpticalRow =
         division,
         category,
         managementNo,
+        projectCode: (getValue("공사번호") || "").trim(),
+        projectName: (getValue("공사명") || "").trim(),
         drumNo,
         receivedDate: normalizeDateFormat(getValue("입고일자") || getValue("입고일") || ""),
         manufacturer: getValue("제조사") || "",
@@ -139,18 +143,15 @@ export const opticalColumns: BulkUploadColumn<ParsedOpticalRow>[] = [
     { header: "사업", width: "w-[80px]", render: (item) => item.division },
     { header: "구분", width: "w-[80px]", render: (item) => item.category },
     { header: "입고일자", width: "w-[100px]", render: (item) => item.receivedDate },
+    { header: "공사번호", width: "w-[120px]", render: (item) => item.projectCode },
+    { header: "공사명", width: "w-[150px]", render: (item) => <div className="truncate max-w-[150px]">{item.projectName}</div> },
     { header: "제조사", width: "w-[100px]", render: (item) => item.manufacturer },
     { header: "제조연도", width: "w-[80px]", render: (item) => item.manufactureYear },
     { header: "규격", width: "w-[120px]", render: (item) => item.spec },
     { header: "코어 수", width: "w-[80px]", render: (item) => item.coreCount },
     { header: "제조번호", width: "w-[140px]", render: (item) => item.drumNo },
     { header: "보관장소", width: "w-[100px]", render: (item) => item.location },
-    { header: "품명", width: "w-[80px]", align: 'right', render: (item) => item.productName.toLocaleString() },
     { header: "입고량", width: "w-[80px]", align: 'right', render: (item) => item.incomingLength.toLocaleString() },
-    { header: "사용량", width: "w-[80px]", align: 'right', render: (item) => item.usedLength.toLocaleString() },
-    { header: "폐기", width: "w-[80px]", align: 'right', render: (item) => item.wasteLength.toLocaleString() },
-    { header: "잔량", width: "w-[80px]", align: 'right', render: (item) => <span className="font-medium text-blue-600">{item.remainingLength.toLocaleString()}</span> },
     { header: "단가", width: "w-[100px]", align: 'right', render: (item) => item.unitPrice.toLocaleString() },
-    { header: "금액", width: "w-[110px]", align: 'right', render: (item) => item.totalAmount.toLocaleString() },
     { header: "비고", width: "w-[100px]", render: (item) => <div className="truncate max-w-[100px]">{item.remark}</div> },
 ];
