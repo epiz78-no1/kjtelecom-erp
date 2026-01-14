@@ -60,7 +60,11 @@ export default function OpticalIncoming() {
     const bulkUploadMutation = useBulkUploadOpticalCables();
 
     const handleBulkUpload = (items: any[]) => {
-        bulkUploadMutation.mutate({ items });
+        bulkUploadMutation.mutate(items, {
+            onSuccess: () => {
+                setBulkUploadOpen(false);
+            }
+        });
     };
 
     const { widths, startResizing } = useColumnResize(OPTICAL_LOG_COLUMNS);
@@ -111,7 +115,11 @@ export default function OpticalIncoming() {
 
     const handleBulkDelete = () => {
         if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds));
+            bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                onSuccess: () => {
+                    setSelectedIds(new Set());
+                }
+            });
         }
     };
 
@@ -163,26 +171,36 @@ export default function OpticalIncoming() {
                 />
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="relative max-w-sm flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        placeholder="드럼번호, 규격 검색..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                    />
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="relative max-w-sm">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="드럼번호, 규격 검색..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    {selectedIds.size > 0 && isTenantOwner && (
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleBulkDelete}
+                            disabled={bulkDeleteMutation.isPending}
+                        >
+                            {bulkDeleteMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-4 w-4 mr-2" />
+                            )}
+                            선택 삭제 ({selectedIds.size})
+                        </Button>
+                    )}
                 </div>
-                {selectedIds.size > 0 && isTenantOwner && (
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleBulkDelete}
-                    >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        선택 삭제 ({selectedIds.size})
-                    </Button>
-                )}
+                <div className="text-sm text-muted-foreground">
+                    총 <span className="font-semibold text-foreground">{filteredLogs.length}</span>건
+                </div>
             </div>
 
             <div className="flex-1 rounded-md border overflow-hidden">
@@ -457,6 +475,7 @@ export default function OpticalIncoming() {
                 transformRow={transformOpticalRow}
                 columns={opticalColumns}
                 onUpload={handleBulkUpload}
+                isLoading={bulkUploadMutation.isPending}
             />
         </div>
     );

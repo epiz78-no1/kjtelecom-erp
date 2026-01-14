@@ -1629,7 +1629,12 @@ export default function TeamMaterialUsage() {
               disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-submit-usage"
             >
-              {(createMutation.isPending || updateMutation.isPending) ? "처리 중..." : editingRecord ? "수정" : "등록"}
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  처리 중...
+                </>
+              ) : (editingRecord ? "수정" : "등록")}
             </Button>
           </DialogFooter>
         </DialogContent >
@@ -1659,8 +1664,28 @@ export default function TeamMaterialUsage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete}>삭제</AlertDialogAction>
+            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                if (bulkDeleteMutation.isPending) {
+                  e.preventDefault();
+                  return;
+                }
+                e.preventDefault(); // Prevent auto-close
+                confirmBulkDelete();
+              }}
+              disabled={bulkDeleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  삭제 중...
+                </>
+              ) : (
+                "삭제"
+              )}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

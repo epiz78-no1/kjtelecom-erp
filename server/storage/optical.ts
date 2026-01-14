@@ -5,7 +5,7 @@ import {
     opticalCables, opticalCableLogs, teams
 } from "../../shared/schema.js";
 import { db } from "../db.js";
-import { eq, and, desc, asc, inArray, getTableColumns, sql } from "drizzle-orm";
+import { eq, ne, and, desc, asc, inArray, getTableColumns, sql } from "drizzle-orm";
 
 export class OpticalStorage {
     async getOpticalCables(tenantId: string): Promise<(OpticalCable & { currentTeam: Team | null })[]> {
@@ -26,18 +26,21 @@ export class OpticalStorage {
 
     async createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable> {
         return await db.transaction(async (tx) => {
-            // 중복 체크: 같은 사업(division) + 제조번호(drumNo) 조합이 이미 존재하는지 확인
+            // 중복 체크: 사업(division) + 제조년도(manufactureYear) + 제조번호(drumNo) 조합이 이미 존재하는지 확인
             const existing = await tx.select()
                 .from(opticalCables)
                 .where(and(
                     eq(opticalCables.tenantId, tenantId),
+                    ne(opticalCables.status, 'waste'),
                     eq(opticalCables.division, cable.division || ''),
+                    eq(opticalCables.category, cable.category || ''),
+                    eq(opticalCables.productName, cable.productName.toString()),
                     eq(opticalCables.drumNo, cable.drumNo)
                 ))
                 .limit(1);
 
             if (existing.length > 0) {
-                throw new Error(`이미 등록된 제조번호입니다. [${cable.division}] ${cable.drumNo}`);
+                throw new Error(`이미 등록된 케이블입니다. [${cable.division}] ${cable.manufactureYear || '연도미상'} - ${cable.drumNo}`);
             }
 
             const [newCable] = await tx.insert(opticalCables).values({
@@ -103,18 +106,63 @@ export class OpticalStorage {
     async createOpticalCablesBulk(cables: InsertOpticalCable[], tenantId: string): Promise<OpticalCable[]> {
         if (cables.length === 0) return [];
 
-        // Enrich with tenantId if missing (though insert type usually expects it or we manually map)
-        const cablesWithTenant = cables.map(c => ({
-            ...c,
-            tenantId
-        }));
+        return await db.transaction(async (tx) => {
+            // Enrich with tenantId
+            const cablesWithTenant = cables.map(c => ({
+                ...c,
+                tenantId
+            }));
 
-        return await db.insert(opticalCables).values(cablesWithTenant).returning();
+            // Enforce uniqueness check manually since DB constraint is missing
+            const inputDrumNos = cables.map(c => c.drumNo);
+            if (inputDrumNos.length > 0) {
+                const candidates = await tx.select().from(opticalCables)
+                    .where(and(
+                        eq(opticalCables.tenantId, tenantId),
+                        ne(opticalCables.status, 'waste'),
+                        inArray(opticalCables.drumNo, inputDrumNos)
+                    ));
+
+                // Check for collisions (division + category + productName + drumNo)
+                const existingSet = new Set(candidates.map(c => `${c.division || ''}-${c.category || ''}-${c.productName}-${c.drumNo}`));
+
+                const duplicates = cables.filter(c => existingSet.has(`${c.division || ''}-${c.category || ''}-${c.productName}-${c.drumNo}`));
+
+                if (duplicates.length > 0) {
+                    const dupMsg = duplicates.map(d => `${d.drumNo}[${d.division || '-'}/${d.category || '-'}/${d.productName}]`).slice(0, 5).join(', ');
+                    throw new Error(`중복된 케이블이 존재합니다: ${dupMsg}${duplicates.length > 5 ? ' 외 ' + (duplicates.length - 5) + '건' : ''}`);
+                }
+            }
+
+            const insertedCables = await tx.insert(opticalCables).values(cablesWithTenant).returning();
+
+            // Create 'create' logs for each inserted cable
+            if (insertedCables.length > 0) {
+                const logs = insertedCables.map(newCable => ({
+                    cableId: newCable.id,
+                    logType: 'create',
+                    usageDate: newCable.receivedDate || new Date().toISOString().split('T')[0],
+                    afterRemaining: newCable.remainingLength,
+                    attributes: newCable.attributes,
+                    tenantId,
+                    createdBy: newCable.createdBy
+                }));
+
+                await tx.insert(opticalCableLogs).values(logs);
+            }
+
+            return insertedCables;
+        });
     }
 
     async bulkDeleteOpticalCables(ids: string[], tenantId: string): Promise<void> {
         if (ids.length === 0) return;
-        await db.delete(opticalCables)
+        await db.update(opticalCables)
+            .set({
+                status: 'waste',
+                currentTeamId: null,
+                updatedAt: new Date()
+            })
             .where(and(
                 inArray(opticalCables.id, ids),
                 eq(opticalCables.tenantId, tenantId)
@@ -319,11 +367,10 @@ export class OpticalStorage {
 
     async bulkDeleteOpticalCableLogs(ids: string[], tenantId: string): Promise<void> {
         if (ids.length === 0) return;
-        await db.delete(opticalCableLogs)
-            .where(and(
-                inArray(opticalCableLogs.id, ids),
-                eq(opticalCableLogs.tenantId, tenantId)
-            ));
+        // Iterate to ensure state rollback logic in deleteOpticalCableLog is applied
+        for (const id of ids) {
+            await this.deleteOpticalCableLog(id, tenantId);
+        }
     }
 
     async createOpticalCableLog(log: InsertOpticalCableLog, tenantId: string): Promise<OpticalCable> {
@@ -403,6 +450,24 @@ export class OpticalStorage {
                 updatedAt: new Date(),
                 returnRequestStatus: 'none' // Reset return request status when deleting a log
             };
+            if (['create', 'incoming', 'receive'].includes(log.logType)) {
+                // 입고 내역 삭제 시: 관련된 다른 이력(불출, 사용 등)이 없는 경우에만 자재와 함께 삭제
+                const otherLogs = await tx.select({ id: opticalCableLogs.id }).from(opticalCableLogs)
+                    .where(and(
+                        eq(opticalCableLogs.cableId, cable.id),
+                        ne(opticalCableLogs.id, id)
+                    ))
+                    .limit(1);
+
+                if (otherLogs.length > 0) {
+                    throw new Error("이미 사용 또는 불출 이력이 존재하는 자재의 입고 내역은 삭제할 수 없습니다.");
+                }
+
+                // 다른 이력이 없으면 자재 자체를 삭제 (Cascade로 인해 이 로그도 함께 삭제됨)
+                await tx.delete(opticalCables).where(eq(opticalCables.id, cable.id));
+                return true;
+            }
+
             if (log.logType === 'assign') {
                 // 출고 취소 -> 반납됨(창고로 복귀) 상태로 변경이 아니라, 아예 출고가 없던 상태로 복구
                 updates.status = 'in_stock';
@@ -517,4 +582,79 @@ export class OpticalStorage {
             return updatedCable;
         });
     }
+
+    async bulkAssignOpticalCables(items: any[], tenantId: string, userId: string): Promise<any[]> {
+        if (items.length === 0) return [];
+
+        return await db.transaction(async (tx) => {
+            const results = [];
+
+            for (const item of items) {
+                // Find cable by drumNo
+                const [cable] = await tx.select()
+                    .from(opticalCables)
+                    .where(and(
+                        eq(opticalCables.tenantId, tenantId),
+                        eq(opticalCables.drumNo, item.drumNo)
+                    ))
+                    .limit(1);
+
+                if (!cable) {
+                    throw new Error(`케이블을 찾을 수 없습니다: ${item.drumNo}`);
+                }
+
+                if (cable.status !== 'in_stock') {
+                    throw new Error(`케이블이 출고 가능한 상태가 아닙니다: ${item.drumNo} (현재 상태: ${cable.status})`);
+                }
+
+                // Find team by name
+                const [team] = await tx.select()
+                    .from(teams)
+                    .where(and(
+                        eq(teams.tenantId, tenantId),
+                        eq(teams.name, item.teamName)
+                    ))
+                    .limit(1);
+
+                if (!team) {
+                    throw new Error(`팀을 찾을 수 없습니다: ${item.teamName}`);
+                }
+
+                // Update cable status
+                const [updatedCable] = await tx.update(opticalCables)
+                    .set({
+                        currentTeamId: team.id,
+                        status: 'assigned',
+                        updatedAt: new Date()
+                    })
+                    .where(eq(opticalCables.id, cable.id))
+                    .returning();
+
+                // Create assignment log
+                await tx.insert(opticalCableLogs).values({
+                    cableId: cable.id,
+                    logType: 'assign',
+                    teamId: team.id,
+                    usageDate: item.date,
+                    projectCode: item.projectCode,
+                    projectNameUsage: item.projectName,
+                    workerName: item.recipient,
+                    beforeRemaining: cable.remainingLength,
+                    afterRemaining: cable.remainingLength,
+                    usedLength: 0,
+                    attributes: JSON.stringify({
+                        recipient: item.recipient,
+                        remark: item.remark || undefined
+                    }),
+                    tenantId,
+                    createdBy: userId
+                });
+
+                results.push(updatedCable);
+            }
+
+            return results;
+        });
+    }
 }
+

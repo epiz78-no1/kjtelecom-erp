@@ -80,6 +80,7 @@ class DatabaseStorage implements IStorage {
     declare deleteOpticalCableLog: OpticalStorage['deleteOpticalCableLog'];
     declare bulkDeleteOpticalCableLogs: OpticalStorage['bulkDeleteOpticalCableLogs'];
     declare updateCableReservation: OpticalStorage['updateCableReservation'];
+    declare bulkAssignOpticalCables: OpticalStorage['bulkAssignOpticalCables'];
 
     declare getDivisions: TeamStorage['getDivisions'];
     declare getDivision: TeamStorage['getDivision'];

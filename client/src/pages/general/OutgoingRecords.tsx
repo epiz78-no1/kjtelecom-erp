@@ -186,7 +186,7 @@ export default function OutgoingRecords() {
     projectName: string;
     recipient: string;
     attachment: { name: string; data: string } | null;
-    attachments: { name: string; data: string }[];
+    attachments?: { name: string; data: string }[];
     items: Array<{
       id: string;
       productName: string;
@@ -664,6 +664,7 @@ export default function OutgoingRecords() {
         transformRow={transformOutgoingRow}
         columns={outgoingColumns}
         onUpload={handleBulkUpload}
+        isLoading={bulkUploadMutation.isPending}
       />
 
       <AlertDialog open={!!deleteRecord} onOpenChange={() => setDeleteRecord(null)}>
@@ -692,9 +693,14 @@ export default function OutgoingRecords() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete}>
-              삭제
+            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} disabled={bulkDeleteMutation.isPending}>
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  삭제 중...
+                </>
+              ) : "삭제"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

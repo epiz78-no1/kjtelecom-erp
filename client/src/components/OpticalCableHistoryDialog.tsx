@@ -246,7 +246,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                                 <TableCell className="text-center">{log.usageDate ? format(new Date(log.usageDate), 'yyyy-MM-dd') : format(new Date(log.createdAt), 'yyyy-MM-dd')}</TableCell>
                                                 <TableCell className="text-center font-medium">{getLogTypeLabel(log.logType)}</TableCell>
                                                 <TableCell className="text-center">{log.projectCode || ''}</TableCell>
-                                                <TableCell className="text-left truncate" title={log.logType === 'waste' && log.attributes ? (() => {
+                                                <TableCell className="text-left" title={log.logType === 'waste' && log.attributes ? (() => {
                                                     try {
                                                         const attr = JSON.parse(log.attributes);
                                                         return attr.wasteReason || log.projectNameUsage || '';
@@ -254,14 +254,16 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                                         return log.projectNameUsage || '';
                                                     }
                                                 })() : log.projectNameUsage || ''}>
-                                                    {log.logType === 'waste' && log.attributes ? (() => {
-                                                        try {
-                                                            const attr = JSON.parse(log.attributes);
-                                                            return attr.wasteReason || log.projectNameUsage || '';
-                                                        } catch (e) {
-                                                            return log.projectNameUsage || '';
-                                                        }
-                                                    })() : log.projectNameUsage || ''}
+                                                    <div className="truncate max-w-[200px]">
+                                                        {log.logType === 'waste' && log.attributes ? (() => {
+                                                            try {
+                                                                const attr = JSON.parse(log.attributes);
+                                                                return attr.wasteReason || log.projectNameUsage || '';
+                                                            } catch (e) {
+                                                                return log.projectNameUsage || '';
+                                                            }
+                                                        })() : log.projectNameUsage || ''}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-center">
                                                     {log.usedLength > 0 ? log.usedLength.toLocaleString() : ''}

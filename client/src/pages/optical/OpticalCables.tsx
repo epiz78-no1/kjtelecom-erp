@@ -64,7 +64,8 @@ export default function OpticalCables() {
     const { user, tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
-    const { data: cables = [], isLoading } = useOpticalCables();
+    const { data: allCables = [], isLoading } = useOpticalCables();
+    const cables = allCables.filter(c => c.status !== 'waste');
 
     const {
         searchQuery,
@@ -74,7 +75,7 @@ export default function OpticalCables() {
         filteredItems: filteredCables,
         categories
     } = useTableFilters(cables, {
-        searchFields: ["drumNo", "spec"],
+        searchFields: ["drumNo", "spec", "productName", "manufacturer", "manufactureYear", "division"],
         categoryField: "category"
     });
 
@@ -185,7 +186,11 @@ export default function OpticalCables() {
 
     const handleBulkDelete = () => {
         if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds));
+            bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                onSuccess: () => {
+                    setSelectedIds(new Set());
+                }
+            });
         }
     };
 
@@ -303,7 +308,7 @@ export default function OpticalCables() {
                         <div className="relative w-64 md:w-72 lg:w-80 shrink-0">
                             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                             <Input
-                                placeholder="드럼번호, 규격 검색..."
+                                placeholder="드럼번호, 품명, 규격, 제조사 검색..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-9 h-8 text-sm"
@@ -485,8 +490,13 @@ export default function OpticalCables() {
                         variant="destructive"
                         size="sm"
                         onClick={handleBulkDelete}
+                        disabled={bulkDeleteMutation.isPending}
                     >
-                        <Trash2 className="h-4 w-4 mr-2" />
+                        {bulkDeleteMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                            <Trash2 className="h-4 w-4 mr-2" />
+                        )}
                         선택 삭제 ({selectedIds.size})
                     </Button>
                 )}
@@ -762,8 +772,12 @@ export default function OpticalCables() {
                 validateRow={validateOpticalRow}
                 transformRow={transformOpticalRow}
                 columns={opticalColumns}
-                onUpload={(items) => bulkUploadMutation.mutate(items)}
-                maxWidth="max-w-7xl"
+                onUpload={(items) => {
+                    bulkUploadMutation.mutate(items, {
+                        onSuccess: () => setBulkUploadOpen(false)
+                    });
+                }}
+                isLoading={bulkUploadMutation.isPending}
             />
 
             <OpticalCableHistoryDialog

@@ -72,6 +72,7 @@ export default function IncomingRecords() {
     productName: 160,
     specification: 200,
     quantity: 80,
+    unitPrice: 90,
     remark: 150,
     createdBy: 80,
     actions: 50
@@ -456,6 +457,13 @@ export default function IncomingRecords() {
                     onMouseDown={(e) => startResizing("quantity", e)}
                   />
                 </TableHead>
+                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.unitPrice }}>
+                  단가
+                  <div
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
+                    onMouseDown={(e) => startResizing("unitPrice", e)}
+                  />
+                </TableHead>
                 <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
                   비고
                   <div
@@ -505,6 +513,7 @@ export default function IncomingRecords() {
                     <div className="truncate" title={record.specification}>{record.specification}</div>
                   </TableCell>
                   <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
+                  <TableCell className="text-center align-middle whitespace-nowrap">{(record.unitPrice || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-center align-middle max-w-[150px]">
                     <div className="truncate" title={record.remark || ""}>{record.remark || ""}</div>
                   </TableCell>
@@ -645,6 +654,7 @@ export default function IncomingRecords() {
         transformRow={transformIncomingRow}
         columns={incomingColumns}
         onUpload={handleBulkUpload}
+        isLoading={bulkUploadMutation.isPending}
       />
 
       <AlertDialog open={!!deleteRecord} onOpenChange={() => setDeleteRecord(null)}>
@@ -673,9 +683,14 @@ export default function IncomingRecords() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete}>
-              삭제
+            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} disabled={bulkDeleteMutation.isPending}>
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  삭제 중...
+                </>
+              ) : "삭제"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

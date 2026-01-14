@@ -840,12 +840,27 @@ export default function FieldOpticalUsage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
                         <AlertDialogAction
-                            onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+                            onClick={(e) => {
+                                if (bulkDeleteMutation.isPending) {
+                                    e.preventDefault();
+                                    return;
+                                }
+                                e.preventDefault();
+                                bulkDeleteMutation.mutate(Array.from(selectedIds));
+                            }}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={bulkDeleteMutation.isPending}
                         >
-                            삭제
+                            {bulkDeleteMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    삭제 중...
+                                </>
+                            ) : (
+                                "삭제"
+                            )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

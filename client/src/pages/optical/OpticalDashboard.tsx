@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Cable, ArrowDownToLine, ArrowUpFromLine, Cuboid } from "lucide-react";
+import { Loader2, Cable, Cuboid, ChevronDown, ChevronRight, ShoppingCart, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
 import { FieldTeamCard, type FieldTeam } from "@/components/FieldTeamCard";
@@ -15,6 +16,14 @@ import {
 
 export default function OpticalDashboard() {
     const { teams, divisions } = useAppContext();
+    const [expandedDivisions, setExpandedDivisions] = useState<Record<string, boolean>>({});
+
+    const toggleDivision = (divisionName: string) => {
+        setExpandedDivisions(prev => ({
+            ...prev,
+            [divisionName]: !prev[divisionName]
+        }));
+    };
 
     const { data: cables = [], isLoading: isLoadingCables } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
         queryKey: ["/api/optical-cables"],
@@ -35,47 +44,66 @@ export default function OpticalDashboard() {
     // Calculate Stats
     const totalLength = cables.reduce((sum, c) => sum + c.remainingLength, 0);
     const totalDrums = cables.filter(c => c.status !== 'waste' && c.remainingLength > 0).length;
+    const totalAmount = cables.filter(c => c.status !== 'waste').reduce((sum, c) => sum + (c.totalAmount || 0), 0);
+    const activeTeamCount = teams.filter(t => t.isActive).length;
 
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    interface ProductStat {
+        productName: string;
+        count: number;
+        length: number;
+        amount: number;
+    }
 
-    const isThisMonth = (dateStr: string | Date | null) => {
-        if (!dateStr) return false;
-        const d = new Date(dateStr);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    };
+    interface DivisionStat {
+        name: string;
+        count: number;
+        length: number;
+        amount: number;
+        products: Record<string, ProductStat>; // Key: productName
+    }
 
-    const incomingLogs = logs.filter(l => l.logType === 'receive' || l.logType === 'create');
-    const monthIncoming = incomingLogs
-        .filter(l => isThisMonth(l.usageDate || l.createdAt))
-        .reduce((sum, l) => sum + ((l.afterRemaining || 0) - (l.beforeRemaining || 0)), 0);
-
-    const usageLogs = logs.filter(l => l.logType === 'usage');
-    const monthUsageLength = usageLogs
-        .filter(l => isThisMonth(l.usageDate || l.createdAt))
-        .reduce((sum, l) => sum + (l.usedLength || 0), 0);
-
-    // 1. Aggregation by Spec
-    const specStats = cables.reduce((acc, cable) => {
-        // Only count active stock (not waste, maybe returned/assigned counts too? Dashboard usually shows total inventory value)
-        // Adjusting logic: Inventory Status usually means what we HAVE (in_stock + assigned + returned). Waste is gone.
-        // Assuming "waste" and "used_up" status cables have 0 remainingLength usually, or we filter them.
+    // 1. Aggregation by Division -> Product Name
+    const statsByDivision = cables.reduce((acc, cable) => {
         if (cable.status === 'waste') return acc;
 
-        const spec = cable.spec || "미지정";
-        if (!acc[spec]) {
-            acc[spec] = { count: 0, length: 0, amount: 0 };
-        }
-        acc[spec].count += 1;
-        acc[spec].length += cable.remainingLength;
-        acc[spec].amount += cable.totalAmount;
-        return acc;
-    }, {} as Record<string, { count: number; length: number; amount: number }>);
+        const divisionName = cable.division || "-";
+        const productName = cable.productName || "미지정";
 
-    const specList = Object.entries(specStats)
-        .map(([spec, stats]) => ({ spec, ...stats }))
-        .sort((a, b) => b.length - a.length);
+        if (!acc[divisionName]) {
+            acc[divisionName] = {
+                name: divisionName,
+                count: 0,
+                length: 0,
+                amount: 0,
+                products: {}
+            };
+        }
+
+        // Division Totals
+        acc[divisionName].count += 1;
+        acc[divisionName].length += cable.remainingLength;
+        acc[divisionName].amount += (cable.totalAmount || 0);
+
+        // Product Details
+        if (!acc[divisionName].products[productName]) {
+            acc[divisionName].products[productName] = {
+                productName,
+                count: 0,
+                length: 0,
+                amount: 0
+            };
+        }
+
+        acc[divisionName].products[productName].count += 1;
+        acc[divisionName].products[productName].length += cable.remainingLength;
+        acc[divisionName].products[productName].amount += (cable.totalAmount || 0);
+
+        return acc;
+    }, {} as Record<string, DivisionStat>);
+
+    const divisionList = Object.values(statsByDivision)
+        .sort((a, b) => b.length - a.length); // Sort divisions by total length descending
+
 
     // 2. Field Team Status
     // Map teams to display compatible with FieldTeamCard
@@ -113,17 +141,6 @@ export default function OpticalDashboard() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">총 잔여 길이</CardTitle>
-                        <Cable className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{totalLength.toLocaleString()}m</div>
-                        <p className="text-xs text-muted-foreground">전체 보유 케이블 합계</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">보유 케이블</CardTitle>
                         <Cuboid className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
@@ -135,23 +152,34 @@ export default function OpticalDashboard() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">금월 입고 (길이)</CardTitle>
-                        <ArrowDownToLine className="h-4 w-4 text-blue-500" />
+                        <CardTitle className="text-sm font-medium">총 잔여 길이</CardTitle>
+                        <Cable className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{monthIncoming.toLocaleString()}m</div>
-                        <p className="text-xs text-muted-foreground">이번 달 신규 입고</p>
+                        <div className="text-2xl font-bold">{totalLength.toLocaleString()}m</div>
+                        <p className="text-xs text-muted-foreground">전체 보유 케이블 합계</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">금월 실사용</CardTitle>
-                        <ArrowUpFromLine className="h-4 w-4 text-green-500" />
+                        <CardTitle className="text-sm font-medium">총 재고 금액</CardTitle>
+                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{monthUsageLength.toLocaleString()}m</div>
-                        <p className="text-xs text-muted-foreground">이번 달 공사 투입(설치+폐기)</p>
+                        <div className="text-2xl font-bold">₩{totalAmount.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">현재 재고 가치 기준</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">활성 현장팀</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{activeTeamCount}팀</div>
+                        <p className="text-xs text-muted-foreground">전체 {teams.length}개 팀 중</p>
                     </CardContent>
                 </Card>
             </div>
@@ -167,28 +195,60 @@ export default function OpticalDashboard() {
                         <Table className="table-fixed">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 h-8">
-                                    <TableHead>구분</TableHead>
-                                    <TableHead className="text-right">보유 케이블</TableHead>
-                                    <TableHead className="text-right">총 잔여 길이</TableHead>
-                                    <TableHead className="text-right">총 금액</TableHead>
+                                    <TableHead className="w-[120px] text-sm font-medium">사업</TableHead>
+                                    <TableHead className="text-center text-sm font-medium">품명</TableHead>
+                                    <TableHead className="w-[120px] text-right text-sm font-medium">보유케이블</TableHead>
+                                    <TableHead className="w-[150px] text-right text-sm font-medium">총 잔여길이</TableHead>
+                                    <TableHead className="w-[150px] text-right text-sm font-medium">총 금액</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {specList.length === 0 ? (
+                                {divisionList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
                                             재고 데이터가 없습니다
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    specList.map((item) => (
-                                        <TableRow key={item.spec} className="h-10">
-                                            <TableCell className="font-medium">{item.spec}</TableCell>
-                                            <TableCell className="text-right">{item.count}개</TableCell>
-                                            <TableCell className="text-right">{item.length.toLocaleString()}m</TableCell>
-                                            <TableCell className="text-right">₩{item.amount.toLocaleString()}</TableCell>
-                                        </TableRow>
-                                    ))
+                                    divisionList.map((div) => {
+                                        const isExpanded = expandedDivisions[div.name];
+                                        const productList = Object.values(div.products).sort((a, b) => b.length - a.length);
+
+                                        return (
+                                            <>
+                                                <TableRow
+                                                    key={div.name}
+                                                    className="cursor-pointer hover:bg-muted/50 font-medium text-sm"
+                                                    onClick={() => toggleDivision(div.name)}
+                                                >
+                                                    <TableCell className="flex items-center gap-2">
+                                                        {isExpanded ? (
+                                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                        )}
+                                                        {div.name}
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-muted-foreground text-xs">
+                                                        {productList.length}개
+                                                    </TableCell>
+                                                    <TableCell className="text-right">{div.count.toLocaleString()}개</TableCell>
+                                                    <TableCell className="text-right">{div.length.toLocaleString()}m</TableCell>
+                                                    <TableCell className="text-right">₩{div.amount.toLocaleString()}</TableCell>
+                                                </TableRow>
+
+                                                {isExpanded && productList.map((prod) => (
+                                                    <TableRow key={`${div.name}-${prod.productName}`} className="bg-muted/10 hover:bg-muted/20 text-sm">
+                                                        <TableCell></TableCell>
+                                                        <TableCell className="text-center font-medium">{prod.productName}</TableCell>
+                                                        <TableCell className="text-right text-muted-foreground">{prod.count.toLocaleString()}개</TableCell>
+                                                        <TableCell className="text-right text-muted-foreground">{prod.length.toLocaleString()}m</TableCell>
+                                                        <TableCell className="text-right text-muted-foreground">₩{prod.amount.toLocaleString()}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </>
+                                        );
+                                    })
                                 )}
                             </TableBody>
                         </Table>

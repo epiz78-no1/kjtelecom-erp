@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, ArrowUpFromLine, Search, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
+import { Loader2, ArrowUpFromLine, Search, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText, Upload } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -36,12 +36,15 @@ import { useOpticalLogs } from "@/hooks/useOpticalCables";
 import {
     useDeleteOpticalLog,
     useBulkDeleteOpticalLogs,
-    useUpdateOpticalLog
+    useUpdateOpticalLog,
+    useBulkAssignOpticalCables
 } from "@/hooks/useOpticalMutations";
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { validateOpticalOutgoingRow, transformOpticalOutgoingRow, opticalOutgoingColumns, downloadOpticalOutgoingTemplate } from "@/lib/bulk-configs/optical-outgoing";
 
 export default function OpticalOutgoing() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -50,13 +53,15 @@ export default function OpticalOutgoing() {
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
     const { open: dialogOpen, editingItem: editingLog, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCableLog>();
     const { downloadFile } = useDownload();
+    const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+    const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
         division: 60,           // 사업
         category: 50,           // 구분
         date: 95,               // 출고일자
-        projectCode: 120,       // 공사번호 (T210177093003 형식)
+        projectCode: 140,       // 공사번호 (T210177093003 형식)
         projectName: 250,       // 공사명 (긴 텍스트)
         manufacturer: 90,       // 제조사
         manufactureYear: 70,    // 제조연도
@@ -79,6 +84,15 @@ export default function OpticalOutgoing() {
     const bulkDeleteMutation = useBulkDeleteOpticalLogs();
     const deleteMutation = useDeleteOpticalLog();
     const updateLogMutation = useUpdateOpticalLog();
+    const bulkAssignMutation = useBulkAssignOpticalCables();
+
+    const handleBulkUpload = (items: any[]) => {
+        bulkAssignMutation.mutate(items, {
+            onSuccess: () => {
+                setBulkUploadOpen(false);
+            }
+        });
+    };
 
     // 데이터를 평탄화하여 검색 및 필터링에 사용
     const searchableLogs = outgoingLogs.map(log => ({
@@ -118,7 +132,11 @@ export default function OpticalOutgoing() {
 
     const handleBulkDelete = () => {
         if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds));
+            bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                onSuccess: () => {
+                    setSelectedIds(new Set());
+                }
+            });
         }
     };
 
@@ -139,14 +157,26 @@ export default function OpticalOutgoing() {
                     </h1>
                     <p className="text-muted-foreground">현장팀으로 불출된 광케이블 이력을 조회합니다.</p>
                 </div>
-                <OpticalAssignmentDialog
-                    trigger={
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                         <Button className="gap-2">
                             <Plus className="h-4 w-4" />
-                            신규 출고 등록
+                            출고 등록
                         </Button>
-                    }
-                />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => setAssignmentDialogOpen(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            직접 등록
+                        </DropdownMenuItem>
+                        {isTenantOwner && (
+                            <DropdownMenuItem onSelect={() => setBulkUploadOpen(true)}>
+                                <Upload className="h-4 w-4 mr-2" />
+                                일괄 등록
+                            </DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <div className="flex items-center gap-4">
@@ -164,8 +194,13 @@ export default function OpticalOutgoing() {
                         variant="destructive"
                         size="sm"
                         onClick={handleBulkDelete}
+                        disabled={bulkDeleteMutation.isPending}
                     >
-                        <Trash2 className="h-4 w-4 mr-2" />
+                        {bulkDeleteMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                            <Trash2 className="h-4 w-4 mr-2" />
+                        )}
                         선택 삭제 ({selectedIds.size})
                     </Button>
                 )}
@@ -479,6 +514,27 @@ export default function OpticalOutgoing() {
                 log={editingLog}
                 onSubmit={async (id, data) => updateLogMutation.mutateAsync({ id, data })}
             />
-        </div>
+
+            <OpticalAssignmentDialog
+                trigger={null}
+                initialCableId={null}
+                isOpen={assignmentDialogOpen}
+                onOpenChange={setAssignmentDialogOpen}
+            />
+
+            <GenericBulkUploadDialog
+                open={bulkUploadOpen}
+                onOpenChange={setBulkUploadOpen}
+                title="광케이블 일괄 출고"
+                description="CSV 파일을 업로드하여 여러 광케이블을 한번에 출고할 수 있습니다"
+                onDownloadTemplate={downloadOpticalOutgoingTemplate}
+                templateFileName="optical_outgoing_template.csv"
+                validateRow={validateOpticalOutgoingRow}
+                transformRow={transformOpticalOutgoingRow}
+                columns={opticalOutgoingColumns}
+                onUpload={handleBulkUpload}
+                isLoading={bulkAssignMutation.isPending}
+            />
+        </div >
     );
 }

@@ -562,8 +562,18 @@ export default function Inventory() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete}>삭제</AlertDialogAction>
+            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => {
+              e.preventDefault();
+              confirmBulkDelete();
+            }} disabled={bulkDeleteMutation.isPending}>
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  삭제 중...
+                </>
+              ) : "삭제"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -580,6 +590,7 @@ export default function Inventory() {
         columns={inventoryColumns}
         onUpload={handleBulkUpload}
         enableModeSelection={true}
+        isLoading={bulkUploadMutation.isPending}
       />
     </div >
   );

@@ -1,8 +1,10 @@
 import type { Express } from "express";
 import { storage } from "../storage.js";
-import { apiInsertOpticalCableSchema, apiInsertOpticalCableLogSchema } from "../../shared/schema.js";
+import { apiInsertOpticalCableSchema, apiInsertOpticalCableLogSchema, opticalCables } from "../../shared/schema.js";
 import { requireAuth, requireTenant, requireAdmin } from "../middleware/auth.js";
 import { processAttachments } from "./inventory-helpers.js";
+import { db } from "../db.js";
+import { eq, and } from "drizzle-orm";
 
 export function registerOpticalRoutes(app: Express) {
     // Optical Cable Management API
@@ -163,6 +165,7 @@ export function registerOpticalRoutes(app: Express) {
 
                 return {
                     ...item,
+                    createdBy: req.session!.userId!, // Inject creator ID
                     attributes: Object.keys(attributesObj).length > 0 ? JSON.stringify(attributesObj) : item.attributes
                 };
             }));
@@ -372,6 +375,56 @@ export function registerOpticalRoutes(app: Express) {
                 return res.status(400).json({ error: "Invalid action" });
             }
         } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // 일괄 출고 등록 API
+    app.post("/api/optical-cables/bulk-assign", requireAuth, requireTenant, async (req, res) => {
+        const { items } = req.body;
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: "Items must be a non-empty array" });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        const userId = req.session!.userId!;
+
+        try {
+            const results = await storage.bulkAssignOpticalCables(items, tenantId, userId);
+            res.status(201).json(results);
+        } catch (error: any) {
+            console.error("Bulk optical cable assignment error:", error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // 반납 신청 취소 API
+    app.post("/api/optical-cables/:id/cancel-return", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        const tenantId = req.session!.tenantId!;
+
+        try {
+            const cable = await storage.getOpticalCable(id, tenantId);
+            if (!cable) {
+                return res.status(404).json({ error: "Cable not found" });
+            }
+
+            if (cable.returnRequestStatus !== 'pending') {
+                return res.status(400).json({ error: "No pending return request to cancel" });
+            }
+
+            // 반납 요청 상태만 초기화 ('none'으로 설정)
+            await db.update(opticalCables)
+                .set({ returnRequestStatus: 'none' })
+                .where(and(
+                    eq(opticalCables.id, id),
+                    eq(opticalCables.tenantId, tenantId)
+                ));
+
+            const updated = await storage.getOpticalCable(id, tenantId);
+            res.json(updated);
+        } catch (error: any) {
+            console.error("Cancel return request error:", error);
             res.status(500).json({ error: error.message });
         }
     });

@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Upload, Download, AlertCircle, Trash2 } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Upload, Download, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import {
     Dialog,
@@ -55,6 +55,9 @@ export interface GenericBulkUploadDialogProps<T> {
 
     // 스타일
     maxWidth?: string; // e.g. "max-w-5xl"
+
+    // 로딩 상태
+    isLoading?: boolean;
 }
 
 export function GenericBulkUploadDialog<T>({
@@ -70,7 +73,8 @@ export function GenericBulkUploadDialog<T>({
     columns,
     enableModeSelection = false,
     onUpload,
-    maxWidth = "max-w-5xl"
+    maxWidth = "w-fit max-w-[95vw]",
+    isLoading = false
 }: GenericBulkUploadDialogProps<T>) {
     const { toast } = useToast();
     const [isDragging, setIsDragging] = useState(false);
@@ -78,6 +82,16 @@ export function GenericBulkUploadDialog<T>({
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string>("");
     const [mode, setMode] = useState<"overwrite" | "add">("overwrite");
+
+    // Dialog가 닫힐 때 상태 초기화 (부모에 의해 닫히는 경우 포함)
+    useEffect(() => {
+        if (!open) {
+            setParsedData([]);
+            setErrors([]);
+            setFileName("");
+            setMode("overwrite");
+        }
+    }, [open]);
 
     const handleDownloadTemplate = async () => {
         if (onDownloadTemplate) {
@@ -224,10 +238,31 @@ export function GenericBulkUploadDialog<T>({
         }
 
         onUpload(parsedData, enableModeSelection ? mode : undefined);
-        handleClose();
+        // Do not close automatically if loading is handled by parent, otherwise close
+        // But since we don't know if parent will pass isLoading=true before this renders...
+        // Actually, if we use mutation.mutate, it's async but returns immediately unless we await.
+        // We rely on parent to control open state OR parent to not close it.
+        // If isLoading is passed, we assume parent handles closing.
+        if (!isLoading) {
+            // If isLoading is undefined or false, we might closing it prematurely if parent intended to use it.
+            // But traditionally, if onUpload is void, we closed here.
+            // We will remove handleClose() here and let the parent decide?
+            // No, that breaks existing usage.
+            // Let's assume if isLoading is provided (boolean), we DON'T close.
+            // But isLoading is false initially.
+            // So we should check if onUpload returns a promise? No it's void.
+            // We will rely on parent closing it.
+            // BUT, to keep backward compatibility:
+            // If we change parent to pass isLoading, we also change parent to close it.
+        }
+        // CHANGED: We removed handleClose() call here. Parent MUST close it or we add a flag?
+        // Let's keep handleClose() ONLY if isLoading is strictly undefined.
+        // But safer is: Parent closes it.
+        // Disabling handleClose here.
     };
 
     const handleClose = () => {
+        if (isLoading) return; // Prevent closing while loading
         setParsedData([]);
         setErrors([]);
         setFileName("");
@@ -252,27 +287,37 @@ export function GenericBulkUploadDialog<T>({
                             variant="outline"
                             onClick={handleDownloadTemplate}
                             size="sm"
+                            disabled={isLoading}
                         >
                             <Download className="h-4 w-4 mr-2" />
                             템플릿 다운로드
                         </Button>
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={handleClose} size="sm">
+                            <Button variant="outline" onClick={handleClose} size="sm" disabled={isLoading}>
                                 취소
                             </Button>
                             <Button
                                 onClick={handleUpload}
-                                disabled={parsedData.length === 0 || errors.length > 0}
+                                disabled={parsedData.length === 0 || errors.length > 0 || isLoading}
                                 size="sm"
                             >
-                                <Upload className="h-4 w-4 mr-2" />
-                                일괄 등록 ({parsedData.length}개)
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        처리중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        일괄 등록 ({parsedData.length}개)
+                                    </>
+                                )}
                             </Button>
                         </div>
                     </div>
 
                     <div
-                        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${isDragging
+                        className={`border-2 border-dashed rounded-lg p-2 text-center transition-colors ${isDragging
                             ? "border-primary bg-primary/5"
                             : "border-muted-foreground/25"
                             }`}
@@ -280,27 +325,26 @@ export function GenericBulkUploadDialog<T>({
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                     >
-                        <div className="flex flex-col items-center justify-center gap-2">
-                            <Upload className="h-8 w-8 text-muted-foreground" />
-                            <div className="space-y-1">
-                                <p className="text-sm text-muted-foreground">
-                                    CSV 파일을 드래그하거나 클릭하여 선택하세요
-                                </p>
+                        <div className="flex items-center justify-center gap-4">
+                            <Upload className="h-6 w-6 text-muted-foreground" />
+                            <div className="text-sm text-muted-foreground">
+                                CSV 파일을 드래그하거나 클릭하여 선택하세요
                                 {fileName && (
-                                    <p className="text-sm font-medium text-foreground">
-                                        선택된 파일: {fileName}
-                                    </p>
+                                    <span className="ml-2 font-medium text-foreground">
+                                        (선택됨: {fileName})
+                                    </span>
                                 )}
                             </div>
                             <input
                                 type="file"
                                 accept=".csv"
                                 onChange={handleFileChange}
+                                onClick={(e) => (e.currentTarget.value = "")}
                                 className="hidden"
                                 id={`csv-upload-${title.replace(/\s/g, '-')}`}
                             />
                             <label htmlFor={`csv-upload-${title.replace(/\s/g, '-')}`}>
-                                <Button variant="secondary" size="sm" asChild className="h-8">
+                                <Button variant="secondary" size="sm" asChild className="h-7 text-xs">
                                     <span>파일 선택</span>
                                 </Button>
                             </label>
