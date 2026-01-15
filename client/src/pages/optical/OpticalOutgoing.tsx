@@ -32,7 +32,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import OpticalAssignmentDialog from "@/components/OpticalAssignmentDialog";
 import { OpticalLogEditDialog } from "@/components/OpticalLogEditDialog";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
-import { useOpticalLogs } from "@/hooks/useOpticalCables";
+import { useOpticalLogs, useOpticalCables } from "@/hooks/useOpticalCables";
 import {
     useDeleteOpticalLog,
     useBulkDeleteOpticalLogs,
@@ -78,6 +78,13 @@ export default function OpticalOutgoing() {
     });
 
     const { data: logs = [], isLoading } = useOpticalLogs();
+    const { data: allCables = [] } = useOpticalCables();
+
+    const validateRow = (row: any, index: number) => {
+        return validateOpticalOutgoingRow(row, index, allCables);
+    };
+
+
 
     const outgoingLogs = logs.filter(l => l.logType === 'assign');
 
@@ -179,31 +186,36 @@ export default function OpticalOutgoing() {
                 </DropdownMenu>
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="relative max-w-sm flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        placeholder="드럼번호, 팀명 검색..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                    />
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="relative max-w-sm">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="드럼번호, 팀명 검색..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    {selectedIds.size > 0 && isTenantOwner && (
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleBulkDelete}
+                            disabled={bulkDeleteMutation.isPending}
+                        >
+                            {bulkDeleteMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-4 w-4 mr-2" />
+                            )}
+                            선택 삭제 ({selectedIds.size})
+                        </Button>
+                    )}
                 </div>
-                {selectedIds.size > 0 && isTenantOwner && (
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleBulkDelete}
-                        disabled={bulkDeleteMutation.isPending}
-                    >
-                        {bulkDeleteMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                            <Trash2 className="h-4 w-4 mr-2" />
-                        )}
-                        선택 삭제 ({selectedIds.size})
-                    </Button>
-                )}
+                <div className="text-sm text-muted-foreground">
+                    총 <span className="font-semibold text-foreground">{filteredLogs.length}</span>건
+                </div>
             </div>
 
             <div className="flex-1 rounded-md border overflow-hidden">
@@ -529,7 +541,7 @@ export default function OpticalOutgoing() {
                 description="CSV 파일을 업로드하여 여러 광케이블을 한번에 출고할 수 있습니다"
                 onDownloadTemplate={downloadOpticalOutgoingTemplate}
                 templateFileName="optical_outgoing_template.csv"
-                validateRow={validateOpticalOutgoingRow}
+                validateRow={validateRow}
                 transformRow={transformOpticalOutgoingRow}
                 columns={opticalOutgoingColumns}
                 onUpload={handleBulkUpload}

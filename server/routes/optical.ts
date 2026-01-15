@@ -262,6 +262,103 @@ export function registerOpticalRoutes(app: Express) {
         }
     });
 
+
+
+    // 일괄 사용 등록 API
+    app.post("/api/optical-cables/usage/bulk", requireAuth, requireTenant, async (req, res) => {
+        const { items } = req.body;
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: "Items must be a non-empty array" });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        const userId = req.session!.userId!;
+
+        try {
+            // 1. 날짜 순으로 정렬 (오래된 날짜부터 처리)
+            const sortedItems = [...items].sort((a, b) =>
+                new Date(a.usageDate).getTime() - new Date(b.usageDate).getTime()
+            );
+
+            // Fetch cables once outside the loop for performance
+            const cables = await storage.getOpticalCables(tenantId);
+
+            // 2. 트랜잭션으로 순차 처리
+            const results = await db.transaction(async (tx) => {
+                const processedLogs = [];
+
+                for (const item of sortedItems) {
+                    // 2.1. 드럼 조회 (관리번호 우선, 없으면 제조번호)
+                    const cable = cables.find(c => {
+                        // 1. 관리번호 매칭
+                        if (item.managementNo) {
+                            if (c.managementNo === item.managementNo.trim()) {
+                                // 상태 및 팀 체크
+                                if (c.status !== 'assigned') return false;
+                                if (item.teamId && c.currentTeamId !== item.teamId) return false;
+                                return true;
+                            }
+                            return false;
+                        }
+
+                        // 2. 제조번호 매칭
+                        // 기본 조건: 제조번호, 출고 상태
+                        if (c.drumNo !== item.drumNo || c.status !== 'assigned') return false;
+                        // 팀 체크: teamId가 있을 때만 (현장팀), 없으면 스킵 (관리자)
+                        if (item.teamId && c.currentTeamId !== item.teamId) return false;
+                        return true;
+                    });
+
+                    if (!cable) {
+                        throw new Error(`제조번호 '${item.drumNo}'를 찾을 수 없거나 출고 상태가 아닙니다`);
+                    }
+
+                    // 2.2. 잔량 검증
+                    const totalUsed = (item.installLength || 0) + (item.wasteLength || 0);
+                    if (totalUsed > cable.remainingLength) {
+                        throw new Error(`제조번호 '${item.drumNo}': 사용량(${totalUsed}m)이 잔량(${cable.remainingLength}m)을 초과합니다`);
+                    }
+
+                    // 2.3. 사용 로그 생성 (기존 API 재사용)
+                    const log = await storage.createOpticalCableLog({
+                        cableId: cable.id,
+                        logType: "usage",
+                        teamId: item.teamId || cable.currentTeamId, // item.teamId가 없으면 케이블의 현재 팀 사용
+                        usageDate: item.usageDate,
+                        installLength: item.installLength || 0,
+                        wasteLength: item.wasteLength || 0,
+                        projectCode: item.projectCode,
+                        projectNameUsage: item.projectNameUsage,
+                        workerName: item.workerName,
+                        tenantId,
+                        createdBy: userId
+                    }, tenantId);
+
+                    // 중요: 메모리 상의 케이블 잔량도 업데이트하여, 같은 배치 내 중복 사용 시 검증 정확도 유지
+                    if (cable.remainingLength !== undefined) {
+                        cable.remainingLength -= totalUsed;
+                    }
+                    if (cable.usedLength !== undefined) {
+                        cable.usedLength += totalUsed;
+                    }
+
+                    processedLogs.push(log);
+                }
+
+                return processedLogs;
+            });
+
+            res.status(201).json({
+                success: true,
+                count: results.length,
+                message: `${results.length}건의 사용 내역이 등록되었습니다`
+            });
+        } catch (error: any) {
+            console.error("Bulk optical cable usage error:", error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     app.get("/api/optical-cables/:id/logs", requireAuth, requireTenant, async (req, res) => {
         const { id } = req.params;
         const tenantId = req.session!.tenantId!;
@@ -286,13 +383,17 @@ export function registerOpticalRoutes(app: Express) {
     app.delete("/api/optical-cables/logs/:id", requireAuth, requireTenant, async (req, res) => {
         const { id } = req.params;
         const tenantId = req.session!.tenantId!;
+        console.log(`[API DELETE] Received request to delete log: ${id} for tenant: ${tenantId}`);
         try {
             const success = await storage.deleteOpticalCableLog(id, tenantId);
             if (!success) {
+                console.log(`[API DELETE] Log not found: ${id}`);
                 return res.status(404).json({ error: "Log not found" });
             }
+            console.log(`[API DELETE] Successfully deleted log: ${id}`);
             res.status(204).send();
         } catch (error: any) {
+            console.error(`[API DELETE] Error deleting log ${id}:`, error);
             res.status(500).json({ error: error.message });
         }
     });

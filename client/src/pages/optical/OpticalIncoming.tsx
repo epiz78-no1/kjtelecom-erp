@@ -470,7 +470,7 @@ export default function OpticalIncoming() {
                 title="광케이블 일괄등록"
                 description="CSV 파일을 업로드하여 여러 광케이블 드럼을 한번에 등록할 수 있습니다"
                 onDownloadTemplate={downloadOpticalTemplate}
-                templateFileName="optical_cable_template.csv"
+                templateFileName="optical_incoming_template.csv"
                 validateRow={validateOpticalRow}
                 transformRow={transformOpticalRow}
                 columns={opticalColumns}

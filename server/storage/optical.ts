@@ -399,12 +399,15 @@ export class OpticalStorage {
             } else if (log.logType === 'usage') {
                 // 사용: 잔량 차감 (Incremental)
                 const usageAmount = (log.installLength || 0) + (log.wasteLength || 0);
+                const wasteAmount = (log.wasteLength || 0);
 
                 finalUsed += usageAmount;
                 finalRemaining = finalRemaining - usageAmount;
+                const finalWaste = (cable.wasteLength || 0) + wasteAmount;
 
                 updates.usedLength = finalUsed;
                 updates.remainingLength = finalRemaining;
+                updates.wasteLength = finalWaste;
 
                 // 잔량이 0 이하면 자동 폐기 처리
                 if (finalRemaining <= 0) {
@@ -436,14 +439,23 @@ export class OpticalStorage {
     }
 
     async deleteOpticalCableLog(id: string, tenantId: string): Promise<boolean> {
+        console.log(`[DELETE LOG] Starting deletion for log ID: ${id}`);
         return await db.transaction(async (tx) => {
             // 1. Get log to be deleted
             const [log] = await tx.select().from(opticalCableLogs).where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)));
-            if (!log) return false;
+            if (!log) {
+                console.log(`[DELETE LOG] Log not found: ${id}`);
+                return false;
+            }
+            console.log(`[DELETE LOG] Found log - Type: ${log.logType}, UsedLength: ${log.usedLength}, WasteLength: ${log.wasteLength}`);
 
             // 2. Get associated cable
             const [cable] = await tx.select().from(opticalCables).where(eq(opticalCables.id, log.cableId));
-            if (!cable) throw new Error("Cable not found");
+            if (!cable) {
+                console.error(`[DELETE LOG] Cable not found for log: ${id}, cableId: ${log.cableId}`);
+                throw new Error("Cable not found");
+            }
+            console.log(`[DELETE LOG] Cable before deletion - DrumNo: ${cable.drumNo}, Used: ${cable.usedLength}, Waste: ${cable.wasteLength}, Remaining: ${cable.remainingLength}`);
 
             // 3. Rollback logic based on log type
             let updates: any = {
@@ -474,23 +486,27 @@ export class OpticalStorage {
                 updates.currentTeamId = null;
             } else if (log.logType === 'usage') {
                 // 사용 취소 -> 사용량 차감 복구, 잔량 복구
-                const restoredRemaining = (cable.remainingLength || 0) + (log.usedLength || 0);
-                const restoredUsed = (cable.usedLength || 0) - (log.usedLength || 0);
+                const logUsed = Number(log.usedLength ?? 0);
+                const logWaste = Number(log.wasteLength ?? 0);
 
-                updates.usedLength = restoredUsed;
-                updates.remainingLength = restoredRemaining;
-                // 잔량이 생기면 다시 assigned 상태로 (팀 보유 중이었을 테니)
-                // currentTeamId는 유지 (이미 불출된 상태였으므로)
-                updates.status = restoredRemaining > 0 ? 'assigned' : 'used_up';
-                // teamId 복구: 로그에 기록된 팀으로 복구
-                // teamId 복구: 로그에 기록된 팀으로 복구하되,
-                // 현재 다른 팀이 사용 중이라면('assigned' 상태이고 currentTeamId가 다름) 덮어쓰지 않음.
-                // 즉, 'used_up' 상태였거나, 주인이 없는 상태('in_stock' 등??), 또는 주인이 같은 경우에만 복구.
-                if (log.teamId && restoredRemaining > 0) {
-                    if (cable.status === 'used_up' || !cable.currentTeamId || cable.currentTeamId === log.teamId) {
-                        updates.currentTeamId = log.teamId;
-                    }
-                }
+                // Atomic Update Logic
+                // Use SQL expressions to ensure atomicity and handle race conditions.
+                updates.usedLength = sql`GREATEST(0, ${opticalCables.usedLength} - ${logUsed})`;
+                updates.wasteLength = sql`GREATEST(0, ${opticalCables.wasteLength} - ${logWaste})`;
+                updates.remainingLength = sql`${opticalCables.remainingLength} + ${logUsed}`; // remaining increases as used decreases
+
+                console.log(`[DELETE LOG] Atomic Update Planned:`);
+                console.log(`  Used -= ${logUsed}, Waste -= ${logWaste}, Remaining += ${logUsed}`);
+
+                // Status update logic needs to be based on the *new* remaining length after the update.
+                // We'll determine this after the update returns the new cable state.
+                // For now, we can set a default or infer based on current state.
+                // If the cable was 'used_up' and we're restoring length, it should go back to 'assigned' or 'in_stock'.
+                // If it was already 'assigned' and we're restoring length, it stays 'assigned'.
+                // We'll refine the status after getting the updatedCable.
+                // For now, we can assume it will be 'assigned' if it had a team, or 'in_stock' otherwise,
+                // unless it remains used_up.
+                // This will be handled by checking `updatedCable.remainingLength` after the update.
             } else if (log.logType === 'return') {
                 // 반납 취소 -> 다시 assigned 상태로, 팀도 복구해야 함.
                 if (log.teamId) {
@@ -503,13 +519,59 @@ export class OpticalStorage {
                 updates.currentTeamId = null;
             }
 
-            // Update Cable
-            await tx.update(opticalCables)
+            // Update Cable with Verification
+            console.log(`[DELETE LOG] Executing safe update...`);
+            const [updatedCable] = await tx.update(opticalCables)
                 .set(updates)
-                .where(eq(opticalCables.id, cable.id));
+                .where(eq(opticalCables.id, cable.id))
+                .returning();
+
+            if (!updatedCable) {
+                console.error(`[DELETE LOG] FATAL: Update failed, cable not returned.`);
+                throw new Error("Critical Error: Failed to update cable state.");
+            }
+
+            // SELF-VERIFICATION: Did the DB accept our values?
+            // Note: Since we used SQL expressions, exact equality check might be tricky if DB returns strings vs numbers
+            // But getting the updated object is good enough to verify it's not null.
+            // We can also check consistency: Used + Remaining roughly equals Total?
+
+            // For 'usage' log type, we need to update the status based on the new remaining length
+            if (log.logType === 'usage') {
+                let newStatus = updatedCable.status;
+                if (updatedCable.remainingLength && updatedCable.remainingLength > 0) {
+                    // If remaining length is now positive, it's no longer 'used_up'
+                    newStatus = updatedCable.currentTeamId ? 'assigned' : 'in_stock';
+                } else {
+                    newStatus = 'used_up'; // Still used up or became used up
+                }
+
+                // If the status needs to change, perform another update
+                if (newStatus !== updatedCable.status) {
+                    await tx.update(opticalCables)
+                        .set({ status: newStatus, updatedAt: new Date() })
+                        .where(eq(opticalCables.id, updatedCable.id));
+                    updatedCable.status = newStatus; // Update local object for consistent logging
+                }
+
+                // teamId 복구: 로그에 기록된 팀으로 복구하되,
+                // 현재 다른 팀이 사용 중이라면('assigned' 상태이고 currentTeamId가 다름) 덮어쓰지 않음.
+                // 즉, 'used_up' 상태였거나, 주인이 없는 상태('in_stock' 등??), 또는 주인이 같은 경우에만 복구.
+                if (log.teamId && updatedCable.remainingLength && updatedCable.remainingLength > 0) {
+                    if (updatedCable.status === 'used_up' || !updatedCable.currentTeamId || updatedCable.currentTeamId === log.teamId) {
+                        await tx.update(opticalCables)
+                            .set({ currentTeamId: log.teamId, updatedAt: new Date() })
+                            .where(eq(opticalCables.id, updatedCable.id));
+                        updatedCable.currentTeamId = log.teamId; // Update local object
+                    }
+                }
+            }
+
+            console.log(`[DELETE LOG] ✅ SQL Update executed. New state: Used=${updatedCable.usedLength}, Waste=${updatedCable.wasteLength}, Rem=${updatedCable.remainingLength}`);
 
             // 4. Delete log
             const result = await tx.delete(opticalCableLogs).where(eq(opticalCableLogs.id, id)).returning();
+            console.log(`[DELETE LOG] Log deleted successfully: ${id}`);
             return result.length > 0;
         });
     }
@@ -590,14 +652,29 @@ export class OpticalStorage {
             const results = [];
 
             for (const item of items) {
-                // Find cable by drumNo
-                const [cable] = await tx.select()
-                    .from(opticalCables)
-                    .where(and(
-                        eq(opticalCables.tenantId, tenantId),
-                        eq(opticalCables.drumNo, item.drumNo)
-                    ))
-                    .limit(1);
+                // Find cable by managementNo (priority) or drumNo
+                let cable;
+                if (item.managementNo) {
+                    [cable] = await tx.select()
+                        .from(opticalCables)
+                        .where(and(
+                            eq(opticalCables.tenantId, tenantId),
+                            eq(opticalCables.managementNo, item.managementNo)
+                        ))
+                        .limit(1);
+
+                    if (!cable) {
+                        throw new Error(`관리번호 '${item.managementNo}'에 해당하는 케이블을 찾을 수 없습니다.`);
+                    }
+                } else {
+                    [cable] = await tx.select()
+                        .from(opticalCables)
+                        .where(and(
+                            eq(opticalCables.tenantId, tenantId),
+                            eq(opticalCables.drumNo, item.drumNo)
+                        ))
+                        .limit(1);
+                }
 
                 if (!cable) {
                     throw new Error(`케이블을 찾을 수 없습니다: ${item.drumNo}`);
