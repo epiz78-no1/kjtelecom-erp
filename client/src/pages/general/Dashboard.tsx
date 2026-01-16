@@ -93,18 +93,6 @@ export default function Dashboard() {
   // Sort by lastActivity desc
   filteredTeams.sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
 
-  // Debug logging for team activity
-  useEffect(() => {
-    if (teams.length > 0) {
-      console.log('[DASHBOARD DEBUG] Teams data:', teams.map(t => ({
-        name: t.name,
-        lastActivity: t.lastActivity,
-        memberCount: t.memberCount,
-        isActive: t.isActive
-      })));
-    }
-  }, [teams]);
-
   const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
 
   const totalRemaining = filteredInventory.reduce((sum, item) => sum + (item.remaining || 0), 0);

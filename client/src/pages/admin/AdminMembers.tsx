@@ -188,14 +188,10 @@ export default function AdminMembers() {
 
     const updateMemberMutation = useMutation({
         mutationFn: async ({ userId, data }: { userId: string; data: any }) => {
-            console.log("[CLIENT] Updating member:", userId, "with data:", data);
             const result = await apiRequest("PATCH", `/api/admin/members/${userId}`, data);
-            console.log("[CLIENT] Update result:", result);
             return result;
         },
         onSuccess: async (data, variables) => {
-            console.log("[CLIENT] Update success");
-            console.log("[CLIENT] Updated data:", variables.data);
             toast({
                 title: "멤버 정보 수정 완료",
                 description: `상태: ${variables.data.status || '변경없음'}`

@@ -401,15 +401,12 @@ export class OpticalStorage {
     }
 
     async deleteOpticalCableLog(id: string, tenantId: string): Promise<boolean> {
-        console.log(`[DELETE LOG] Starting deletion for log ID: ${id}`);
         return await db.transaction(async (tx) => {
             // 1. Get log to be deleted
             const [log] = await tx.select().from(opticalCableLogs).where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)));
             if (!log) {
-                console.log(`[DELETE LOG] Log not found: ${id}`);
                 return false;
             }
-            console.log(`[DELETE LOG] Found log - Type: ${log.logType}, UsedLength: ${log.usedLength}, WasteLength: ${log.wasteLength}`);
 
             // 2. Get associated cable
             const [cable] = await tx.select().from(opticalCables).where(eq(opticalCables.id, log.cableId));
@@ -417,7 +414,6 @@ export class OpticalStorage {
                 console.error(`[DELETE LOG] Cable not found for log: ${id}, cableId: ${log.cableId}`);
                 throw new Error("Cable not found");
             }
-            console.log(`[DELETE LOG] Cable before deletion - DrumNo: ${cable.drumNo}, Used: ${cable.usedLength}, Waste: ${cable.wasteLength}, Remaining: ${cable.remainingLength}`);
 
             // 3. Rollback logic based on log type
             let updates: any = {
@@ -457,9 +453,6 @@ export class OpticalStorage {
                 updates.wasteLength = sql`GREATEST(0, ${opticalCables.wasteLength} - ${logWaste})`;
                 updates.remainingLength = sql`${opticalCables.remainingLength} + ${logUsed}`; // remaining increases as used decreases
 
-                console.log(`[DELETE LOG] Atomic Update Planned:`);
-                console.log(`  Used -= ${logUsed}, Waste -= ${logWaste}, Remaining += ${logUsed}`);
-
                 // Status update logic needs to be based on the *new* remaining length after the update.
                 // We'll determine this after the update returns the new cable state.
                 // For now, we can set a default or infer based on current state.
@@ -482,7 +475,6 @@ export class OpticalStorage {
             }
 
             // Update Cable with Verification
-            console.log(`[DELETE LOG] Executing safe update...`);
             const [updatedCable] = await tx.update(opticalCables)
                 .set(updates)
                 .where(eq(opticalCables.id, cable.id))
@@ -529,11 +521,10 @@ export class OpticalStorage {
                 }
             }
 
-            console.log(`[DELETE LOG] ✅ SQL Update executed. New state: Used=${updatedCable.usedLength}, Waste=${updatedCable.wasteLength}, Rem=${updatedCable.remainingLength}`);
+
 
             // 4. Delete log
             const result = await tx.delete(opticalCableLogs).where(eq(opticalCableLogs.id, id)).returning();
-            console.log(`[DELETE LOG] Log deleted successfully: ${id}`);
             return result.length > 0;
         });
     }
