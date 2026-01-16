@@ -73,5 +73,6 @@ export const incomingColumns: BulkUploadColumn<ParsedIncomingRow>[] = [
     { header: "품명", width: "w-[120px]", render: (item) => <div className="truncate max-w-[120px]">{item.productName}</div> },
     { header: "규격", width: "w-[120px]", render: (item) => <div className="truncate max-w-[120px]">{item.specification}</div> },
     { header: "수량", width: "w-[70px]", align: 'right', render: (item) => item.quantity.toLocaleString() },
+    { header: "단가", width: "w-[90px]", align: 'right', render: (item) => item.unitPrice.toLocaleString() },
     { header: "비고", width: "w-[100px]", render: (item) => <div className="truncate max-w-[100px]">{item.remark}</div> },
 ];

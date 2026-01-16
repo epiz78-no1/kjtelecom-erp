@@ -55,7 +55,7 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
       staleTime: 30 * 60 * 1000, // 30분: 데이터 신선도 유지 기간 (데이터 절약)
       retry: false,
     },

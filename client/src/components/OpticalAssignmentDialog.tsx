@@ -45,13 +45,19 @@ import { Calendar } from "@/components/ui/calendar";
 interface Props {
     trigger?: React.ReactNode;
     initialCableId?: string | null;
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export default function OpticalAssignmentDialog({ trigger, initialCableId }: Props) {
-    const [open, setOpen] = useState(false);
+export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpen: controlledOpen, onOpenChange: controlledOnOpenChange }: Props) {
+    const [internalOpen, setInternalOpen] = useState(false);
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const { teams } = useAppContext();
+
+    // Use controlled state if provided, otherwise use internal state
+    const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+    const setOpen = controlledOnOpenChange || setInternalOpen;
 
     const [formData, setFormData] = useState({
         cableId: initialCableId || "",
@@ -71,7 +77,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
         queryKey: ["/api/optical-cables"],
     });
 
-    const { data: members = [] } = useQuery<any[]>({
+    const { data: members = [], refetch: refetchMembers } = useQuery<any[]>({
         queryKey: ["/api/admin/members"],
         retry: false,
     });
@@ -81,10 +87,14 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
     const teamMembers = members.filter((m: any) => m.teamId === formData.teamId);
 
     useEffect(() => {
-        if (open && initialCableId) {
-            setFormData(prev => ({ ...prev, cableId: initialCableId }));
+        if (open) {
+            // Refetch members when dialog opens to get latest team assignments
+            refetchMembers();
+            if (initialCableId) {
+                setFormData(prev => ({ ...prev, cableId: initialCableId }));
+            }
         }
-    }, [open, initialCableId]);
+    }, [open, initialCableId, refetchMembers]);
 
     const mutation = useMutation({
         mutationFn: async () => {
@@ -172,9 +182,11 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId }: Pro
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {trigger || <Button>신규 출고 등록</Button>}
-            </DialogTrigger>
+            {trigger && (
+                <DialogTrigger asChild>
+                    {trigger}
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[700px] sm:max-h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>신규 출고 등록 (팀 할당)</DialogTitle>

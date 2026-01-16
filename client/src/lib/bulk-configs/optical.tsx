@@ -32,7 +32,7 @@ export const downloadOpticalTemplate = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "optical_cable_template.csv";
+    a.download = "optical_incoming_template.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

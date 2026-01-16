@@ -1,10 +1,10 @@
-import { Download, Search, Loader2, Cable, MoreHorizontal, ArrowLeftRight, Trash2 } from "lucide-react";
+import { Download, Loader2, Cable, MoreHorizontal, ArrowLeftRight, Trash2, X } from "lucide-react";
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { exportToExcel } from "@/lib/excel";
 import { useTableFilters } from "@/hooks/useTableFilters";
@@ -34,6 +34,7 @@ import {
 
 export default function FieldOpticalStatus() {
     const { tenants, currentTenant, divisions, teams: allTeams, checkPermission } = useAppContext();
+    const queryClient = useQueryClient();
     const canWrite = checkPermission("usage", "write");
 
     const currentTenantData = tenants.find(t => t.id === currentTenant);
@@ -88,6 +89,7 @@ export default function FieldOpticalStatus() {
             productName: cable.productName,
             remainingLength: cable.remainingLength,
             currentTeamId: cable.currentTeamId,
+            status: cable.status, // 상태 추가
             returnRequestStatus: cable.returnRequestStatus // 반납 요청 상태 추가
         };
     });
@@ -116,6 +118,33 @@ export default function FieldOpticalStatus() {
         setSelectedCable(cable);
         setActionType(type);
         setActionOpen(true);
+    };
+
+    // 반납 취소 mutation
+    const { mutate: cancelReturnRequest, isPending: isCanceling } = useMutation({
+        mutationFn: async (cableId: string) => {
+            const response = await fetch(`/api/optical-cables/${cableId}/cancel-return`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to cancel return request');
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+        },
+        onError: (error: Error) => {
+            alert(`반납 취소 실패: ${error.message}`);
+        }
+    });
+
+    const handleCancelReturn = (cableId: string) => {
+        if (confirm('반납 신청을 취소하시겠습니까?')) {
+            cancelReturnRequest(cableId);
+        }
     };
 
     const uniqueDivisions = ["전체", ...Array.from(new Set(allStockItems.map(item => item.division))).filter(Boolean)];
@@ -185,6 +214,7 @@ export default function FieldOpticalStatus() {
                             return division?.name === selectedDivision;
                         })
                         .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
+                        .slice(0, 4)
                         .map((team: any) => {
                             // Calculate current cable count for this team
                             const teamCableCount = allStockItems.filter(item => item.teamCategory === team.name).length;
@@ -200,15 +230,12 @@ export default function FieldOpticalStatus() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="제조번호, 규격, 팀명 검색..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
+                    <SearchInput
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="제조번호, 규격, 팀명 검색..."
+                        className="flex-1 max-w-sm"
+                    />
                     <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                         <SelectTrigger className="w-48">
                             <SelectValue placeholder="팀 선택" />
@@ -298,28 +325,40 @@ export default function FieldOpticalStatus() {
                                 </TableRow>
                             ) : (
                                 filteredStock.map((item) => (
-                                    <TableRow key={item.id} className="h-6 [&_td]:py-0 hover:bg-muted/50">
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.division}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{item.teamCategory}</TableCell>
-                                        <TableCell className="align-middle p-0">
-                                            <div className="w-full truncate text-center mx-auto" title={item.productName}>
-                                                {item.productName}
-                                            </div>
+                                    <TableRow key={item.id} className="h-10 hover:bg-muted/50">
+                                        <TableCell className="text-center align-middle p-2">
+                                            <div className="w-full truncate font-medium" title={item.division}>{item.division}</div>
                                         </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{item.drumNo}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{item.spec}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{item.coreCount}</TableCell>
-                                        <TableCell className="text-center align-middle font-bold">
+                                        <TableCell className="text-center align-middle p-2">
+                                            <div className="w-full truncate" title={item.teamCategory}>{item.teamCategory}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle p-2">
+                                            <div className="w-full truncate" title={item.productName}>{item.productName}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle p-2">
+                                            <div className="w-full truncate font-medium" title={item.drumNo}>{item.drumNo}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle p-2">
+                                            <div className="w-full truncate" title={item.spec}>{item.spec}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle p-2">
+                                            <div className="w-full truncate" title={String(item.coreCount)}>{item.coreCount}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle font-bold p-2">
                                             {item.remainingLength.toLocaleString()}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle">
-                                            {item.returnRequestStatus === 'pending' && (
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        <TableCell className="text-center align-middle px-2 py-1">
+                                            {item.returnRequestStatus === 'pending' ? (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                                     반납 대기
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {item.status === 'assigned' ? '보유중' : item.status === 'in_stock' ? '재고' : item.status === 'used_up' ? '사용완료' : item.status === 'returned' ? '반납' : item.status === 'waste' ? '폐기' : item.status}
                                                 </span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="text-center align-middle px-2 py-1">
                                             {canAction && (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -328,10 +367,19 @@ export default function FieldOpticalStatus() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleOpenAction(item, 'return')}>
-                                                            <ArrowLeftRight className="mr-2 h-4 w-4" />
-                                                            사무실 반납
-                                                        </DropdownMenuItem>
+                                                        {item.returnRequestStatus === 'pending' ? (
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleCancelReturn(item.id)}
+                                                            >
+                                                                <X className="mr-2 h-4 w-4" />
+                                                                반납 취소
+                                                            </DropdownMenuItem>
+                                                        ) : (
+                                                            <DropdownMenuItem onClick={() => handleOpenAction(item, 'return')}>
+                                                                <ArrowLeftRight className="mr-2 h-4 w-4" />
+                                                                사무실 반납
+                                                            </DropdownMenuItem>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             )}

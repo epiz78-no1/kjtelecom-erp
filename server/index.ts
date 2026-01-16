@@ -65,7 +65,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    // maxAge 제거: 브라우저 종료 시 세션 만료 (Session Cookie)
     httpOnly: true,
     secure: false, // FIXME: Revert to 'process.env.NODE_ENV === "production"' after diagnosing login issue
     sameSite: 'lax'
@@ -101,7 +101,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      if (capturedJsonResponse && process.env.NODE_ENV !== 'production') {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 

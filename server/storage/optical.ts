@@ -5,7 +5,8 @@ import {
     opticalCables, opticalCableLogs, teams
 } from "../../shared/schema.js";
 import { db } from "../db.js";
-import { eq, and, desc, asc, inArray, getTableColumns, sql } from "drizzle-orm";
+import { eq, ne, and, desc, asc, inArray, getTableColumns, sql } from "drizzle-orm";
+import { getOpticalAttachmentsSql } from "../utils/attachmentSql.js";
 
 export class OpticalStorage {
     async getOpticalCables(tenantId: string): Promise<(OpticalCable & { currentTeam: Team | null })[]> {
@@ -26,18 +27,21 @@ export class OpticalStorage {
 
     async createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable> {
         return await db.transaction(async (tx) => {
-            // 중복 체크: 같은 사업(division) + 제조번호(drumNo) 조합이 이미 존재하는지 확인
+            // 중복 체크: 사업(division) + 제조년도(manufactureYear) + 제조번호(drumNo) 조합이 이미 존재하는지 확인
             const existing = await tx.select()
                 .from(opticalCables)
                 .where(and(
                     eq(opticalCables.tenantId, tenantId),
+                    ne(opticalCables.status, 'waste'),
                     eq(opticalCables.division, cable.division || ''),
+                    eq(opticalCables.category, cable.category || ''),
+                    eq(opticalCables.productName, cable.productName.toString()),
                     eq(opticalCables.drumNo, cable.drumNo)
                 ))
                 .limit(1);
 
             if (existing.length > 0) {
-                throw new Error(`이미 등록된 제조번호입니다. [${cable.division}] ${cable.drumNo}`);
+                throw new Error(`이미 등록된 케이블입니다. [${cable.division}] ${cable.manufactureYear || '연도미상'} - ${cable.drumNo}`);
             }
 
             const [newCable] = await tx.insert(opticalCables).values({
@@ -103,18 +107,63 @@ export class OpticalStorage {
     async createOpticalCablesBulk(cables: InsertOpticalCable[], tenantId: string): Promise<OpticalCable[]> {
         if (cables.length === 0) return [];
 
-        // Enrich with tenantId if missing (though insert type usually expects it or we manually map)
-        const cablesWithTenant = cables.map(c => ({
-            ...c,
-            tenantId
-        }));
+        return await db.transaction(async (tx) => {
+            // Enrich with tenantId
+            const cablesWithTenant = cables.map(c => ({
+                ...c,
+                tenantId
+            }));
 
-        return await db.insert(opticalCables).values(cablesWithTenant).returning();
+            // Enforce uniqueness check manually since DB constraint is missing
+            const inputDrumNos = cables.map(c => c.drumNo);
+            if (inputDrumNos.length > 0) {
+                const candidates = await tx.select().from(opticalCables)
+                    .where(and(
+                        eq(opticalCables.tenantId, tenantId),
+                        ne(opticalCables.status, 'waste'),
+                        inArray(opticalCables.drumNo, inputDrumNos)
+                    ));
+
+                // Check for collisions (division + category + productName + drumNo)
+                const existingSet = new Set(candidates.map(c => `${c.division || ''}-${c.category || ''}-${c.productName}-${c.drumNo}`));
+
+                const duplicates = cables.filter(c => existingSet.has(`${c.division || ''}-${c.category || ''}-${c.productName}-${c.drumNo}`));
+
+                if (duplicates.length > 0) {
+                    const dupMsg = duplicates.map(d => `${d.drumNo}[${d.division || '-'}/${d.category || '-'}/${d.productName}]`).slice(0, 5).join(', ');
+                    throw new Error(`중복된 케이블이 존재합니다: ${dupMsg}${duplicates.length > 5 ? ' 외 ' + (duplicates.length - 5) + '건' : ''}`);
+                }
+            }
+
+            const insertedCables = await tx.insert(opticalCables).values(cablesWithTenant).returning();
+
+            // Create 'create' logs for each inserted cable
+            if (insertedCables.length > 0) {
+                const logs = insertedCables.map(newCable => ({
+                    cableId: newCable.id,
+                    logType: 'create',
+                    usageDate: newCable.receivedDate || new Date().toISOString().split('T')[0],
+                    afterRemaining: newCable.remainingLength,
+                    attributes: newCable.attributes,
+                    tenantId,
+                    createdBy: newCable.createdBy
+                }));
+
+                await tx.insert(opticalCableLogs).values(logs);
+            }
+
+            return insertedCables;
+        });
     }
 
     async bulkDeleteOpticalCables(ids: string[], tenantId: string): Promise<void> {
         if (ids.length === 0) return;
-        await db.delete(opticalCables)
+        await db.update(opticalCables)
+            .set({
+                status: 'waste',
+                currentTeamId: null,
+                updatedAt: new Date()
+            })
             .where(and(
                 inArray(opticalCables.id, ids),
                 eq(opticalCables.tenantId, tenantId)
@@ -129,46 +178,7 @@ export class OpticalStorage {
         const logs = await db.select({
             ...getTableColumns(opticalCableLogs),
             createdByName: users.name,
-            attributes: sql<string>`
-                CASE 
-                    WHEN length(${opticalCableLogs.attributes}) < 1000 THEN ${opticalCableLogs.attributes}
-                    ELSE 
-                        (
-                            SELECT jsonb_set(
-                                jsonb_set(
-                                    ${opticalCableLogs.attributes}::jsonb,
-                                    '{attachments}',
-                                    COALESCE(
-                                        (
-                                            SELECT jsonb_agg(elem - 'data')
-                                            FROM jsonb_array_elements(
-                                                CASE 
-                                                    WHEN ${opticalCableLogs.attributes}::jsonb ? 'attachments' 
-                                                    THEN ${opticalCableLogs.attributes}::jsonb -> 'attachments'
-                                                    ELSE '[]'::jsonb 
-                                                END
-                                            ) elem
-                                        ),
-                                        '[]'::jsonb
-                                    )
-                                ),
-                                '{wastePhotos}',
-                                COALESCE(
-                                    (
-                                        SELECT jsonb_agg(elem - 'data')
-                                        FROM jsonb_array_elements(
-                                            CASE 
-                                                WHEN ${opticalCableLogs.attributes}::jsonb ? 'wastePhotos' 
-                                                THEN ${opticalCableLogs.attributes}::jsonb -> 'wastePhotos'
-                                                ELSE '[]'::jsonb 
-                                            END
-                                        ) elem
-                                    ),
-                                    '[]'::jsonb
-                                )
-                            ) - 'data' #- '{attachment,data}'
-                        )::text
-                END`
+            attributes: getOpticalAttachmentsSql(opticalCableLogs.attributes)
         })
             .from(opticalCableLogs)
             .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
@@ -319,11 +329,10 @@ export class OpticalStorage {
 
     async bulkDeleteOpticalCableLogs(ids: string[], tenantId: string): Promise<void> {
         if (ids.length === 0) return;
-        await db.delete(opticalCableLogs)
-            .where(and(
-                inArray(opticalCableLogs.id, ids),
-                eq(opticalCableLogs.tenantId, tenantId)
-            ));
+        // Iterate to ensure state rollback logic in deleteOpticalCableLog is applied
+        for (const id of ids) {
+            await this.deleteOpticalCableLog(id, tenantId);
+        }
     }
 
     async createOpticalCableLog(log: InsertOpticalCableLog, tenantId: string): Promise<OpticalCable> {
@@ -352,12 +361,15 @@ export class OpticalStorage {
             } else if (log.logType === 'usage') {
                 // 사용: 잔량 차감 (Incremental)
                 const usageAmount = (log.installLength || 0) + (log.wasteLength || 0);
+                const wasteAmount = (log.wasteLength || 0);
 
                 finalUsed += usageAmount;
                 finalRemaining = finalRemaining - usageAmount;
+                const finalWaste = (cable.wasteLength || 0) + wasteAmount;
 
                 updates.usedLength = finalUsed;
                 updates.remainingLength = finalRemaining;
+                updates.wasteLength = finalWaste;
 
                 // 잔량이 0 이하면 자동 폐기 처리
                 if (finalRemaining <= 0) {
@@ -377,6 +389,8 @@ export class OpticalStorage {
             // 4. Create Log
             await tx.insert(opticalCableLogs).values({
                 ...log,
+                // 날짜 포맷 표준화 (YYYY-MM-DD)
+                usageDate: log.usageDate ? (typeof log.usageDate === 'string' ? log.usageDate.split('T')[0] : new Date(log.usageDate).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
                 tenantId,
                 // 사용(usage)인 경우에만 계산된 값 사용, 나머지는 0
                 usedLength: log.logType === 'usage' ? ((log.installLength || 0) + (log.wasteLength || 0)) : 0,
@@ -392,40 +406,64 @@ export class OpticalStorage {
         return await db.transaction(async (tx) => {
             // 1. Get log to be deleted
             const [log] = await tx.select().from(opticalCableLogs).where(and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)));
-            if (!log) return false;
+            if (!log) {
+                return false;
+            }
 
             // 2. Get associated cable
             const [cable] = await tx.select().from(opticalCables).where(eq(opticalCables.id, log.cableId));
-            if (!cable) throw new Error("Cable not found");
+            if (!cable) {
+                console.error(`[DELETE LOG] Cable not found for log: ${id}, cableId: ${log.cableId}`);
+                throw new Error("Cable not found");
+            }
 
             // 3. Rollback logic based on log type
             let updates: any = {
                 updatedAt: new Date(),
                 returnRequestStatus: 'none' // Reset return request status when deleting a log
             };
+            if (['create', 'incoming', 'receive'].includes(log.logType)) {
+                // 입고 내역 삭제 시: 관련된 다른 이력(불출, 사용 등)이 없는 경우에만 자재와 함께 삭제
+                const otherLogs = await tx.select({ id: opticalCableLogs.id }).from(opticalCableLogs)
+                    .where(and(
+                        eq(opticalCableLogs.cableId, cable.id),
+                        ne(opticalCableLogs.id, id)
+                    ))
+                    .limit(1);
+
+                if (otherLogs.length > 0) {
+                    throw new Error("이미 사용 또는 불출 이력이 존재하는 자재의 입고 내역은 삭제할 수 없습니다.");
+                }
+
+                // 다른 이력이 없으면 자재 자체를 삭제 (Cascade로 인해 이 로그도 함께 삭제됨)
+                await tx.delete(opticalCables).where(eq(opticalCables.id, cable.id));
+                return true;
+            }
+
             if (log.logType === 'assign') {
                 // 출고 취소 -> 반납됨(창고로 복귀) 상태로 변경이 아니라, 아예 출고가 없던 상태로 복구
                 updates.status = 'in_stock';
                 updates.currentTeamId = null;
             } else if (log.logType === 'usage') {
                 // 사용 취소 -> 사용량 차감 복구, 잔량 복구
-                const restoredRemaining = (cable.remainingLength || 0) + (log.usedLength || 0);
-                const restoredUsed = (cable.usedLength || 0) - (log.usedLength || 0);
+                const logUsed = Number(log.usedLength ?? 0);
+                const logWaste = Number(log.wasteLength ?? 0);
 
-                updates.usedLength = restoredUsed;
-                updates.remainingLength = restoredRemaining;
-                // 잔량이 생기면 다시 assigned 상태로 (팀 보유 중이었을 테니)
-                // currentTeamId는 유지 (이미 불출된 상태였으므로)
-                updates.status = restoredRemaining > 0 ? 'assigned' : 'used_up';
-                // teamId 복구: 로그에 기록된 팀으로 복구
-                // teamId 복구: 로그에 기록된 팀으로 복구하되,
-                // 현재 다른 팀이 사용 중이라면('assigned' 상태이고 currentTeamId가 다름) 덮어쓰지 않음.
-                // 즉, 'used_up' 상태였거나, 주인이 없는 상태('in_stock' 등??), 또는 주인이 같은 경우에만 복구.
-                if (log.teamId && restoredRemaining > 0) {
-                    if (cable.status === 'used_up' || !cable.currentTeamId || cable.currentTeamId === log.teamId) {
-                        updates.currentTeamId = log.teamId;
-                    }
-                }
+                // Atomic Update Logic
+                // Use SQL expressions to ensure atomicity and handle race conditions.
+                updates.usedLength = sql`GREATEST(0, ${opticalCables.usedLength} - ${logUsed})`;
+                updates.wasteLength = sql`GREATEST(0, ${opticalCables.wasteLength} - ${logWaste})`;
+                updates.remainingLength = sql`${opticalCables.remainingLength} + ${logUsed}`; // remaining increases as used decreases
+
+                // Status update logic needs to be based on the *new* remaining length after the update.
+                // We'll determine this after the update returns the new cable state.
+                // For now, we can set a default or infer based on current state.
+                // If the cable was 'used_up' and we're restoring length, it should go back to 'assigned' or 'in_stock'.
+                // If it was already 'assigned' and we're restoring length, it stays 'assigned'.
+                // We'll refine the status after getting the updatedCable.
+                // For now, we can assume it will be 'assigned' if it had a team, or 'in_stock' otherwise,
+                // unless it remains used_up.
+                // This will be handled by checking `updatedCable.remainingLength` after the update.
             } else if (log.logType === 'return') {
                 // 반납 취소 -> 다시 assigned 상태로, 팀도 복구해야 함.
                 if (log.teamId) {
@@ -438,10 +476,54 @@ export class OpticalStorage {
                 updates.currentTeamId = null;
             }
 
-            // Update Cable
-            await tx.update(opticalCables)
+            // Update Cable with Verification
+            const [updatedCable] = await tx.update(opticalCables)
                 .set(updates)
-                .where(eq(opticalCables.id, cable.id));
+                .where(eq(opticalCables.id, cable.id))
+                .returning();
+
+            if (!updatedCable) {
+                console.error(`[DELETE LOG] FATAL: Update failed, cable not returned.`);
+                throw new Error("Critical Error: Failed to update cable state.");
+            }
+
+            // SELF-VERIFICATION: Did the DB accept our values?
+            // Note: Since we used SQL expressions, exact equality check might be tricky if DB returns strings vs numbers
+            // But getting the updated object is good enough to verify it's not null.
+            // We can also check consistency: Used + Remaining roughly equals Total?
+
+            // For 'usage' log type, we need to update the status based on the new remaining length
+            if (log.logType === 'usage') {
+                let newStatus = updatedCable.status;
+                if (updatedCable.remainingLength && updatedCable.remainingLength > 0) {
+                    // If remaining length is now positive, it's no longer 'used_up'
+                    newStatus = updatedCable.currentTeamId ? 'assigned' : 'in_stock';
+                } else {
+                    newStatus = 'used_up'; // Still used up or became used up
+                }
+
+                // If the status needs to change, perform another update
+                if (newStatus !== updatedCable.status) {
+                    await tx.update(opticalCables)
+                        .set({ status: newStatus, updatedAt: new Date() })
+                        .where(eq(opticalCables.id, updatedCable.id));
+                    updatedCable.status = newStatus; // Update local object for consistent logging
+                }
+
+                // teamId 복구: 로그에 기록된 팀으로 복구하되,
+                // 현재 다른 팀이 사용 중이라면('assigned' 상태이고 currentTeamId가 다름) 덮어쓰지 않음.
+                // 즉, 'used_up' 상태였거나, 주인이 없는 상태('in_stock' 등??), 또는 주인이 같은 경우에만 복구.
+                if (log.teamId && updatedCable.remainingLength && updatedCable.remainingLength > 0) {
+                    if (updatedCable.status === 'used_up' || !updatedCable.currentTeamId || updatedCable.currentTeamId === log.teamId) {
+                        await tx.update(opticalCables)
+                            .set({ currentTeamId: log.teamId, updatedAt: new Date() })
+                            .where(eq(opticalCables.id, updatedCable.id));
+                        updatedCable.currentTeamId = log.teamId; // Update local object
+                    }
+                }
+            }
+
+
 
             // 4. Delete log
             const result = await tx.delete(opticalCableLogs).where(eq(opticalCableLogs.id, id)).returning();
@@ -517,4 +599,94 @@ export class OpticalStorage {
             return updatedCable;
         });
     }
+
+    async bulkAssignOpticalCables(items: any[], tenantId: string, userId: string): Promise<any[]> {
+        if (items.length === 0) return [];
+
+        return await db.transaction(async (tx) => {
+            const results = [];
+
+            for (const item of items) {
+                // Find cable by managementNo (priority) or drumNo
+                let cable;
+                if (item.managementNo) {
+                    [cable] = await tx.select()
+                        .from(opticalCables)
+                        .where(and(
+                            eq(opticalCables.tenantId, tenantId),
+                            eq(opticalCables.managementNo, item.managementNo)
+                        ))
+                        .limit(1);
+
+                    if (!cable) {
+                        throw new Error(`관리번호 '${item.managementNo}'에 해당하는 케이블을 찾을 수 없습니다.`);
+                    }
+                } else {
+                    [cable] = await tx.select()
+                        .from(opticalCables)
+                        .where(and(
+                            eq(opticalCables.tenantId, tenantId),
+                            eq(opticalCables.drumNo, item.drumNo)
+                        ))
+                        .limit(1);
+                }
+
+                if (!cable) {
+                    throw new Error(`케이블을 찾을 수 없습니다: ${item.drumNo}`);
+                }
+
+                if (cable.status !== 'in_stock') {
+                    throw new Error(`케이블이 출고 가능한 상태가 아닙니다: ${item.drumNo} (현재 상태: ${cable.status})`);
+                }
+
+                // Find team by name
+                const [team] = await tx.select()
+                    .from(teams)
+                    .where(and(
+                        eq(teams.tenantId, tenantId),
+                        eq(teams.name, item.teamName)
+                    ))
+                    .limit(1);
+
+                if (!team) {
+                    throw new Error(`팀을 찾을 수 없습니다: ${item.teamName}`);
+                }
+
+                // Update cable status
+                const [updatedCable] = await tx.update(opticalCables)
+                    .set({
+                        currentTeamId: team.id,
+                        status: 'assigned',
+                        updatedAt: new Date()
+                    })
+                    .where(eq(opticalCables.id, cable.id))
+                    .returning();
+
+                // Create assignment log
+                await tx.insert(opticalCableLogs).values({
+                    cableId: cable.id,
+                    logType: 'assign',
+                    teamId: team.id,
+                    usageDate: item.date ? (typeof item.date === 'string' ? item.date.split('T')[0] : new Date(item.date).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
+                    projectCode: item.projectCode,
+                    projectNameUsage: item.projectName,
+                    workerName: item.recipient,
+                    beforeRemaining: cable.remainingLength,
+                    afterRemaining: cable.remainingLength,
+                    usedLength: 0,
+                    attributes: JSON.stringify({
+                        recipient: item.recipient,
+                        remark: item.remark || undefined
+                    }),
+                    tenantId,
+                    createdBy: userId
+                });
+
+                results.push(updatedCable);
+            }
+
+            return results;
+        });
+    }
 }
+

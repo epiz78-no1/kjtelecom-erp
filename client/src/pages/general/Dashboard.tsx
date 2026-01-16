@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Package, ShoppingCart, Users, AlertTriangle } from "lucide-react";
@@ -54,7 +55,7 @@ export default function Dashboard() {
   const stockMap = new Map<string, any>();
 
   outgoingRecords.forEach(record => {
-    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    const key = `${record.division}| ${record.teamCategory}| ${record.productName}| ${record.specification} `;
     if (!stockMap.has(key)) {
       stockMap.set(key, {
         id: key,
@@ -69,7 +70,7 @@ export default function Dashboard() {
   });
 
   usageRecords.forEach(record => {
-    const key = `${record.division}|${record.teamCategory}|${record.productName}|${record.specification}`;
+    const key = `${record.division}| ${record.teamCategory}| ${record.productName}| ${record.specification} `;
     if (stockMap.has(key)) {
       stockMap.get(key).quantity -= record.quantity;
     }
@@ -91,18 +92,6 @@ export default function Dashboard() {
 
   // Sort by lastActivity desc
   filteredTeams.sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
-
-  // Debug logging for team activity
-  useEffect(() => {
-    if (teams.length > 0) {
-      console.log('[DASHBOARD DEBUG] Teams data:', teams.map(t => ({
-        name: t.name,
-        lastActivity: t.lastActivity,
-        memberCount: t.memberCount,
-        isActive: t.isActive
-      })));
-    }
-  }, [teams]);
 
   const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
 
@@ -157,7 +146,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="총 재고 금액"
-          value={`₩${totalAmount.toLocaleString()}`}
+          value={`₩${totalAmount.toLocaleString()} `}
           icon={ShoppingCart}
           description="현재 재고 기준"
         />
@@ -201,7 +190,7 @@ export default function Dashboard() {
                   </TableRow>
                 ) : (
                   categoryList.map((cat) => (
-                    <TableRow key={cat.name} data-testid={`row-category-${cat.name}`} className="h-10">
+                    <TableRow key={cat.name} data-testid={`row - category - ${cat.name} `} className="h-10">
                       <TableCell className="font-medium">{cat.name}</TableCell>
                       <TableCell className="text-right">{cat.count}개</TableCell>
                       <TableCell className="text-right">{cat.quantity.toLocaleString()}</TableCell>

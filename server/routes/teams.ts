@@ -73,8 +73,9 @@ export function registerTeamsRoutes(app: Express) {
 
         const usageRecords = await storage.getMaterialUsageRecords(tenantId);
         const outgoingRecords = await storage.getOutgoingRecords(tenantId);
+        const opticalLogs = await storage.getAllOpticalCableLogs(tenantId);
 
-        console.log(`[TEAM ACTIVITY DEBUG] Total teams: ${teamList.length}, Usage records: ${usageRecords.length}, Outgoing records: ${outgoingRecords.length}`);
+        console.log(`[TEAM ACTIVITY DEBUG] Total teams: ${teamList.length}, Usage: ${usageRecords.length}, Outgoing: ${outgoingRecords.length}, OpticalLogs: ${opticalLogs.length}`);
 
         const teamsWithDetails = teamList.map(team => {
             const teamUsage = usageRecords.filter(r =>
@@ -85,8 +86,15 @@ export function registerTeamsRoutes(app: Express) {
                 r.teamId === team.id || (!r.teamId && r.teamCategory === team.name)
             );
 
+            // 광케이블 관련 로그 (해당 팀이 수행한 불출, 사용, 반납, 폐기)
+            const teamOpticalLogs = opticalLogs.filter(log =>
+                log.teamId === team.id &&
+                ['assign', 'usage', 'return', 'waste'].includes(log.logType)
+            );
+
             let lastActivity = team.lastActivity;
 
+            // 1. 일반 자재 사용 내역
             if (teamUsage.length > 0) {
                 const latestUsage = teamUsage.reduce((latest, current) => {
                     return new Date(current.date) > new Date(latest.date) ? current : latest;
@@ -97,6 +105,7 @@ export function registerTeamsRoutes(app: Express) {
                 }
             }
 
+            // 2. 일반 자재 출고 내역
             if (teamOutgoing.length > 0) {
                 const latestOutgoing = teamOutgoing.reduce((latest, current) => {
                     return new Date(current.date) > new Date(latest.date) ? current : latest;
@@ -104,6 +113,22 @@ export function registerTeamsRoutes(app: Express) {
 
                 if (!lastActivity || new Date(latestOutgoing.date) > new Date(lastActivity)) {
                     lastActivity = latestOutgoing.date;
+                }
+            }
+
+            // 3. 광케이블 활동 내역 (usageDate 기준)
+            if (teamOpticalLogs.length > 0) {
+                const latestOptical = teamOpticalLogs.reduce((latest, current) => {
+                    // usageDate가 있으면 그것을, 없으면 createdAt을 사용 (createdAt은 Date 객체일 수 있음)
+                    const dateA = new Date(latest.usageDate || latest.createdAt);
+                    const dateB = new Date(current.usageDate || current.createdAt);
+                    return dateB > dateA ? current : latest;
+                });
+
+                const latestDate = new Date(latestOptical.usageDate || latestOptical.createdAt).toISOString().split('T')[0];
+
+                if (!lastActivity || new Date(latestDate) > new Date(lastActivity)) {
+                    lastActivity = latestDate;
                 }
             }
 

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Search, Loader2, Trash2, Plus, Pencil, MoreHorizontal, Download } from "lucide-react";
+import { Loader2, Trash2, Plus, Pencil, MoreHorizontal, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -50,7 +50,15 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDownload } from "@/hooks/useDownload";
-import { Paperclip } from "lucide-react";
+import { Paperclip, Upload } from "lucide-react";
+import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import {
+    downloadOpticalUsageTemplate,
+    validateOpticalUsageRow,
+    transformOpticalUsageRow,
+    opticalUsageColumns,
+    type ParsedOpticalUsageRow
+} from "@/lib/bulk-configs/optical-usage";
 
 export default function FieldOpticalUsage() {
     const { toast } = useToast();
@@ -88,6 +96,23 @@ export default function FieldOpticalUsage() {
 
     const teamId = currentTenantData?.teamId;
     const isTeamResolved = !teamId || !!(teamId && team);
+
+    // 광케이블 데이터 조회 (검증용)
+    const { data: cables = [] } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
+        queryKey: ["/api/optical-cables"],
+        enabled: isTeamResolved,
+    });
+
+    // 현재 팀에 할당된 케이블만 필터링
+    // 관리자 계정(teamId 없음)인 경우 모든 assigned 케이블 사용
+    const assignedCables = cables.filter(c => {
+        if (c.status !== 'assigned') return false;
+        // teamId가 있으면 해당 팀 케이블만, 없으면 모든 assigned 케이블
+        if (teamId) {
+            return c.currentTeamId === teamId;
+        }
+        return true; // 관리자는 모든 assigned 케이블 볼 수 있음
+    });
 
     // 모든 광케이블의 사용 로그를 개별적으로 조회
     // 최적화: logType='usage'인 것만, 그리고 필요 시 teamId로 필터링하여 가져옴
@@ -165,6 +190,7 @@ export default function FieldOpticalUsage() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
     const [deleteLog, setDeleteLog] = useState<OpticalCableLog | null>(null);
+    const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -302,26 +328,37 @@ export default function FieldOpticalUsage() {
                                 Excel
                             </Button>
                         )}
-                        {canRegister && (
-                            <Button className="flex items-center gap-2" onClick={() => openDialog()}>
-                                <Plus className="h-4 w-4" />
-                                등록
-                            </Button>
+                        {canRegister && isTenantOwner && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        등록
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openDialog()}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        직접 등록
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        일괄 등록
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         )}
                     </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="relative max-w-sm">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="제조번호, 규격, 공사번호, 공사명 검색..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="제조번호, 규격, 공사번호, 공사명 검색..."
+                            className="max-w-sm"
+                        />
                         {selectedIds.size > 0 && isTenantOwner && (
                             <Button
                                 variant="destructive"
@@ -631,15 +668,12 @@ export default function FieldOpticalUsage() {
                         </div>
 
                         {/* Mobile Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="제조번호, 규격, 공사명 검색..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 h-9 text-sm"
-                            />
-                        </div>
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="제조번호, 규격, 공사명 검색..."
+                            size="sm"
+                        />
                     </div>
 
                     {/* Mobile Card List */}
@@ -840,16 +874,65 @@ export default function FieldOpticalUsage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
                         <AlertDialogAction
-                            onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+                            onClick={(e) => {
+                                if (bulkDeleteMutation.isPending) {
+                                    e.preventDefault();
+                                    return;
+                                }
+                                e.preventDefault();
+                                bulkDeleteMutation.mutate(Array.from(selectedIds));
+                            }}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={bulkDeleteMutation.isPending}
                         >
-                            삭제
+                            {bulkDeleteMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    삭제 중...
+                                </>
+                            ) : (
+                                "삭제"
+                            )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <GenericBulkUploadDialog<ParsedOpticalUsageRow>
+                open={bulkUploadOpen}
+                onOpenChange={setBulkUploadOpen}
+                title="광케이블 사용 내역 일괄등록"
+                description="엑셀 파일을 업로드하여 여러 건의 사용 내역을 한번에 등록합니다. 사용일자 순서대로 자동 처리됩니다."
+                onDownloadTemplate={downloadOpticalUsageTemplate}
+                validateRow={(row, index) => {
+                    return validateOpticalUsageRow(row, index, assignedCables, teamId || "");
+                }}
+                transformRow={transformOpticalUsageRow}
+                columns={opticalUsageColumns}
+                onUpload={async (data) => {
+                    try {
+                        await apiRequest("POST", "/api/optical-cables/usage/bulk", {
+                            items: data.map(item => ({
+                                ...item,
+                                teamId: teamId || currentTenantData?.teamId || ""
+                            }))
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+                        queryClient.resetQueries({ queryKey: ["/api/optical-cables/logs"] });
+                        toast({ title: `${data.length}건의 사용 내역이 등록되었습니다` });
+                        setBulkUploadOpen(false);
+                    } catch (error: any) {
+                        toast({
+                            title: "일괄등록 실패",
+                            description: error.message || "등록 중 오류가 발생했습니다",
+                            variant: "destructive"
+                        });
+                        throw error;
+                    }
+                }}
+            />
         </div>
     );
 }

@@ -1,8 +1,8 @@
 
 
-import { MoreHorizontal, Pencil, Loader2, Trash2, Plus, Search, Upload, Download } from "lucide-react";
+import { MoreHorizontal, Pencil, Loader2, Trash2, Plus, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InventoryTable } from "@/components/InventoryTable";
 import { MaterialFormDialog, type MaterialSubmitData } from "@/components/MaterialFormDialog";
@@ -329,16 +329,13 @@ export default function Inventory() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="품명, 사업, 규격 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-inventory"
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="품명, 사업, 규격 검색..."
+              className="max-w-sm"
+              data-testid="input-search-inventory"
+            />
             <div className="w-48">
               <Select value={selectedCategory || "전체"} onValueChange={setSelectedCategory}>
                 <SelectTrigger data-testid="select-category-filter">
@@ -562,8 +559,18 @@ export default function Inventory() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete}>삭제</AlertDialogAction>
+            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => {
+              e.preventDefault();
+              confirmBulkDelete();
+            }} disabled={bulkDeleteMutation.isPending}>
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  삭제 중...
+                </>
+              ) : "삭제"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -580,6 +587,7 @@ export default function Inventory() {
         columns={inventoryColumns}
         onUpload={handleBulkUpload}
         enableModeSelection={true}
+        isLoading={bulkUploadMutation.isPending}
       />
     </div >
   );

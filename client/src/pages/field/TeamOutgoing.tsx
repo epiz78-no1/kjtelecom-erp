@@ -1,5 +1,6 @@
-import { Download, Search, Loader2, Package } from "lucide-react";
+import { Download, Loader2, Package } from "lucide-react";
 import { useState } from "react";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Input } from "@/components/ui/input";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Badge } from "@/components/ui/badge";
@@ -208,16 +209,13 @@ export default function TeamOutgoing() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="품명, 팀명 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-              data-testid="input-search"
-            />
-          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="품명, 팀명 검색..."
+            className="flex-1 max-w-sm"
+            data-testid="input-search"
+          />
           <Select value={selectedTeam} onValueChange={setSelectedTeam}>
             <SelectTrigger className="w-48" data-testid="select-team-filter">
               <SelectValue placeholder="팀 선택" />

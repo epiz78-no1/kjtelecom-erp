@@ -69,9 +69,9 @@ export function AppSidebar() {
     currentTenantData.permissions.inventory === 'none';
 
   const filteredMenuItems = menuItems.filter(item => {
-    // 현장팀 권한인 경우 "현장팀 자재 사용등록"만 표시
+    // 현장팀 권한인 경우 "현장팀별 출고 현황"과 "현장팀 자재 사용등록" 표시
     if (isFieldTeam) {
-      return item.url === '/team-material-usage';
+      return item.url === '/team-material-usage' || item.url === '/team-outgoing';
     }
 
     // 관리자는 모든 메뉴 표시

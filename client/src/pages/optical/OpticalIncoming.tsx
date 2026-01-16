@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, ArrowDownToLine, Search, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
+import { Loader2, ArrowDownToLine, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { Trash2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -60,7 +60,11 @@ export default function OpticalIncoming() {
     const bulkUploadMutation = useBulkUploadOpticalCables();
 
     const handleBulkUpload = (items: any[]) => {
-        bulkUploadMutation.mutate({ items });
+        bulkUploadMutation.mutate(items, {
+            onSuccess: () => {
+                setBulkUploadOpen(false);
+            }
+        });
     };
 
     const { widths, startResizing } = useColumnResize(OPTICAL_LOG_COLUMNS);
@@ -111,7 +115,11 @@ export default function OpticalIncoming() {
 
     const handleBulkDelete = () => {
         if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds));
+            bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                onSuccess: () => {
+                    setSelectedIds(new Set());
+                }
+            });
         }
     };
 
@@ -163,26 +171,33 @@ export default function OpticalIncoming() {
                 />
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="relative max-w-sm flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        placeholder="드럼번호, 규격 검색..."
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <SearchInput
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
+                        onChange={setSearchQuery}
+                        placeholder="드럼번호, 규격 검색..."
+                        className="max-w-sm"
                     />
+                    {selectedIds.size > 0 && isTenantOwner && (
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleBulkDelete}
+                            disabled={bulkDeleteMutation.isPending}
+                        >
+                            {bulkDeleteMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-4 w-4 mr-2" />
+                            )}
+                            선택 삭제 ({selectedIds.size})
+                        </Button>
+                    )}
                 </div>
-                {selectedIds.size > 0 && isTenantOwner && (
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleBulkDelete}
-                    >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        선택 삭제 ({selectedIds.size})
-                    </Button>
-                )}
+                <div className="text-sm text-muted-foreground">
+                    총 <span className="font-semibold text-foreground">{filteredLogs.length}</span>건
+                </div>
             </div>
 
             <div className="flex-1 rounded-md border overflow-hidden">
@@ -452,11 +467,12 @@ export default function OpticalIncoming() {
                 title="광케이블 일괄등록"
                 description="CSV 파일을 업로드하여 여러 광케이블 드럼을 한번에 등록할 수 있습니다"
                 onDownloadTemplate={downloadOpticalTemplate}
-                templateFileName="optical_cable_template.csv"
+                templateFileName="optical_incoming_template.csv"
                 validateRow={validateOpticalRow}
                 transformRow={transformOpticalRow}
                 columns={opticalColumns}
                 onUpload={handleBulkUpload}
+                isLoading={bulkUploadMutation.isPending}
             />
         </div>
     );

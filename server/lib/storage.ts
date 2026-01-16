@@ -1,13 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_KEY must be set');
+    console.warn('SUPABASE_URL and SUPABASE_SERVICE_KEY are not set. File uploads will not work.');
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = (supabaseUrl && supabaseServiceKey)
+    ? createClient(supabaseUrl, supabaseServiceKey)
+    : null;
 
 /**
  * 파일을 Supabase Storage에 업로드
@@ -23,6 +25,7 @@ export async function uploadFile(
     fileBuffer: Buffer,
     contentType: string
 ): Promise<string> {
+    if (!supabase) throw new Error("Supabase client not configured");
     const { data, error } = await supabase.storage
         .from(bucket)
         .upload(path, fileBuffer, {
@@ -45,6 +48,7 @@ export async function uploadFile(
  * @returns 공개 URL
  */
 export function getPublicUrl(bucket: string, path: string): string {
+    if (!supabase) return "";
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data.publicUrl;
 }
@@ -55,6 +59,7 @@ export function getPublicUrl(bucket: string, path: string): string {
  * @param path 파일 경로
  */
 export async function deleteFile(bucket: string, path: string): Promise<void> {
+    if (!supabase) throw new Error("Supabase client not configured");
     const { error } = await supabase.storage.from(bucket).remove([path]);
 
     if (error) {

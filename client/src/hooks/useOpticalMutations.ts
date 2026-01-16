@@ -201,3 +201,27 @@ export function useReturnApproval() {
         },
     });
 }
+
+/**
+ * 광케이블 일괄 출고 뮤테이션 훅
+ */
+export function useBulkAssignOpticalCables() {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (items: any[]) => {
+            const res = await apiRequest("POST", "/api/optical-cables/bulk-assign", { items });
+            return res.json();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
+            toast({ title: `${data.length}개 항목이 일괄 출고되었습니다` });
+        },
+        onError: (error: Error) => {
+            toast({ title: "일괄 출고 실패", description: error.message, variant: "destructive" });
+        },
+    });
+}
+
