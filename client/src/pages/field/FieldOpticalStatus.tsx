@@ -1,6 +1,6 @@
-import { Download, Search, Loader2, Cable, MoreHorizontal, ArrowLeftRight, Trash2, X } from "lucide-react";
+import { Download, Loader2, Cable, MoreHorizontal, ArrowLeftRight, Trash2, X } from "lucide-react";
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
@@ -230,15 +230,12 @@ export default function FieldOpticalStatus() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="제조번호, 규격, 팀명 검색..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
+                    <SearchInput
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="제조번호, 규격, 팀명 검색..."
+                        className="flex-1 max-w-sm"
+                    />
                     <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                         <SelectTrigger className="w-48">
                             <SelectValue placeholder="팀 선택" />

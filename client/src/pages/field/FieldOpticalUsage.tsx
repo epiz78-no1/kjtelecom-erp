@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Search, Loader2, Trash2, Plus, Pencil, MoreHorizontal, Download } from "lucide-react";
+import { Loader2, Trash2, Plus, Pencil, MoreHorizontal, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -353,15 +353,12 @@ export default function FieldOpticalUsage() {
 
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="relative max-w-sm">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="제조번호, 규격, 공사번호, 공사명 검색..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="제조번호, 규격, 공사번호, 공사명 검색..."
+                            className="max-w-sm"
+                        />
                         {selectedIds.size > 0 && isTenantOwner && (
                             <Button
                                 variant="destructive"
@@ -671,15 +668,12 @@ export default function FieldOpticalUsage() {
                         </div>
 
                         {/* Mobile Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="제조번호, 규격, 공사명 검색..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 h-9 text-sm"
-                            />
-                        </div>
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="제조번호, 규격, 공사명 검색..."
+                            size="sm"
+                        />
                     </div>
 
                     {/* Mobile Card List */}

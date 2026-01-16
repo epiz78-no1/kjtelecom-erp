@@ -40,7 +40,8 @@ export function useOpticalFilters(cables: OpticalCable[]) {
                 } else if (selectedStatus === '불출') {
                     if (cable.status !== 'assigned') return false;
                 } else if (selectedStatus === '반납') {
-                    if (cable.status !== 'returned') return false;
+                    // 반납 신청 (대기): returnRequestStatus가 'pending'인 항목
+                    if (cable.returnRequestStatus !== 'pending') return false;
                 }
             }
 

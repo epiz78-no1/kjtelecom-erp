@@ -7,6 +7,7 @@ import {
 } from "../../shared/schema.js";
 import { db } from "../db.js";
 import { eq, and, sql, desc, asc, inArray, getTableColumns } from "drizzle-orm";
+import { getAttachmentsSql } from "../utils/attachmentSql.js";
 
 export class InventoryStorage {
     // Inventory
@@ -138,24 +139,7 @@ export class InventoryStorage {
         const records = await db.select({
             ...getTableColumns(incomingRecords),
             createdByName: users.name,
-            attributes: sql<string>`(
-                CASE 
-                    WHEN length(${incomingRecords.attributes}) < 1000 THEN ${incomingRecords.attributes}::jsonb
-                    WHEN ${incomingRecords.attributes}::jsonb ? 'attachments' THEN
-                        jsonb_set(
-                            ${incomingRecords.attributes}::jsonb,
-                            '{attachments}',
-                            COALESCE(
-                                (
-                                    SELECT jsonb_agg(element - 'data')
-                                    FROM jsonb_array_elements(${incomingRecords.attributes}::jsonb -> 'attachments') AS element
-                                ),
-                                '[]'::jsonb
-                            )
-                        )
-                    ELSE ${incomingRecords.attributes}::jsonb
-                END
-            ) - 'data' #- '{attachment,data}'`
+            attributes: getAttachmentsSql(incomingRecords.attributes)
         })
             .from(incomingRecords)
             .leftJoin(users, eq(incomingRecords.createdBy, users.id))
@@ -259,24 +243,7 @@ export class InventoryStorage {
         const records = await db.select({
             ...getTableColumns(outgoingRecords),
             createdByName: users.name,
-            attributes: sql<string>`(
-                CASE 
-                    WHEN length(${outgoingRecords.attributes}) < 1000 THEN ${outgoingRecords.attributes}::jsonb
-                    WHEN ${outgoingRecords.attributes}::jsonb ? 'attachments' THEN
-                        jsonb_set(
-                            ${outgoingRecords.attributes}::jsonb,
-                            '{attachments}',
-                            COALESCE(
-                                (
-                                    SELECT jsonb_agg(element - 'data')
-                                    FROM jsonb_array_elements(${outgoingRecords.attributes}::jsonb -> 'attachments') AS element
-                                ),
-                                '[]'::jsonb
-                            )
-                        )
-                    ELSE ${outgoingRecords.attributes}::jsonb
-                END
-            ) - 'data' #- '{attachment,data}'`
+            attributes: getAttachmentsSql(outgoingRecords.attributes)
         })
             .from(outgoingRecords)
             .leftJoin(users, eq(outgoingRecords.createdBy, users.id))
@@ -346,24 +313,7 @@ export class InventoryStorage {
         const records = await db.select({
             ...getTableColumns(materialUsageRecords),
             createdByName: users.name,
-            attributes: sql<string>`(
-                CASE 
-                    WHEN length(${materialUsageRecords.attributes}) < 1000 THEN ${materialUsageRecords.attributes}::jsonb
-                    WHEN ${materialUsageRecords.attributes}::jsonb ? 'attachments' THEN
-                        jsonb_set(
-                            ${materialUsageRecords.attributes}::jsonb,
-                            '{attachments}',
-                            COALESCE(
-                                (
-                                    SELECT jsonb_agg(element - 'data')
-                                    FROM jsonb_array_elements(${materialUsageRecords.attributes}::jsonb -> 'attachments') AS element
-                                ),
-                                '[]'::jsonb
-                            )
-                        )
-                    ELSE ${materialUsageRecords.attributes}::jsonb
-                END
-            ) - 'data' #- '{attachment,data}'`
+            attributes: getAttachmentsSql(materialUsageRecords.attributes)
         })
             .from(materialUsageRecords)
             .leftJoin(users, eq(materialUsageRecords.createdBy, users.id))

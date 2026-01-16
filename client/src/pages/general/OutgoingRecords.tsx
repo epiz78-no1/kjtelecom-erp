@@ -5,9 +5,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Plus, Search, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal, Paperclip, FileText } from "lucide-react";
+import { Plus, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal, Paperclip, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -372,16 +372,13 @@ export default function OutgoingRecords() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="품명, 공사명, 팀, 수령인 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-outgoing"
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="품명, 공사명, 팀, 수령인 검색..."
+              className="max-w-sm"
+              data-testid="input-search-outgoing"
+            />
             {selectedIds.size > 0 && isTenantOwner && (
               <Button
                 variant="destructive"

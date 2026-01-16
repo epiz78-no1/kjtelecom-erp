@@ -11,8 +11,9 @@ import {
     useBulkUploadOpticalCables,
     useReturnApproval
 } from "@/hooks/useOpticalMutations";
-import { Loader2, Plus, Pencil, Trash2, Download, Search, ArrowRightLeft, History, X, Filter, ChevronDown, ChevronUp, MoreHorizontal, Calendar, CalendarX, Send, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Download, ArrowRightLeft, History, Filter, ChevronDown, ChevronUp, MoreHorizontal, Calendar, CalendarX, Send, CheckCircle, XCircle, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -306,15 +307,13 @@ export default function OpticalCables() {
                     {/* Search Bar and Filter Button */}
                     {/* Search Bar and Filter Button */}
                     <div className="flex items-center gap-2">
-                        <div className="relative w-64 md:w-72 lg:w-80 shrink-0">
-                            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="드럼번호, 품명, 규격, 제조사 검색..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 h-8 text-sm"
-                            />
-                        </div>
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="드럼번호, 품명, 규격, 제조사 검색..."
+                            size="sm"
+                            className="w-64 md:w-72 lg:w-80 shrink-0"
+                        />
 
                         <Button
                             variant="outline"
@@ -421,7 +420,7 @@ export default function OpticalCables() {
                                             <SelectItem value="창고">창고 보관</SelectItem>
                                             <SelectItem value="예약">예약 중</SelectItem>
                                             <SelectItem value="불출">현장 불출</SelectItem>
-                                            <SelectItem value="반납">반납됨</SelectItem>
+                                            <SelectItem value="반납">반납신청</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

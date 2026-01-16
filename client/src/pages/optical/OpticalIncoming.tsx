@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, ArrowDownToLine, Search, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
+import { Loader2, ArrowDownToLine, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { Trash2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -173,15 +173,12 @@ export default function OpticalIncoming() {
 
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="relative max-w-sm">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="드럼번호, 규격 검색..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
+                    <SearchInput
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="드럼번호, 규격 검색..."
+                        className="max-w-sm"
+                    />
                     {selectedIds.size > 0 && isTenantOwner && (
                         <Button
                             variant="destructive"
