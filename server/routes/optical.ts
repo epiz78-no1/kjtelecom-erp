@@ -452,23 +452,41 @@ export function registerOpticalRoutes(app: Express) {
         const { id } = req.params;
         const { action } = req.body; // action: 'approve' | 'reject'
         const tenantId = req.session!.tenantId!;
+        const userId = req.session!.userId!;
 
         try {
             if (action === 'approve') {
-                // 승인: 자재실로 복귀 처리
+                // 1. 기존 케이블 정보 조회 (팀 정보 확인용)
+                const existingCable = await storage.getOpticalCable(id, tenantId);
+                if (!existingCable) {
+                    return res.status(404).json({ error: "Cable not found" });
+                }
+
+                // 2. 승인: 자재실로 복귀 처리
                 const cable = await storage.updateOpticalCable(id, {
                     status: 'in_stock',
                     currentTeamId: null,
                     returnRequestStatus: 'approved',
-                    returnApprovedBy: req.session!.userId,
+                    returnApprovedBy: userId,
                     returnApprovedAt: new Date()
                 }, tenantId);
+
+                // 3. 반납 로그 생성
+                await storage.createOpticalCableLog({
+                    cableId: id,
+                    logType: 'return',
+                    teamId: existingCable.currentTeamId, // 반납한 팀
+                    usageDate: new Date().toISOString().split('T')[0], // 반납일 (YYYY-MM-DD)
+                    tenantId,
+                    createdBy: userId
+                }, tenantId);
+
                 res.json(cable);
             } else if (action === 'reject') {
                 // 반려: 반납 요청만 취소
                 const cable = await storage.updateOpticalCable(id, {
                     returnRequestStatus: 'rejected',
-                    returnApprovedBy: req.session!.userId,
+                    returnApprovedBy: userId,
                     returnApprovedAt: new Date()
                 }, tenantId);
                 res.json(cable);

@@ -39,9 +39,10 @@ interface OpticalCableHistoryDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     drumNo?: string;
+    initialCable?: OpticalCable | null;
 }
 
-export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo }: OpticalCableHistoryDialogProps) {
+export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo, initialCable }: OpticalCableHistoryDialogProps) {
     const { teams, user, tenants, currentTenant } = useAppContext();
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -100,6 +101,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
     const { data: cable } = useQuery<OpticalCable>({
         queryKey: [`/api/optical-cables/${cableId}`],
         enabled: !!cableId && open,
+        initialData: initialCable || undefined
     });
 
     const { data: logs = [], isLoading } = useQuery<OpticalCableLog[]>({
@@ -173,7 +175,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                         {cable?.returnRequestStatus === 'pending' && (
                             <>
                                 <Button
-                                    size="xs"
+                                    size="sm"
                                     variant="outline"
                                     className="h-7 text-xs border-green-300 text-green-700 hover:bg-green-50"
                                     onClick={() => {
@@ -185,7 +187,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                     반납 승인
                                 </Button>
                                 <Button
-                                    size="xs"
+                                    size="sm"
                                     variant="outline"
                                     className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
                                     onClick={() => {
@@ -226,6 +228,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                         <TableHead className="w-[130px] text-center">공사번호</TableHead>
                                         <TableHead className="w-[200px] text-center">공사명</TableHead>
                                         <TableHead className="w-[100px] text-center">사용(m)</TableHead>
+                                        <TableHead className="w-[80px] text-center">폐기(m)</TableHead>
                                         <TableHead className="w-[100px] text-center">잔량(m)</TableHead>
                                         <TableHead className="w-[90px] text-center">수령자</TableHead>
                                         <TableHead className="w-[90px] text-center">입력자</TableHead>
@@ -236,7 +239,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                 <TableBody>
                                     {logs.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                                                 이력이 없습니다.
                                             </TableCell>
                                         </TableRow>
@@ -266,7 +269,10 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo 
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-center">
-                                                    {log.usedLength > 0 ? log.usedLength.toLocaleString() : ''}
+                                                    {(log.installLength || 0) > 0 ? (log.installLength || 0).toLocaleString() : (log.usedLength && log.usedLength > (log.wasteLength || 0) ? (log.usedLength - (log.wasteLength || 0)).toLocaleString() : '')}
+                                                </TableCell>
+                                                <TableCell className="text-center text-red-600">
+                                                    {(log.wasteLength || 0) > 0 ? (log.wasteLength || 0).toLocaleString() : ''}
                                                 </TableCell>
                                                 <TableCell className="text-center font-bold">
                                                     {(log.afterRemaining || 0).toLocaleString()}

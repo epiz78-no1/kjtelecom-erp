@@ -785,6 +785,7 @@ export default function OpticalCables() {
                 onOpenChange={setHistoryOpen}
                 cableId={historyItem?.id?.toString() || null}
                 drumNo={historyItem?.drumNo}
+                initialCable={historyItem}
             />
 
             {

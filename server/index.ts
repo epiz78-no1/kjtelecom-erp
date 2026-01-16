@@ -65,7 +65,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    // maxAge 제거: 브라우저 종료 시 세션 만료 (Session Cookie)
     httpOnly: true,
     secure: false, // FIXME: Revert to 'process.env.NODE_ENV === "production"' after diagnosing login issue
     sameSite: 'lax'

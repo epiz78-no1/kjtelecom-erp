@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.2.27 (2026-01-16) - 광케이블 운영 배포 활성화 및 정합성 개선
+
+### 🚀 Release (운영 배포)
+- **광케이블 관리 모듈 활성화**:
+  - `FEATURE_FLAGS.ENABLE_OPTICAL`을 `true`로 설정하여 운영 환경(Production)에서도 광케이블 관리 기능을 사용할 수 있도록 개방.
+  - 단, 현장팀(Field Team) 계정은 기존과 동일하게 자신의 자재/광케이블 출고 현황 및 사용 등록 메뉴만 접근 가능.
+
+### 🐛 Bug Fixes
+- **로그 정렬 순서 해결**:
+  - 반납(Return)과 불출(Assign)이 같은 날짜에 발생했을 때 정렬이 뒤섞이던 문제 해결.
+  - 모든 로그(`usage`, `create`, `assign`, `return`)의 날짜 형식을 `YYYY-MM-DD`로 통일하여 `createdAt` 기준의 2차 정렬이 올바르게 동작하도록 수정.
+- **반납 승인 버튼 미표시 해결**:
+  - 이력 조회 팝업(`OpticalCableHistoryDialog`) 진입 시 현재 상태(`pending`)를 즉시 인식하지 못하던 문제 수정 (`initialData` 적용).
+
+### 💄 UI/UX Improvements
+- **이력 조회 테이블 개선**:
+  - "폐기(m)" 컬럼을 추가하여 폐기량이 있는 경우 빨간색으로 명시적으로 표시.
+  - 사용량과 폐기량을 구분하여 정확한 이력 추적 가능.
+
 ## v1.2.26 (2026-01-15) - 광케이블 일괄 삭제 동시성 이슈(Race Condition) 해결
 
 ### 🛡️ Critical Bug Fix (중대 결함 수정)

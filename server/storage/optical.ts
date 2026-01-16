@@ -389,6 +389,8 @@ export class OpticalStorage {
             // 4. Create Log
             await tx.insert(opticalCableLogs).values({
                 ...log,
+                // 날짜 포맷 표준화 (YYYY-MM-DD)
+                usageDate: log.usageDate ? (typeof log.usageDate === 'string' ? log.usageDate.split('T')[0] : new Date(log.usageDate).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
                 tenantId,
                 // 사용(usage)인 경우에만 계산된 값 사용, 나머지는 0
                 usedLength: log.logType === 'usage' ? ((log.installLength || 0) + (log.wasteLength || 0)) : 0,
@@ -665,7 +667,7 @@ export class OpticalStorage {
                     cableId: cable.id,
                     logType: 'assign',
                     teamId: team.id,
-                    usageDate: item.date,
+                    usageDate: item.date ? (typeof item.date === 'string' ? item.date.split('T')[0] : new Date(item.date).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
                     projectCode: item.projectCode,
                     projectNameUsage: item.projectName,
                     workerName: item.recipient,
