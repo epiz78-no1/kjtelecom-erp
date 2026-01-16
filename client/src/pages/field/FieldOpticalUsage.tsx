@@ -73,7 +73,7 @@ export default function FieldOpticalUsage() {
     const { downloadFile } = useDownload();
 
     const canManage = canWrite && !isFieldTeam;
-    const canRegister = true;
+    const canRegister = canWrite;
 
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
@@ -117,14 +117,13 @@ export default function FieldOpticalUsage() {
     // 모든 광케이블의 사용 로그를 개별적으로 조회
     // 최적화: logType='usage'인 것만, 그리고 필요 시 teamId로 필터링하여 가져옴
     const { data: allCableLogs = [], isLoading } = useQuery<OpticalCableLog[]>({
-        queryKey: ["/api/optical-cables/logs", isFieldTeam && currentTenant ? currentTenant : undefined], // Filter by team if field team
+        queryKey: ["/api/optical-cables/logs", isFieldTeam && currentTenantData?.teamId ? currentTenantData.teamId : undefined], // Filter by team if field team
         enabled: isTeamResolved,
         queryFn: async () => {
             const params = new URLSearchParams();
             params.append('type', 'usage');
-            if (isFieldTeam && currentTenant) {
-                // currentTenant acts as teamId context here for field teams
-                params.append('teamId', currentTenant);
+            if (isFieldTeam && currentTenantData?.teamId) {
+                params.append('teamId', currentTenantData.teamId);
             }
             const res = await apiRequest("GET", `/api/optical-cables/logs?${params.toString()}`);
             return res.json();
@@ -328,7 +327,7 @@ export default function FieldOpticalUsage() {
                                 Excel
                             </Button>
                         )}
-                        {canRegister && isTenantOwner && (
+                        {canRegister && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button>
@@ -341,10 +340,12 @@ export default function FieldOpticalUsage() {
                                         <Plus className="h-4 w-4 mr-2" />
                                         직접 등록
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        일괄 등록
-                                    </DropdownMenuItem>
+                                    {isTenantOwner && (
+                                        <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            일괄 등록
+                                        </DropdownMenuItem>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}

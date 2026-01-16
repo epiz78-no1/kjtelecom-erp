@@ -88,6 +88,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
 
     const { data: members = [] } = useQuery<any[]>({
         queryKey: ["/api/admin/members"],
+        enabled: open && !isFieldTeam,
         retry: false,
     });
     // 다이얼로그가 열릴 때 초기화 로직
