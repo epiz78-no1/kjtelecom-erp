@@ -11,7 +11,7 @@ import { sql } from "drizzle-orm";
  * @returns SQL expression for optimized attributes
  */
 export function getAttachmentsSql(attributesColumn: any) {
-    return sql<string>`
+  return sql<string>`
     (
       CASE 
         WHEN length(${attributesColumn}) < 1000 THEN ${attributesColumn}::jsonb
@@ -31,4 +31,56 @@ export function getAttachmentsSql(attributesColumn: any) {
       END
     ) - 'data' #- '{attachment,data}'
   `;
+}
+
+/**
+ * Optical Cable Logs용 확장 Attachment SQL
+ * 
+ * attachments와 wastePhotos 두 배열 모두에서 'data' 필드를 제거합니다.
+ * 
+ * @param attributesColumn - attributes 컬럼 (drizzle column reference)
+ * @returns SQL expression for optimized optical attributes
+ */
+export function getOpticalAttachmentsSql(attributesColumn: any) {
+  return sql<string>`
+        CASE 
+            WHEN length(${attributesColumn}) < 1000 THEN ${attributesColumn}
+            ELSE 
+                (
+                    SELECT jsonb_set(
+                        jsonb_set(
+                            ${attributesColumn}::jsonb,
+                            '{attachments}',
+                            COALESCE(
+                                (
+                                    SELECT jsonb_agg(elem - 'data')
+                                    FROM jsonb_array_elements(
+                                        CASE 
+                                            WHEN ${attributesColumn}::jsonb ? 'attachments' 
+                                            THEN ${attributesColumn}::jsonb -> 'attachments'
+                                            ELSE '[]'::jsonb 
+                                        END
+                                    ) elem
+                                ),
+                                '[]'::jsonb
+                            )
+                        ),
+                        '{wastePhotos}',
+                        COALESCE(
+                            (
+                                SELECT jsonb_agg(elem - 'data')
+                                FROM jsonb_array_elements(
+                                    CASE 
+                                        WHEN ${attributesColumn}::jsonb ? 'wastePhotos' 
+                                        THEN ${attributesColumn}::jsonb -> 'wastePhotos'
+                                        ELSE '[]'::jsonb 
+                                    END
+                                ) elem
+                            ),
+                            '[]'::jsonb
+                        )
+                    ) - 'data' #- '{attachment,data}'
+                )::text
+        END
+    `;
 }

@@ -6,6 +6,7 @@ import {
 } from "../../shared/schema.js";
 import { db } from "../db.js";
 import { eq, ne, and, desc, asc, inArray, getTableColumns, sql } from "drizzle-orm";
+import { getOpticalAttachmentsSql } from "../utils/attachmentSql.js";
 
 export class OpticalStorage {
     async getOpticalCables(tenantId: string): Promise<(OpticalCable & { currentTeam: Team | null })[]> {
@@ -177,46 +178,7 @@ export class OpticalStorage {
         const logs = await db.select({
             ...getTableColumns(opticalCableLogs),
             createdByName: users.name,
-            attributes: sql<string>`
-                CASE 
-                    WHEN length(${opticalCableLogs.attributes}) < 1000 THEN ${opticalCableLogs.attributes}
-                    ELSE 
-                        (
-                            SELECT jsonb_set(
-                                jsonb_set(
-                                    ${opticalCableLogs.attributes}::jsonb,
-                                    '{attachments}',
-                                    COALESCE(
-                                        (
-                                            SELECT jsonb_agg(elem - 'data')
-                                            FROM jsonb_array_elements(
-                                                CASE 
-                                                    WHEN ${opticalCableLogs.attributes}::jsonb ? 'attachments' 
-                                                    THEN ${opticalCableLogs.attributes}::jsonb -> 'attachments'
-                                                    ELSE '[]'::jsonb 
-                                                END
-                                            ) elem
-                                        ),
-                                        '[]'::jsonb
-                                    )
-                                ),
-                                '{wastePhotos}',
-                                COALESCE(
-                                    (
-                                        SELECT jsonb_agg(elem - 'data')
-                                        FROM jsonb_array_elements(
-                                            CASE 
-                                                WHEN ${opticalCableLogs.attributes}::jsonb ? 'wastePhotos' 
-                                                THEN ${opticalCableLogs.attributes}::jsonb -> 'wastePhotos'
-                                                ELSE '[]'::jsonb 
-                                            END
-                                        ) elem
-                                    ),
-                                    '[]'::jsonb
-                                )
-                            ) - 'data' #- '{attachment,data}'
-                        )::text
-                END`
+            attributes: getOpticalAttachmentsSql(opticalCableLogs.attributes)
         })
             .from(opticalCableLogs)
             .leftJoin(users, eq(opticalCableLogs.createdBy, users.id))
