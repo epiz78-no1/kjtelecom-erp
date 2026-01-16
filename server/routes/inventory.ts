@@ -383,6 +383,21 @@ export function registerInventoryRoutes(app: Express) {
         }
     });
 
+    app.get("/api/material-usage/:id", requireAuth, requireTenant, async (req, res) => {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ error: "Invalid ID" });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        const record = await storage.getMaterialUsageRecord(id, tenantId);
+
+        if (!record) {
+            return res.status(404).json({ error: "Record not found" });
+        }
+        res.json(record);
+    });
+
     app.patch("/api/material-usage/:id", requireAuth, requireTenant, async (req, res) => {
         const id = parseInt(req.params.id);
         if (isNaN(id)) {

@@ -79,6 +79,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
 
     const { data: members = [], refetch: refetchMembers } = useQuery<any[]>({
         queryKey: ["/api/admin/members"],
+        enabled: open,
         retry: false,
     });
 

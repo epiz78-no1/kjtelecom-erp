@@ -24,10 +24,24 @@ export function registerOpticalRoutes(app: Express) {
     });
 
     app.get("/api/optical-cables/logs/:id", requireAuth, requireTenant, async (req, res) => {
-        const tenantId = req.session!.tenantId!;
-        const log = await storage.getOpticalCableLog(req.params.id, tenantId);
-        if (!log) return res.status(404).json({ error: "Log not found" });
-        res.json(log);
+        try {
+            const tenantId = req.session!.tenantId!;
+            const logId = req.params.id;
+            console.log(`[GET /logs/:id] Fetching log ${logId} for tenant ${tenantId}`);
+
+            const log = await storage.getOpticalCableLog(logId, tenantId);
+
+            if (!log) {
+                console.log(`[GET /logs/:id] Log not found: ${logId}`);
+                return res.status(404).json({ error: "Log not found" });
+            }
+
+            console.log(`[GET /logs/:id] Log found, attributes size: ${JSON.stringify(log.attributes || {}).length} bytes`);
+            res.json(log);
+        } catch (error: any) {
+            console.error(`[GET /logs/:id] Error:`, error);
+            res.status(500).json({ error: error.message || "Failed to fetch log" });
+        }
     });
 
     app.get("/api/optical-cables/:id", requireAuth, requireTenant, async (req, res) => {
