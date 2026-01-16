@@ -69,13 +69,14 @@
 
 ### 🔨 Phase 3: 일반자재 철거 시스템 (Planned)
 **목표**: 사급자재 철거 현황 관리 및 추적  
-**상태**: 계획 단계  
-**시작 시점**: Phase 2 완료 후
+**상태**: 계획 단계 (Roadmap에 등록됨 - 현재 작업 보류)
+**시작 시점**: Phase 4.1 완료 후
 
 **주요 기능**:
 - [ ] **철거 자재 등록 시스템**:
   - 철거 품목: 함체, IJP, OFD, IP 등
   - 철거 일자, 위치, 수량 기록
+  - **첨부파일 관리**: 현장 사진 등 증빙 자료 (Storage Direct Upload 적용 필수)
 - [ ] **철거 현황 리스트**:
   - 사급자재 철거 목록 조회
   - 철거 이력 추적
@@ -97,20 +98,24 @@
 
 ### 🚀 Phase 4: 시스템 최적화 및 고도화 (In Progress)
 **목표**: 성능 개선 및 운영 안정화  
-**상태**: 파일 저장소 분리 진행 중  
-**시작 시점**: Phase 3 완료 후
+**상태**: 파일 저장소 분리 진행 중 (최우선 작업)
+**시작 시점**: Phase 2 완료 후
 
 #### 🔄 Phase 4.1: 파일 저장소 분리 (진행 중)
-**목표**: DB Base64 → Supabase Storage 마이그레이션
+**목표**: Client-Side Direct Upload 및 Direct Download 전면 적용
 
-- [x] **Phase 1: 새 업로드부터 Storage 사용** (완료)
-  - [x] Supabase Storage 설정 및 헬퍼 함수 생성
-  - [x] 업로드 로직 수정 (Base64 → Storage URL)
-  - [x] 다운로드 로직 수정 (레거시 호환 + 한글 복원)
-  - [x] 테스트 및 검증 (운영 배포 완료)
-  - **효과**: 신규 업로드부터 비용 83% 절감, 성능 향상, 한글 파일명 지원
+- [ ] **Step 1: 업로드/다운로드 로직 재검증 및 수정** (Current Task)
+  - [ ] **Client-Side Upload**: 프론트엔드에서 `uploadFileToStorage` 사용하여 직접 업로드 구현
+  - [ ] **Direct Download**: 백엔드 프록시(`downloadFile`) 제거하고 `storageUrl`로 직접 다운로드 구현
+  - [ ] **레거시 호환**: 기존 Base64 데이터 처리를 위한 백엔드 로직 유지 또는 마이그레이션
+  - [ ] **Upload UI 표준화**: 점선 박스 UI 및 다중 파일 처리 로직 통일
+  - [ ] **대상 페이지**:
+    - `IncomingRecords` (입고)
+    - `OutgoingRecords` (출고)
+    - `TeamMaterialUsage` (사용)
+    - `Optical*` (광케이블 관련 페이지)
   
-- [ ] **Phase 2: 기존 데이터 마이그레이션** (2-3시간, 선택)
+- [ ] **Step 2: 기존 데이터 마이그레이션** (2-3시간, 선택)
   - [ ] 마이그레이션 스크립트 작성
   - [ ] 기존 Base64 데이터 → Storage 이전
   - [ ] DB 정리 및 최적화

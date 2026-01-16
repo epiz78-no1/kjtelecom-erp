@@ -2,16 +2,19 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
   Package,
-  Users,
-  Cable,
   ArrowDownToLine,
   ArrowUpFromLine,
-  ClipboardList,
+  ArrowRightLeft,
+  Users,
+  Building2,
+  Briefcase,
+  ChevronRight,
   Network,
   Award,
-  ChevronRight,
-  Folder,
-  Cuboid,
+  Settings,
+  LogOut,
+  User,
+  ClipboardList,
 } from "lucide-react";
 import {
   Sidebar,
@@ -101,47 +104,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-3 px-2 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Cable className="h-4 w-4" />
-          </div>
-          <span className="text-lg font-bold">자재관리</span>
+      <SidebarHeader className="border-b border-sidebar-border h-14 justify-center">
+        <div className="flex items-center justify-center w-full px-2">
+          <img src="/logo.png" alt="(주)광주텔레콤" className="h-8 object-contain" />
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {/* 일반 자재 관리 - 항목이 있을 때만 표시 */}
-            {generalItems.length > 0 && (
-              <Collapsible defaultOpen className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="일반 자재 관리">
-                      <span>일반 자재 관리</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {generalItems.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton asChild isActive={location === item.url}>
-                            <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}>
-                              <item.icon className="h-4 w-4" />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            )}
-
-            {/* 광케이블 자재 관리 - 현장팀에게는 숨김 */}
-            {/* 광케이블 자재 관리 - 현장팀에게는 숨김 */}
             {/* 광케이블 자재 관리 - 현장팀에게는 숨김 + 기능 플래그 확인 */}
             {!isFieldTeam && FEATURE_FLAGS.ENABLE_OPTICAL && (
               <Collapsible className="group/collapsible">
@@ -192,6 +162,83 @@ export function AppSidebar() {
               </Collapsible>
             )}
 
+            {/* 일반 자재 관리 - 항목이 있을 때만 표시 */}
+            {generalItems.length > 0 && (
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="일반 자재 관리">
+                      <span>일반 자재 관리</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {generalItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild isActive={location === item.url}>
+                            <Link href={item.url} data-testid={`nav - ${item.url.replace("/", "") || "dashboard"} `}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            )}
+            {/* 철거자재 관리 - 관리자 및 현장팀 */}
+            {!isFieldTeam && (
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="철거자재 관리">
+                      <span>철거자재 관리</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === "/demolition-dashboard"}>
+                          <Link href="/demolition-dashboard">
+                            <LayoutDashboard className="h-4 w-4" />
+                            <span>대시보드</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === "/demolition-materials"}>
+                          <Link href="/demolition-materials">
+                            <Package className="h-4 w-4" />
+                            <span>자재현황</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === "/demolition-incoming"}>
+                          <Link href="/demolition-incoming">
+                            <ArrowDownToLine className="h-4 w-4" />
+                            <span>입고 내역</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === "/demolition-outgoing"}>
+                          <Link href="/demolition-outgoing">
+                            <ArrowUpFromLine className="h-4 w-4" />
+                            <span>출고 내역</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            )}
+
             {/* 현장팀별 출고 현황 */}
             {filteredMenuItems.some(item => item.url === '/team-outgoing') && (
               <Collapsible className="group/collapsible">
@@ -204,13 +251,6 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={location === '/team-outgoing'}>
-                          <Link href="/team-outgoing">
-                            <span>일반 자재</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
                       {FEATURE_FLAGS.ENABLE_OPTICAL && (
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={location === '/team-outgoing-optical'}>
@@ -220,6 +260,20 @@ export function AppSidebar() {
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       )}
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === '/team-outgoing'}>
+                          <Link href="/team-outgoing">
+                            <span>일반 자재</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === '/team-outgoing-demolition'}>
+                          <Link href="/team-outgoing-demolition">
+                            <span>철거자재</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -238,14 +292,6 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={location === '/team-material-usage'}>
-                          <Link href="/team-material-usage">
-                            <span>일반 자재</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-
                       {FEATURE_FLAGS.ENABLE_OPTICAL && (
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={location === '/team-material-usage-optical'}>
@@ -255,6 +301,20 @@ export function AppSidebar() {
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       )}
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === '/team-material-usage'}>
+                          <Link href="/team-material-usage">
+                            <span>일반 자재</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location === '/team-material-usage-demolition'}>
+                          <Link href="/team-material-usage-demolition">
+                            <span>철거자재</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -263,7 +323,9 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
 
-        {isAdmin && (
+
+        {/* Admin Menu - Only shown on admin pages */}
+        {isAdmin && location.startsWith('/admin') && (
           <SidebarGroup>
             <SidebarGroupLabel>관리</SidebarGroupLabel>
             <SidebarGroupContent>

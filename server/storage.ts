@@ -3,6 +3,7 @@ import { UserStorage } from "./storage/user.js";
 import { InventoryStorage } from "./storage/inventory.js";
 import { OpticalStorage } from "./storage/optical.js";
 import { TeamStorage } from "./storage/teams.js";
+import { DemolitionStorage } from "./storage/demolition.js";
 
 // Utility type to merge classes
 function applyMixins(derivedCtor: any, constructors: any[]) {
@@ -100,8 +101,18 @@ class DatabaseStorage implements IStorage {
     declare createPosition: TeamStorage['createPosition'];
     declare updatePosition: TeamStorage['updatePosition'];
     declare deletePosition: TeamStorage['deletePosition'];
+
+    declare generateDemolitionManagementNo: DemolitionStorage['generateDemolitionManagementNo'];
+    declare getDemolitionMaterials: DemolitionStorage['getDemolitionMaterials'];
+    declare getDemolitionMaterial: DemolitionStorage['getDemolitionMaterial'];
+    declare createDemolitionMaterial: DemolitionStorage['createDemolitionMaterial'];
+    declare updateDemolitionMaterial: DemolitionStorage['updateDemolitionMaterial'];
+    declare createDemolitionMaterialLog: DemolitionStorage['createDemolitionMaterialLog'];
+    declare getDemolitionMaterialLogs: DemolitionStorage['getDemolitionMaterialLogs'];
+    declare getAllDemolitionMaterialLogs: DemolitionStorage['getAllDemolitionMaterialLogs'];
+    declare getDemolitionDashboard: DemolitionStorage['getDemolitionDashboard'];
 }
 
-applyMixins(DatabaseStorage, [UserStorage, InventoryStorage, OpticalStorage, TeamStorage]);
+applyMixins(DatabaseStorage, [UserStorage, InventoryStorage, OpticalStorage, TeamStorage, DemolitionStorage]);
 
 export const storage = new DatabaseStorage();

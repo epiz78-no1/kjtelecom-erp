@@ -1,21 +1,22 @@
+
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAppContext } from "@/contexts/AppContext";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Lock, User as UserIcon, Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 export default function Login() {
+    const { refetchAuth } = useAppContext();
     const [, setLocation] = useLocation();
     const { toast } = useToast();
-    const { refetchAuth } = useAppContext();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
-        password: ""
+        password: "",
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +28,7 @@ export default function Login() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(formData),
-                credentials: "include"
+                credentials: "include",
             });
 
             const data = await response.json();
@@ -38,11 +39,11 @@ export default function Login() {
 
             toast({
                 title: "로그인 성공",
-                description: `${data.user.name || data.user.username}님, 환영합니다!`
+                description: `${data.user.name || data.user.username}님, 환영합니다!`,
             });
 
             // Refresh auth state before redirecting
-            refetchAuth();
+            await refetchAuth();
 
             // Redirect based on role
             if (data.user.username === "admin") {
@@ -57,62 +58,83 @@ export default function Login() {
             toast({
                 title: "로그인 실패",
                 description: error.message,
-                variant: "destructive"
+                variant: "destructive",
             });
         } finally {
             setIsLoading(false);
         }
     };
 
+    useEffect(() => {
+        document.title = "로그인 | (주)광주텔레콤 ERP";
+    }, []);
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-            <Card className="w-full max-w-md">
-                <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center">로그인</CardTitle>
-                    <CardDescription className="text-center">
-                        자재관리 시스템에 로그인하세요
-                    </CardDescription>
-                </CardHeader>
-                <form onSubmit={handleSubmit}>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="username">아이디</Label>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+            <div className="w-full max-w-md px-8 py-12">
+                {/* 로고 영역 */}
+                <div className="flex flex-col items-center mb-10">
+                    <div className="flex items-center gap-3 mb-2">
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900">(주)광주텔레콤</h1>
+                    </div>
+                    <p className="text-slate-500 text-sm mt-2">통합관리시스템</p>
+                </div>
+
+                {/* 로그인 폼 */}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="username" className="text-slate-700 font-medium">아이디</Label>
+                        <div className="relative">
+                            <UserIcon className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
                             <Input
                                 id="username"
                                 type="text"
-                                placeholder=""
+                                placeholder="아이디를 입력하세요"
                                 value={formData.username}
                                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                                 required
                                 disabled={isLoading}
+                                className="pl-10 h-12 bg-slate-50 border-slate-200 focus:bg-white focus:ring-[#1a73e8] focus:border-[#1a73e8] transition-all"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password">비밀번호</Label>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="password" className="text-slate-700 font-medium">비밀번호</Label>
+                        <div className="relative">
+                            <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
                             <Input
                                 id="password"
                                 type="password"
-                                placeholder=""
+                                placeholder="비밀번호를 입력하세요"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 required
                                 disabled={isLoading}
+                                className="pl-10 h-12 bg-slate-50 border-slate-200 focus:bg-white focus:ring-[#1a73e8] focus:border-[#1a73e8] transition-all"
                             />
                         </div>
-                    </CardContent>
-                    <CardFooter className="flex flex-col space-y-4">
-                        <Button
-                            type="submit"
-                            className="w-full"
-                            disabled={isLoading}
-                        >
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            로그인
-                        </Button>
+                    </div>
 
-                    </CardFooter>
+                    <Button
+                        type="submit"
+                        className="w-full h-12 text-lg font-medium mt-4 bg-[#1a73e8] hover:bg-[#1557b0] transition-colors shadow-sm"
+                        disabled={isLoading}
+                    >
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        로그인
+                    </Button>
+
                 </form>
-            </Card>
+
+                {/* 바닥글 */}
+                <div className="mt-12 text-center text-sm text-slate-400">
+                    <p>© 2024 (주)광주텔레콤. All rights reserved.</p>
+                    <div className="mt-2 text-xs text-slate-300">
+                        System v1.2.0
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

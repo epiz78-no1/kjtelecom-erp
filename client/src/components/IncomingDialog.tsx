@@ -76,7 +76,7 @@ export function IncomingDialog({
         division: "SKT",
         supplier: "",
         projectName: "",
-        attachments: [] as { name: string; data: string }[],
+        attachments: [] as { name: string; storageUrl: string; storagePath: string }[],
         items: [{
             id: Date.now().toString(),
             productName: "",
@@ -252,36 +252,16 @@ export function IncomingDialog({
             }
 
             try {
-                let processedFile: { name: string; data: string };
+                // Supabase Storage에 직접 업로드
+                const { uploadFileToStorage } = await import('@/lib/storage');
+                const uploadedFile = await uploadFileToStorage(file);
 
-                if (file.type.startsWith('image/')) {
-                    // 이미지 압축 적용
-                    const compressed = await compressImage(file, {
-                        maxWidth: 1280,
-                        maxHeight: 1280,
-                        quality: 0.7,
-                        maxSizeMB: 1
-                    });
-                    processedFile = compressed;
+                newAttachments.push(uploadedFile);
 
-                    const originalSize = formatFileSize(file.size);
-                    const compressedSize = formatFileSize(compressed.size);
-                    toast({
-                        title: "이미지 압축 완료",
-                        description: `${originalSize} → ${compressedSize} `,
-                    });
-                } else {
-                    // Excel, PDF 등은 Base64로 변환
-                    const base64 = await new Promise<string>((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result as string);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(file);
-                    });
-                    processedFile = { name: file.name, data: base64 };
-                }
-
-                newAttachments.push(processedFile);
+                toast({
+                    title: "업로드 완료",
+                    description: `${file.name} 업로드 성공`,
+                });
 
             } catch (error: any) {
                 toast({

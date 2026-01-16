@@ -5,6 +5,7 @@ import connectPgSimple from "connect-pg-simple";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerInventoryRoutes } from "./routes/inventory.js";
 import { registerOpticalRoutes } from "./routes/optical.js";
+import { registerDemolitionRoutes } from "./routes/demolition.js";
 import { registerTeamsRoutes } from "./routes/teams.js";
 import { registerSystemRoutes } from "./routes/system.js";
 import { tenantContext } from "./middleware/tenant.js";
@@ -117,6 +118,7 @@ registerAuthRoutes(app);
 registerInventoryRoutes(app);
 registerTeamsRoutes(app);
 registerOpticalRoutes(app);
+registerDemolitionRoutes(app);
 registerAdminRoutes(app);
 
 // Template Download API (Global priority)

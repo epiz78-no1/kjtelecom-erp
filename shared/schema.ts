@@ -586,3 +586,150 @@ export const opticalCableLogsRelations = relations(opticalCableLogs, ({ one }) =
     references: [teams.id],
   }),
 }));
+
+// Demolition Materials Master Table (철거자재 마스터)
+export const demolitionMaterials = pgTable("demolition_materials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  division: text("division").notNull().default("SKT"),
+  category: text("category").notNull().default(""), // 전선, 케이블, 기타
+  managementNo: text("management_no").notNull(), // 자동생성 관리번호
+  projectCode: text("project_code").notNull(), // 공사번호 (필수)
+  projectName: text("project_name").notNull(), // 공사명 (필수)
+  demolitionDate: text("demolition_date").notNull(), // 철거일자
+
+  // 자재 정보
+  productName: text("product_name").notNull(),
+  specification: text("specification").notNull(),
+  originalQuantity: integer("original_quantity").notNull(), // 원래 수량
+  usedQuantity: integer("used_quantity").notNull().default(0), // 사용된 수량
+  remainingQuantity: integer("remaining_quantity").notNull(), // 잔량
+  wasteQuantity: integer("waste_quantity").notNull().default(0), // 폐기량
+
+  // 상태 관리
+  status: text("status").notNull().default("pending_review"), // pending_review, approved_reusable, in_use, disposed, rejected
+  reusable: boolean("reusable").notNull().default(false), // 재사용 가능 여부
+  condition: text("condition"), // excellent, good, fair, poor
+
+  // 금액 정보
+  estimatedValue: integer("estimated_value").notNull().default(0),
+
+  // 현재 할당 정보
+  currentTeamId: varchar("current_team_id").references(() => teams.id),
+
+  // 승인 정보
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"),
+
+  // 메타데이터
+  remark: text("remark"),
+  attributes: text("attributes"), // JSON for attachments
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertDemolitionMaterialSchema = createInsertSchema(demolitionMaterials).omit({ id: true, createdAt: true, updatedAt: true });
+export const apiInsertDemolitionMaterialSchema = z.object({
+  managementNo: z.string().optional(), // 자동생성되므로 optional
+  division: z.string().optional(),
+  category: z.string().optional(),
+  projectCode: z.string(), // 필수
+  projectName: z.string(), // 필수
+  demolitionDate: z.string(),
+  productName: z.string(),
+  specification: z.string(),
+  originalQuantity: z.number().min(0),
+  remainingQuantity: z.number().min(0).optional(),
+  estimatedValue: z.number().min(0).optional(),
+  remark: z.string().optional(),
+  attributes: z.string().optional(),
+});
+export type InsertDemolitionMaterial = z.infer<typeof insertDemolitionMaterialSchema>;
+export type DemolitionMaterial = typeof demolitionMaterials.$inferSelect;
+
+// Demolition Material Logs (철거자재 이력)
+export const demolitionMaterialLogs = pgTable("demolition_material_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  materialId: varchar("material_id").notNull().references(() => demolitionMaterials.id, { onDelete: "cascade" }),
+  teamId: varchar("team_id").references(() => teams.id),
+
+  logType: text("log_type").notNull(), // receive, review, usage, dispose
+
+  // 사용/재사용 정보
+  projectCode: text("project_code"),
+  projectName: text("project_name"),
+  usedQuantity: integer("used_quantity").notNull().default(0),
+
+  // 폐기 정보
+  disposeReason: text("dispose_reason"),
+  disposeMethod: text("dispose_method"),
+
+  // 검토 정보
+  reviewDecision: text("review_decision"), // approved, rejected
+  reviewNote: text("review_note"),
+
+  // 수량 변화
+  beforeQuantity: integer("before_quantity"),
+  afterQuantity: integer("after_quantity"),
+
+  logDate: text("log_date").notNull(),
+  workerName: text("worker_name"),
+  attributes: text("attributes"), // JSON
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertDemolitionMaterialLogSchema = createInsertSchema(demolitionMaterialLogs).omit({ id: true, createdAt: true });
+export const apiInsertDemolitionMaterialLogSchema = z.object({
+  materialId: z.string(),
+  teamId: z.string().optional(),
+  logType: z.enum(['receive', 'review', 'usage', 'dispose']),
+  projectCode: z.string().optional(),
+  projectName: z.string().optional(),
+  usedQuantity: z.number().min(0).optional(),
+  disposeReason: z.string().optional(),
+  disposeMethod: z.string().optional(),
+  reviewDecision: z.string().optional(),
+  reviewNote: z.string().optional(),
+  logDate: z.string(),
+  workerName: z.string().optional(),
+  attributes: z.string().optional(),
+});
+export type InsertDemolitionMaterialLog = z.infer<typeof insertDemolitionMaterialLogSchema>;
+export type DemolitionMaterialLog = typeof demolitionMaterialLogs.$inferSelect;
+
+// Relations
+export const demolitionMaterialsRelations = relations(demolitionMaterials, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [demolitionMaterials.tenantId],
+    references: [tenants.id],
+  }),
+  currentTeam: one(teams, {
+    fields: [demolitionMaterials.currentTeamId],
+    references: [teams.id],
+  }),
+  reviewedByUser: one(users, {
+    fields: [demolitionMaterials.reviewedBy],
+    references: [users.id],
+  }),
+  logs: many(demolitionMaterialLogs),
+}));
+
+export const demolitionMaterialLogsRelations = relations(demolitionMaterialLogs, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [demolitionMaterialLogs.tenantId],
+    references: [tenants.id],
+  }),
+  material: one(demolitionMaterials, {
+    fields: [demolitionMaterialLogs.materialId],
+    references: [demolitionMaterials.id],
+  }),
+  team: one(teams, {
+    fields: [demolitionMaterialLogs.teamId],
+    references: [teams.id],
+  }),
+}));
+
