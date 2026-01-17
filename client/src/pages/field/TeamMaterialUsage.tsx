@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Loader2, Trash2, Plus, Calendar, Pencil, MoreHorizontal, Download, Upload, Paperclip, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SearchInput } from "@/components/ui/SearchInput";
+
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,10 @@ import { exportToExcel } from "@/lib/excel";
 import { useToast } from "@/hooks/use-toast";
 import { compressImage, formatFileSize } from "@/lib/imageCompression";
 
-import type { MaterialUsageRecord, InventoryItem, OutgoingRecord } from "@shared/schema";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { useTableFilters } from "@/hooks/useTableFilters";
+import { type MaterialUsageRecord, type InventoryItem, type OutgoingRecord } from "@shared/schema";
+import { useFileUpload } from "@/hooks/useFileUpload";
 import {
   Table,
   TableBody,
@@ -71,13 +74,21 @@ const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
-import { useTableFilters } from "@/hooks/useTableFilters";
+
 
 export default function TeamMaterialUsage() {
   const { toast } = useToast();
   const { user, tenants, currentTenant, checkPermission, divisions, teams } = useAppContext();
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
-  const { downloadFile } = useDownload();
+  const { downloadFile, downloadAttachment } = useDownload();
+
+  const {
+    attachments,
+    setAttachments,
+    handleFileChange,
+    removeAttachment,
+    clearAttachments
+  } = useFileUpload();
 
   const { widths, startResizing } = useColumnResize({
     checkbox: 40,
@@ -142,8 +153,6 @@ export default function TeamMaterialUsage() {
     drumNumber: "",
     inventoryItemId: undefined as number | undefined,
     remark: "",
-    // 다중 품목 지원
-    attachments: [] as { name: string, data: string, size?: number, type?: string }[],
     items: [{
       id: Date.now().toString(),
       category: "",
@@ -509,7 +518,6 @@ export default function TeamMaterialUsage() {
       drumNumber: "",
       inventoryItemId: undefined,
       remark: "",
-      attachments: [],
       items: [{
         id: Date.now().toString(),
         division: "",
@@ -521,6 +529,7 @@ export default function TeamMaterialUsage() {
         remark: ""
       }]
     });
+    clearAttachments();
     setSelectedDate(new Date());
     setDialogOpen(true);
   };
@@ -546,7 +555,6 @@ export default function TeamMaterialUsage() {
       drumNumber: "",
       inventoryItemId: record.inventoryItemId || undefined,
       remark: record.remark || "",
-      attachments: [],
       items: [{
         id: Date.now().toString(),
         division: record.division,
@@ -562,6 +570,9 @@ export default function TeamMaterialUsage() {
     setFormData(initialFormData);
     setDialogOpen(true);
 
+    // Initialize attachments via hook
+    setAttachments([]);
+
     try {
       // Fetch full record to get complete attributes (attachments)
       const fullRecord = await queryClient.fetchQuery<MaterialUsageRecord>({
@@ -572,21 +583,46 @@ export default function TeamMaterialUsage() {
       if (fullRecord && fullRecord.attributes) {
         const attrs = JSON.parse(fullRecord.attributes);
         if (attrs.attachments && Array.isArray(attrs.attachments)) {
-          setFormData(prev => ({ ...prev, attachments: attrs.attachments }));
+          // Flatten attachments
+          const formattedAttachments = attrs.attachments.map((att: any) => ({
+            name: att.name,
+            data: "",
+            storageUrl: att.storageUrl || "",
+            storagePath: att.storagePath || ""
+          }));
+          setAttachments(formattedAttachments);
         } else if (attrs.attachment) {
-          setFormData(prev => ({ ...prev, attachments: [attrs.attachment] }));
+          const formattedAttachment = {
+            name: attrs.attachment.name,
+            data: "",
+            storageUrl: attrs.attachment.storageUrl || "",
+            storagePath: attrs.attachment.storagePath || ""
+          };
+          setAttachments([formattedAttachment]);
         }
       }
     } catch (e) {
       console.error("Failed to fetch full record details", e);
-      // Fallback to existing attributes if fetch fails (though they might be nullified)
+      // Fallback to existing attributes if fetch fails
       try {
         if (record.attributes) {
           const attrs = JSON.parse(record.attributes);
           if (attrs.attachments && Array.isArray(attrs.attachments)) {
-            setFormData(prev => ({ ...prev, attachments: attrs.attachments }));
+            const formattedAttachments = attrs.attachments.map((att: any) => ({
+              name: att.name,
+              data: "",
+              storageUrl: att.storageUrl || "",
+              storagePath: att.storagePath || ""
+            }));
+            setAttachments(formattedAttachments);
           } else if (attrs.attachment) {
-            setFormData(prev => ({ ...prev, attachments: [attrs.attachment] }));
+            const formattedAttachment = {
+              name: attrs.attachment.name,
+              data: "",
+              storageUrl: attrs.attachment.storageUrl || "",
+              storagePath: attrs.attachment.storagePath || ""
+            };
+            setAttachments([formattedAttachment]);
           }
         }
       } catch (parseError) {
@@ -613,7 +649,7 @@ export default function TeamMaterialUsage() {
       drumNumber: "",
       inventoryItemId: undefined,
       remark: "",
-      attachments: [],
+
       items: [{
         id: Date.now().toString(),
         division: "",
@@ -659,11 +695,13 @@ export default function TeamMaterialUsage() {
       const attributesObj: any = {};
 
       // 수정 시 첨부파일 변경이 있으면 처리
-      if (formData.attachments && formData.attachments.length > 0) {
-        attributesObj.attachments = formData.attachments;
-        attributesObj.attachment = formData.attachments[0]; // Legacy support
+      if (attachments && attachments.length > 0) {
+        attributesObj.attachments = attachments;
+        attributesObj.attachment = attachments[0]; // Legacy support
       } else if (editingRecord.attributes) {
-        // 기존 첨부파일 로직: formData에 없으면 비운다 (왜냐하면 수정 화면 진입 시 로드하므로)
+        // 기존 첨부파일 로직 유지 필요 여부:
+        // openEditDialog에서 setAttachments로 초기화하므로, 
+        // 여기서 attachments가 비어있다면 사용자가 삭제한 것으로 간주해도 됨.
       }
 
       const data = {
@@ -704,9 +742,9 @@ export default function TeamMaterialUsage() {
         const item = validItems[i];
         const attributesObj: any = {};
         // 첫 번째 아이템에만 첨부파일 포함
-        if (i === 0 && formData.attachments && formData.attachments.length > 0) {
-          attributesObj.attachments = formData.attachments;
-          attributesObj.attachment = formData.attachments[0];
+        if (i === 0 && attachments && attachments.length > 0) {
+          attributesObj.attachments = attachments;
+          attributesObj.attachment = attachments[0];
         }
 
         const data = {
@@ -1014,7 +1052,105 @@ export default function TeamMaterialUsage() {
                               className="h-6 w-6 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                downloadFile(`/api/material-usage/${record.id}`, attachments[0].name);
+                                // 진행 중 메시지
+                                toast({
+                                  title: "다운로드 시작",
+                                  description: `${attachments[0].name} 다운로드를 준비합니다...`,
+                                });
+
+                                const bucket = 'attachments';
+                                let path = attachments[0].storagePath;
+
+                                // storagePath가 없으면 URL에서 추출 시도
+                                if (!path && attachments[0].storageUrl && attachments[0].storageUrl.includes('/attachments/')) {
+                                  const parts = attachments[0].storageUrl.split('/attachments/');
+                                  if (parts.length > 1) path = parts[1];
+                                }
+
+                                if (path) {
+                                  const proxyUrl = `/api/storage/proxy-download?bucket=${bucket}&path=${encodeURIComponent(path)}&filename=${encodeURIComponent(attachments[0].name)}`;
+
+                                  fetch(proxyUrl)
+                                    .then(response => {
+                                      if (!response.ok) throw new Error('Download failed');
+                                      return response.blob();
+                                    })
+                                    .then(blob => {
+                                      const url = window.URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.style.display = 'none';
+                                      a.href = url;
+                                      a.download = attachments[0].name;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      window.URL.revokeObjectURL(url);
+                                      document.body.removeChild(a);
+
+                                      toast({
+                                        title: "다운로드 완료",
+                                        description: `${attachments[0].name} 다운로드가 완료되었습니다.`,
+                                      });
+                                    })
+                                    .catch(err => {
+                                      console.error('Download error:', err);
+                                      toast({
+                                        title: "다운로드 실패",
+                                        description: "파일 다운로드 중 오류가 발생했습니다.",
+                                        variant: "destructive"
+                                      });
+                                    });
+                                } else {
+                                  // 진행 중 메시지
+                                  toast({
+                                    title: "다운로드 시작",
+                                    description: `${attachments[0].name} 다운로드를 준비합니다...`,
+                                  });
+
+                                  const bucket = 'attachments';
+                                  let path = attachments[0].storagePath;
+
+                                  // storagePath가 없으면 URL에서 추출 시도
+                                  if (!path && attachments[0].storageUrl && attachments[0].storageUrl.includes('/attachments/')) {
+                                    const parts = attachments[0].storageUrl.split('/attachments/');
+                                    if (parts.length > 1) path = parts[1];
+                                  }
+
+                                  if (path) {
+                                    const proxyUrl = `/api/storage/proxy-download?bucket=${bucket}&path=${encodeURIComponent(path)}&filename=${encodeURIComponent(attachments[0].name)}`;
+
+                                    fetch(proxyUrl)
+                                      .then(response => {
+                                        if (!response.ok) throw new Error('Download failed');
+                                        return response.blob();
+                                      })
+                                      .then(blob => {
+                                        const url = window.URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.style.display = 'none';
+                                        a.href = url;
+                                        a.download = attachments[0].name;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        window.URL.revokeObjectURL(url);
+                                        document.body.removeChild(a);
+
+                                        toast({
+                                          title: "다운로드 완료",
+                                          description: `${attachments[0].name} 다운로드가 완료되었습니다.`,
+                                        });
+                                      })
+                                      .catch(err => {
+                                        console.error('Download error:', err);
+                                        toast({
+                                          title: "다운로드 실패",
+                                          description: "파일 다운로드 중 오류가 발생했습니다.",
+                                          variant: "destructive"
+                                        });
+                                      });
+                                  } else {
+                                    downloadFile(`/api/material-usage/${record.id}`, attachments[0].name);
+                                  }
+                                }
                               }}
                               title={attachments[0].name}
                             >
@@ -1046,7 +1182,54 @@ export default function TeamMaterialUsage() {
                                     className="justify-start h-8 text-xs max-w-[200px]"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      downloadFile(`/api/material-usage/${record.id}`, file.name);
+                                      const bucket = 'attachments';
+                                      let path = file.storagePath;
+
+                                      if (!path && file.storageUrl && file.storageUrl.includes('/attachments/')) {
+                                        const parts = file.storageUrl.split('/attachments/');
+                                        if (parts.length > 1) path = parts[1];
+                                      }
+
+                                      if (path) {
+                                        toast({
+                                          title: "다운로드 시작",
+                                          description: `${file.name} 다운로드를 준비합니다...`,
+                                        });
+
+                                        const proxyUrl = `/api/storage/proxy-download?bucket=${bucket}&path=${encodeURIComponent(path)}&filename=${encodeURIComponent(file.name)}`;
+
+                                        fetch(proxyUrl)
+                                          .then(response => {
+                                            if (!response.ok) throw new Error('Download failed');
+                                            return response.blob();
+                                          })
+                                          .then(blob => {
+                                            const url = window.URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.style.display = 'none';
+                                            a.href = url;
+                                            a.download = file.name;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            window.URL.revokeObjectURL(url);
+                                            document.body.removeChild(a);
+
+                                            toast({
+                                              title: "다운로드 완료",
+                                              description: `${file.name} 다운로드가 완료되었습니다.`,
+                                            });
+                                          })
+                                          .catch(err => {
+                                            console.error('Download error:', err);
+                                            toast({
+                                              title: "다운로드 실패",
+                                              description: "파일 다운로드 중 오류가 발생했습니다.",
+                                              variant: "destructive"
+                                            });
+                                          });
+                                      } else {
+                                        downloadFile(`/api/material-usage/${record.id}`, file.name);
+                                      }
                                     }}
                                     title={file.name}
                                   >
@@ -1211,7 +1394,7 @@ export default function TeamMaterialUsage() {
                                 className="h-5 px-1"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  downloadFile(`/api/material-usage/${record.id}`, attachments[0].name);
+                                  downloadAttachment(attachments[0]);
                                 }}
                               >
                                 <Download className="h-3 w-3" />
@@ -1242,7 +1425,7 @@ export default function TeamMaterialUsage() {
                                       className="justify-start h-8 text-xs max-w-[200px]"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        downloadFile(`/api/material-usage/${record.id}`, file.name);
+                                        downloadAttachment(file);
                                       }}
                                       title={file.name}
                                     >
@@ -1508,92 +1691,23 @@ export default function TeamMaterialUsage() {
                     accept="image/*,application/pdf,.xlsx,.xls"
                     multiple
                     className="hidden"
-                    onChange={async (e) => {
-                      const files = Array.from(e.target.files || []);
-                      if (files.length === 0) return;
-
-                      const currentCount = formData.attachments.length;
-                      if (currentCount + files.length > 4) {
-                        toast({
-                          title: "파일 개수 초과",
-                          description: `최대 4개까지 첨부할 수 있습니다. (현재 ${currentCount}개)`,
-                          variant: "destructive"
-                        });
-                        e.target.value = '';
-                        return;
-                      }
-
-                      const newAttachments = [...formData.attachments];
-
-                      for (const file of files) {
-                        if (file.size > 10 * 1024 * 1024) {
-                          toast({
-                            title: "용량 초과",
-                            description: `${file.name} 파일이 10MB를 초과합니다.`,
-                            variant: "destructive"
-                          });
-                          continue;
-                        }
-
-                        try {
-                          let processedFile: { name: string; data: string };
-
-                          if (file.type.startsWith('image/')) {
-                            // 이미지 압축 적용
-                            const compressed = await compressImage(file, {
-                              maxWidth: 1920,
-                              maxHeight: 1920,
-                              quality: 0.8,
-                              maxSizeMB: 5
-                            });
-                            processedFile = compressed;
-
-                            const originalSize = formatFileSize(file.size);
-                            const compressedSize = formatFileSize(compressed.size);
-                            toast({
-                              title: "이미지 압축 완료",
-                              description: `${originalSize} → ${compressedSize}`,
-                            });
-                          } else {
-                            // Excel, PDF 등은 Base64로 변환
-                            const base64 = await new Promise<string>((resolve, reject) => {
-                              const reader = new FileReader();
-                              reader.onload = () => resolve(reader.result as string);
-                              reader.onerror = reject;
-                              reader.readAsDataURL(file);
-                            });
-                            processedFile = { name: file.name, data: base64 };
-                          }
-
-                          newAttachments.push(processedFile);
-                        } catch (error: any) {
-                          toast({
-                            title: "파일 업로드 실패",
-                            description: error.message || "파일을 처리할 수 없습니다",
-                            variant: "destructive"
-                          });
-                        }
-                      }
-
-                      setFormData({ ...formData, attachments: newAttachments });
-                      e.target.value = ''; // Reset
-                    }}
+                    onChange={handleFileChange}
                   />
-                  {formData.attachments.length < 4 && (
+                  {attachments.length < 4 && (
                     <label
                       htmlFor="usage-file-upload"
                       className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                     >
                       <Upload className="h-5 w-5 text-primary" />
                       <span className="text-sm font-medium text-primary">
-                        파일 선택 ({formData.attachments.length}/4) - 이미지, PDF, 엑셀
+                        파일 선택 ({attachments.length}/4) - 이미지, PDF, 엑셀
                       </span>
                     </label>
                   )}
                 </div>
 
                 <div className="space-y-2 mt-2">
-                  {formData.attachments.map((file, index) => (
+                  {attachments.map((file, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
                       <span className="text-sm text-muted-foreground truncate flex-1">
                         📎 {file.name}
@@ -1602,10 +1716,7 @@ export default function TeamMaterialUsage() {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          const newAttachments = formData.attachments.filter((_, i) => i !== index);
-                          setFormData({ ...formData, attachments: newAttachments });
-                        }}
+                        onClick={() => removeAttachment(index)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

@@ -1,7 +1,7 @@
 # 통신공사 ERP 구축 로드맵 (Master Plan)
 
 **최종 목표**: 모든 공사의 **공정 관리(Process)**부터 **정산(Settlement)**까지 통합 관리하는 시스템 구축  
-**현재 버전**: `v1.2.28` (2026-01-16)  
+**현재 버전**: `v1.2.29` (2026-01-17)  
 **진행 단계**: Phase 2 완료 - Phase 3 준비 중
 
 ---
@@ -104,12 +104,12 @@
 #### 🔄 Phase 4.1: 파일 저장소 분리 (진행 중)
 **목표**: Client-Side Direct Upload 및 Direct Download 전면 적용
 
-- [ ] **Step 1: 업로드/다운로드 로직 재검증 및 수정** (Current Task)
-  - [ ] **Client-Side Upload**: 프론트엔드에서 `uploadFileToStorage` 사용하여 직접 업로드 구현
-  - [ ] **Direct Download**: 백엔드 프록시(`downloadFile`) 제거하고 `storageUrl`로 직접 다운로드 구현
-  - [ ] **레거시 호환**: 기존 Base64 데이터 처리를 위한 백엔드 로직 유지 또는 마이그레이션
-  - [ ] **Upload UI 표준화**: 점선 박스 UI 및 다중 파일 처리 로직 통일
-  - [ ] **대상 페이지**:
+- [x] **Step 1: 업로드/다운로드 로직 재검증 및 수정** (Completed)
+  - [x] **Client-Side Upload**: 프론트엔드에서 `uploadFileToStorage` 사용하여 직접 업로드 구현
+  - [x] **Direct Download**: 백엔드 프록시(`downloadFile`) 제거하고 `storageUrl`로 직접 다운로드 구현
+  - [x] **레거시 호환**: 기존 Base64 데이터 처리를 위한 백엔드 로직 유지 또는 마이그레이션
+  - [x] **Upload UI 표준화**: 점선 박스 UI 및 다중 파일 처리 로직 통일
+  - [x] **대상 페이지**:
     - `IncomingRecords` (입고)
     - `OutgoingRecords` (출고)
     - `TeamMaterialUsage` (사용)

@@ -224,6 +224,97 @@ const stock = await db.select()
 
 ---
 
+
+---
+
+## 4.5 파일 업로드/다운로드 규칙 (File Handling) ⭐ **필수**
+
+> **[!IMPORTANT]**
+> 모든 파일 업로드/다운로드는 **반드시** `useFileUpload`와 `useDownload` 훅을 사용해야 합니다.
+> 직접 구현하거나 다른 방식을 사용하는 것은 **금지**됩니다.
+
+### A. 필수 훅 사용
+
+**검증 완료**: 2026-01-17 기준, 모든 메뉴(입고, 출고, 사용등록, 광케이블 등)에서 정상 작동 확인됨.
+
+#### 업로드: `useFileUpload` 훅
+```typescript
+import { useFileUpload } from "@/hooks/useFileUpload";
+
+const { 
+  attachments, 
+  handleFileSelect, 
+  removeAttachment, 
+  isUploading 
+} = useFileUpload();
+```
+
+**특징**:
+- 이미지 자동 압축 (용량 절감)
+- Supabase Storage에 UUID 파일명으로 저장
+- DB에는 원본 파일명 + Storage 경로만 저장 (Base64 저장 금지)
+- 업로드 진행 상황 토스트 알림
+- 압축 절감량 표시
+
+#### 다운로드: `useDownload` 훅
+```typescript
+import { useDownload } from "@/hooks/useDownload";
+
+const { downloadFile, downloadAttachment } = useDownload();
+
+// 사용 예시
+downloadAttachment(file); // file: { name, storagePath, storageUrl }
+```
+
+**특징**:
+- Supabase Storage에서 파일 가져오기
+- 원본 파일명으로 다운로드 (한글, 공백, 특수문자 지원)
+- Blob URL 방식으로 브라우저 호환성 보장
+- 다운로드 시작/완료 토스트 알림
+
+### B. 파일 메타데이터 저장 구조
+
+DB의 `attributes` JSONB 필드에 다음 구조로 저장:
+
+```typescript
+{
+  "attachments": [
+    {
+      "name": "스크린샷 2026-01-17 15.31.12.png",  // 원본 파일명
+      "storagePath": "1768633946188_0p0qexu79.png", // UUID 파일명
+      "storageUrl": "https://...supabase.co/storage/v1/object/public/attachments/1768633946188_0p0qexu79.png",
+      "size": 169847,
+      "type": "image/png",
+      "isCompressed": true,
+      "originalSize": 250000,
+      "compressedSize": 169847
+    }
+  ]
+}
+```
+
+**중요**: `data` 필드(Base64)는 절대 저장하지 않습니다. Storage URL만 사용합니다.
+
+### C. 스토리지 구조
+
+- **Provider**: Supabase Storage
+- **Bucket**: `attachments` (기본)
+- **파일명 규칙**: `{timestamp}_{randomId}.{ext}` (예: `1768633946188_0p0qexu79.png`)
+- **경로**: 플랫 구조 (폴더 없음)
+
+### D. 구현 체크리스트
+
+새로운 파일 업로드/다운로드 기능 추가 시:
+
+- [ ] `useFileUpload` 훅 import 및 사용
+- [ ] `useDownload` 훅 import 및 사용  
+- [ ] DB 스키마의 `attributes` 필드가 JSONB 타입인지 확인
+- [ ] 업로드 시 `attachments` 배열 구조로 저장
+- [ ] 다운로드 시 `downloadAttachment(file)` 호출
+- [ ] Base64 데이터를 DB에 저장하지 않는지 확인
+
+---
+
 ## 5. 트랜잭션 및 로직 통합 패턴 (Transaction Patterns)
 - **상태 변경과 이력 생성의 원자성**: `opticalCables`와 같은 자산의 상태 변경 시, 반드시 상태 업데이트와 로그 생성을 하나의 트랜잭션으로 묶어야 합니다.
   - 패턴: `storage.createOpticalCableLog` 내부에서 `db.transaction` 사용.

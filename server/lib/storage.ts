@@ -109,3 +109,68 @@ export function getMimeType(filename: string): string {
     };
     return mimeTypes[ext] || 'application/octet-stream';
 }
+
+/**
+ * 업로드용 Signed URL 생성 (Client 직접 업로드용)
+ * @param bucket 버킷 이름
+ * @param path 파일 경로
+ * @returns Signed URL 데이터
+ */
+export async function createSignedUploadUrl(bucket: string, path: string): Promise<{ signedUrl: string; token: string; path: string }> {
+    if (!supabase) throw new Error("Supabase client not configured");
+
+    // 60초(1분) 동안 유효한 Signed URL 생성
+    const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUploadUrl(path);
+
+    if (error) {
+        console.error('Create Signed URL error:', error);
+        throw new Error(`Signed URL 생성 실패: ${error.message}`);
+    }
+
+    return data;
+}
+
+/**
+ * 다운로드용 Signed URL 생성 (강제 다운로드 처리)
+ * @param bucket 버킷 이름
+ * @param path 파일 경로
+ * @param filename 다운로드될 파일명
+ */
+export async function createSignedDownloadUrl(bucket: string, path: string, filename?: string): Promise<{ signedUrl: string }> {
+    if (!supabase) throw new Error("Supabase client not configured");
+
+    const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 60, { // 60초 유효
+            download: filename || true // true면 원본 파일명, 문자열이면 그 이름으로 다운로드
+        });
+
+    if (error) {
+        console.error('Create Signed Download URL error:', error);
+        throw new Error(`다운로드 URL 생성 실패: ${error.message}`);
+    }
+
+    return data;
+}
+
+/**
+ * 파일을 스트림으로 다운로드 (Proxy용)
+ * @param bucket 버킷 이름
+ * @param path 파일 경로
+ */
+export async function downloadFileStream(bucket: string, path: string): Promise<Blob> {
+    if (!supabase) throw new Error("Supabase client not configured");
+
+    const { data, error } = await supabase.storage
+        .from(bucket)
+        .download(path);
+
+    if (error) {
+        console.error('Download stream error:', error);
+        throw new Error(`파일 다운로드 실패: ${error.message}`);
+    }
+
+    return data;
+}

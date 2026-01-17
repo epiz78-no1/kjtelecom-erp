@@ -18,10 +18,10 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 interface OpticalUsageDialogProps {
     open: boolean;
@@ -42,6 +42,19 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
         currentTenantData.permissions.outgoing === 'none' &&
         currentTenantData.permissions.inventory === 'none';
 
+    // Hook integration
+    const {
+        attachments,
+        setAttachments,
+        handleFileChange,
+        removeAttachment,
+        clearAttachments,
+        isUploading
+    } = useFileUpload({
+        maxFiles: 4,
+        maxSizeMB: 10
+    });
+
     const [formData, setFormData] = useState({
         cableId: "",
         teamId: myTeamId || "",
@@ -51,7 +64,6 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
         projectCode: "",
         projectNameUsage: "",
         workerName: user?.username || "",
-        attachments: [] as { name: string; data: string }[],
     });
 
     const { data: cables = [] } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
@@ -91,17 +103,20 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
         enabled: open && !isFieldTeam,
         retry: false,
     });
+
     // 다이얼로그가 열릴 때 초기화 로직
     useEffect(() => {
         if (open) {
             if (editingLog) {
-                let parsedAttachments: { name: string; data: string }[] = [];
+                let parsedAttachments: any[] = [];
 
                 if (editingLog.attributes) {
                     try {
                         const attr = JSON.parse(editingLog.attributes);
                         if (attr.attachments && Array.isArray(attr.attachments)) {
                             parsedAttachments = attr.attachments;
+                        } else if (attr.attachment) {
+                            parsedAttachments = [attr.attachment];
                         }
                     } catch (e) {
                         // Ignore parse error
@@ -117,8 +132,10 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     projectCode: (editingLog as any).projectCode || "",
                     projectNameUsage: (editingLog as any).projectNameUsage || "",
                     workerName: (editingLog as any).workerName || user?.username || "",
-                    attachments: parsedAttachments,
                 });
+
+                // Initialize attachments from editingLog
+                setAttachments(parsedAttachments);
             } else {
                 // 신규 등록인 경우 항상 초기화 (이전 입력값 제거)
                 setFormData({
@@ -130,8 +147,8 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     projectCode: "",
                     projectNameUsage: "",
                     workerName: user?.username || "",
-                    attachments: [],
                 });
+                clearAttachments();
             }
         }
     }, [open, editingLog, myTeamId, user]);
@@ -155,11 +172,14 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
     const usageMutation = useMutation({
         mutationFn: async (data: any) => {
             const attributes = JSON.stringify({
-                attachments: data.attachments
+                attachments: attachments // Use hook state
             });
 
             const payload = {
                 ...data,
+                // Ensure quantity fields are numbers
+                installLength: Number(data.installLength),
+                wasteLength: Number(data.wasteLength),
                 attributes
             };
 
@@ -176,7 +196,8 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables/logs"] });
             // 특정 케이블의 이력도 무효화 (이력 다이얼로그 업데이트용)
-            queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${variables.cableId}/logs`] });
+            // variables.cableId might be missing in PATCH if not passed, but formData.cableId exists
+            queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${formData.cableId}/logs`] });
             toast({ title: editingLog ? "사용 내역이 수정되었습니다" : "사용 실적이 등록되었습니다" });
             onOpenChange(false);
         },
@@ -210,12 +231,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
             return;
         }
 
-        usageMutation.mutate({
-            ...formData,
-            teamId: isFieldTeam ? myTeamId : formData.teamId,
-            installLength: Number(formData.installLength),
-            wasteLength: Number(formData.wasteLength),
-        });
+        usageMutation.mutate(formData);
     };
 
     const selectedCable = availableCables.find(c => c.id.toString() === formData.cableId);
@@ -399,107 +415,46 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                 <Input
                                     id="optical-usage-file-upload"
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                                     multiple
                                     className="hidden"
-                                    onChange={async (e) => {
-                                        const files = Array.from(e.target.files || []);
-                                        if (files.length === 0) return;
-
-                                        const currentCount = formData.attachments.length;
-                                        if (currentCount + files.length > 4) {
-                                            toast({
-                                                title: "파일 개수 초과",
-                                                description: `최대 4개까지 첨부할 수 있습니다. (현재 ${currentCount}개)`,
-                                                variant: "destructive"
-                                            });
-                                            e.target.value = '';
-                                            return;
-                                        }
-
-                                        const newAttachments = [...formData.attachments];
-                                        let compressedCount = 0;
-
-                                        for (const file of files) {
-                                            if (file.size > 10 * 1024 * 1024) {
-                                                toast({
-                                                    title: "용량 초과",
-                                                    description: `${file.name} 파일이 10MB를 초과합니다.`,
-                                                    variant: "destructive"
-                                                });
-                                                continue;
-                                            }
-
-                                            try {
-                                                let processedFile: { name: string; data: string };
-
-                                                if (file.type.startsWith('image/')) {
-                                                    const compressed = await compressImage(file, {
-                                                        maxWidth: 1920,
-                                                        maxHeight: 1920,
-                                                        quality: 0.8,
-                                                        maxSizeMB: 5
-                                                    });
-                                                    processedFile = compressed;
-                                                    compressedCount++;
-                                                } else {
-                                                    const base64 = await new Promise<string>((resolve, reject) => {
-                                                        const reader = new FileReader();
-                                                        reader.onload = () => resolve(reader.result as string);
-                                                        reader.onerror = reject;
-                                                        reader.readAsDataURL(file);
-                                                    });
-                                                    processedFile = { name: file.name, data: base64 };
-                                                }
-
-                                                newAttachments.push(processedFile);
-                                            } catch (error: any) {
-                                                toast({
-                                                    title: "파일 업로드 실패",
-                                                    description: error.message || "파일을 처리할 수 없습니다",
-                                                    variant: "destructive"
-                                                });
-                                            }
-                                        }
-
-                                        if (compressedCount > 0) {
-                                            toast({
-                                                title: "이미지 압축 완료",
-                                                description: `${compressedCount}개 이미지가 압축되었습니다`,
-                                            });
-                                        }
-
-                                        setFormData({ ...formData, attachments: newAttachments });
-                                        e.target.value = '';
-                                    }}
+                                    onChange={handleFileChange}
+                                    disabled={isUploading || attachments.length >= 4}
                                 />
-                                {formData.attachments.length < 4 && (
+                                {attachments.length < 4 && (
                                     <label
                                         htmlFor="optical-usage-file-upload"
-                                        className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                        className={cn(
+                                            "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                                            isUploading && "opacity-50 cursor-wait"
+                                        )}
                                     >
                                         <Upload className="h-5 w-5 text-primary" />
                                         <span className="text-sm font-medium text-primary">
-                                            파일 선택 ({formData.attachments.length}/4) - 이미지, PDF, 엑셀
+                                            {isUploading ? "업로드 중..." : `파일 선택 (${attachments.length}/4) - 이미지, PDF, 엑셀`}
                                         </span>
                                     </label>
                                 )}
                             </div>
 
                             <div className="space-y-2 mt-2">
-                                {formData.attachments.map((file, index) => (
+                                {attachments.map((file, index) => (
                                     <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
                                         <span className="text-sm text-muted-foreground truncate flex-1">
-                                            📎 {file.name}
+                                            {file.storageUrl ? (
+                                                <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                                    📎 {file.name}
+                                                </a>
+                                            ) : (
+                                                <span className="flex items-center">📎 {file.name}</span>
+                                            )}
                                         </span>
                                         <Button
+                                            type="button"
                                             variant="ghost"
                                             size="sm"
                                             className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => {
-                                                const newAttachments = formData.attachments.filter((_, i) => i !== index);
-                                                setFormData({ ...formData, attachments: newAttachments });
-                                            }}
+                                            onClick={() => removeAttachment(index)}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -509,17 +464,15 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                         </div>
                     </div>
 
-
-
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                             취소
                         </Button>
-                        <Button type="submit" disabled={usageMutation.isPending}>
-                            {usageMutation.isPending ? (
+                        <Button type="submit" disabled={usageMutation.isPending || isUploading}>
+                            {usageMutation.isPending || isUploading ? (
                                 <>
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    처리중...
+                                    {isUploading ? "업로드 중..." : "처리중..."}
                                 </>
                             ) : (
                                 <>

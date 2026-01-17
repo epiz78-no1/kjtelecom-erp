@@ -8,6 +8,7 @@ import { registerOpticalRoutes } from "./routes/optical.js";
 import { registerDemolitionRoutes } from "./routes/demolition.js";
 import { registerTeamsRoutes } from "./routes/teams.js";
 import { registerSystemRoutes } from "./routes/system.js";
+import { registerStorageRoutes } from "./routes/storage.js";
 import { tenantContext } from "./middleware/tenant.js";
 import { serveStatic } from "./static.js";
 import { createServer } from "http";
@@ -119,6 +120,7 @@ registerInventoryRoutes(app);
 registerTeamsRoutes(app);
 registerOpticalRoutes(app);
 registerDemolitionRoutes(app);
+registerStorageRoutes(app);
 registerAdminRoutes(app);
 
 // Template Download API (Global priority)

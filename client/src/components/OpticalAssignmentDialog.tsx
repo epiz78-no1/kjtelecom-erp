@@ -36,11 +36,11 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { useAppContext } from "@/contexts/AppContext";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 interface Props {
     trigger?: React.ReactNode;
@@ -59,6 +59,19 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
     const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setOpen = controlledOnOpenChange || setInternalOpen;
 
+    // Hook integration
+    const {
+        attachments,
+        setAttachments,
+        handleFileChange,
+        removeAttachment,
+        clearAttachments,
+        isUploading
+    } = useFileUpload({
+        maxFiles: 4,
+        maxSizeMB: 10
+    });
+
     const [formData, setFormData] = useState({
         cableId: initialCableId || "",
         teamId: "",
@@ -67,8 +80,6 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
         projectNameUsage: "",
         usageDate: new Date().toISOString().split("T")[0],
         remark: "",
-        attachment: null as { name: string; data: string } | null,
-        attachments: [] as { name: string; data: string }[],
     });
 
     const [openCombobox, setOpenCombobox] = useState(false);
@@ -89,13 +100,15 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
 
     useEffect(() => {
         if (open) {
-            // Refetch members when dialog opens to get latest team assignments
-            refetchMembers();
+            // useQuery with enabled:open already fetches members when dialog opens
+            // No need to manually refetch
             if (initialCableId) {
                 setFormData(prev => ({ ...prev, cableId: initialCableId }));
             }
+            // Don't clear attachments here - it will clear files when user changes other fields!
+            // Attachments are cleared in onSuccess callback after successful submission
         }
-    }, [open, initialCableId, refetchMembers]);
+    }, [open, initialCableId]); // Removed clearAttachments from dependencies
 
     const mutation = useMutation({
         mutationFn: async () => {
@@ -113,8 +126,10 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                     attributes: JSON.stringify({
                         recipient: formData.recipient,
                         remark: formData.remark || undefined,
-                        attachment: formData.attachment || undefined,
-                        attachments: formData.attachments || undefined,
+                        // New attachment structure
+                        attachments: attachments,
+                        // For legacy compatibility, maybe include single 'attachment' if needed, but 'attachments' array is preferred now
+                        attachment: attachments.length > 0 ? attachments[0] : undefined
                     }),
                 }
             );
@@ -139,9 +154,8 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                 projectNameUsage: "",
                 usageDate: new Date().toISOString().split("T")[0],
                 remark: "",
-                attachment: null,
-                attachments: [],
             });
+            clearAttachments();
         },
         onError: (error: Error) => {
             toast({
@@ -152,15 +166,12 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
         },
     });
 
-    // const [mutation] = React.useState(createMutation);
-
     const handleSubmit = () => {
         // ... validation checks ...
         if (!formData.cableId) {
             toast({ title: "제조번호를 선택해주세요", variant: "destructive" });
             return;
         }
-        // ... other validations ...
         if (!formData.teamId) {
             toast({ title: "수령 팀을 선택해주세요", variant: "destructive" });
             return;
@@ -376,107 +387,40 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                                 id="optical-file-upload"
                                 className="hidden"
                                 multiple
-                                onChange={async (e) => {
-                                    const files = Array.from(e.target.files || []);
-                                    if (files.length === 0) return;
-
-                                    const currentCount = formData.attachments?.length || 0;
-                                    if (currentCount + files.length > 4) {
-                                        toast({
-                                            title: "파일 개수 초과",
-                                            description: "최대 4개까지만 업로드 가능합니다.",
-                                            variant: "destructive"
-                                        });
-                                        return;
-                                    }
-
-                                    const newAttachments = [...(formData.attachments || [])];
-                                    let compressedCount = 0;
-
-                                    for (const file of files) {
-                                        try {
-                                            if (file.size > 10 * 1024 * 1024) {
-                                                toast({
-                                                    title: "용량 초과",
-                                                    description: `${file.name}: 10MB 초과`,
-                                                    variant: "destructive"
-                                                });
-                                                continue;
-                                            }
-
-                                            let processedFile: { name: string; data: string };
-
-                                            if (file.type.startsWith('image/')) {
-                                                const compressed = await compressImage(file, {
-                                                    maxWidth: 1280,
-                                                    maxHeight: 1280,
-                                                    quality: 0.7,
-                                                    maxSizeMB: 1
-                                                });
-                                                processedFile = compressed;
-                                                compressedCount++;
-                                            } else {
-                                                const base64 = await new Promise<string>((resolve, reject) => {
-                                                    const reader = new FileReader();
-                                                    reader.onload = () => resolve(reader.result as string);
-                                                    reader.onerror = reject;
-                                                    reader.readAsDataURL(file);
-                                                });
-                                                processedFile = { name: file.name, data: base64 };
-                                            }
-                                            newAttachments.push(processedFile);
-                                        } catch (error: any) {
-                                            toast({
-                                                title: "파일 처리 실패",
-                                                description: `${file.name}: ${error.message}`,
-                                                variant: "destructive"
-                                            });
-                                        }
-                                    }
-
-                                    if (compressedCount > 0) {
-                                        toast({
-                                            title: "이미지 압축 완료",
-                                            description: `${compressedCount}개 이미지가 압축되었습니다`,
-                                        });
-                                    }
-
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        attachments: newAttachments,
-                                        attachment: newAttachments[0] || null // Update legacy field
-                                    }));
-                                }}
+                                onChange={handleFileChange}
+                                disabled={isUploading || attachments.length >= 4}
                             />
                             <label
                                 htmlFor="optical-file-upload"
-                                className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                className={cn(
+                                    "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                                    isUploading && "opacity-50 cursor-wait"
+                                )}
                             >
                                 <Upload className="h-5 w-5 text-primary" />
                                 <span className="text-sm font-medium text-primary">
-                                    파일 선택 또는 드래그 (현재 {formData.attachments?.length || 0}/4)
+                                    {isUploading ? "업로드 중..." : `파일 선택 또는 드래그 (현재 ${attachments.length}/4)`}
                                 </span>
                             </label>
                         </div>
-                        {formData.attachments && formData.attachments.length > 0 && (
+                        {attachments.length > 0 && (
                             <div className="grid grid-cols-1 gap-2 mt-2">
-                                {formData.attachments.map((file, index) => (
+                                {attachments.map((file, index) => (
                                     <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
                                         <span className="text-sm text-muted-foreground truncate">
-                                            📎 {file.name}
+                                            {file.storageUrl ? (
+                                                <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                                    📎 {file.name}
+                                                </a>
+                                            ) : (
+                                                <span className="flex items-center">📎 {file.name}</span>
+                                            )}
                                         </span>
                                         <Button
                                             variant="ghost"
                                             size="sm"
                                             className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => {
-                                                const newAttachments = formData.attachments!.filter((_, i) => i !== index);
-                                                setFormData({
-                                                    ...formData,
-                                                    attachments: newAttachments,
-                                                    attachment: newAttachments[0] || null
-                                                });
-                                            }}
+                                            onClick={() => removeAttachment(index)}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -491,7 +435,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                     <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                         취소
                     </Button>
-                    <Button onClick={handleSubmit} disabled={mutation.isPending}>
+                    <Button onClick={handleSubmit} disabled={mutation.isPending || isUploading}>
                         {mutation.isPending && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}

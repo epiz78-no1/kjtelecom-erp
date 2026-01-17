@@ -23,8 +23,8 @@ import { CalendarIcon, Upload, Trash2, FileCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { useToast } from "@/hooks/use-toast";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 export interface OpticalCableFormData {
     managementNo: string;
@@ -58,6 +58,19 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     const [internalOpen, setInternalOpen] = useState(false);
     const { toast } = useToast();
 
+    // Hook integration
+    const {
+        attachments,
+        setAttachments,
+        handleFileChange,
+        removeAttachment,
+        clearAttachments,
+        isUploading
+    } = useFileUpload({
+        maxFiles: 4,
+        maxSizeMB: 10
+    });
+
     // ID 중복 방지를 위한 고유 ID 생성
     const [uniqueId] = useState(`optical-upload-${Math.random().toString(36).slice(2)}`);
 
@@ -85,7 +98,6 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     });
 
     const [incomingLength, setIncomingLength] = useState<number | "">("");
-    const [attachments, setAttachments] = useState<{ name: string; data: string }[]>([]);
 
     // 리렌더링 시 초기화 방지를 위한 ID 트래킹
     const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
@@ -174,85 +186,6 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
 
     const handleProductNameChange = (val: string) => {
         setFormData(prev => ({ ...prev, productName: val }));
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
-
-        const currentCount = attachments.length;
-        if (currentCount + files.length > 4) {
-            toast({
-                title: "파일 개수 초과",
-                description: `최대 4개까지 첨부할 수 있습니다. (현재 ${currentCount}개)`,
-                variant: "destructive"
-            });
-            e.target.value = ''; // Reset input
-            return;
-        }
-
-        const processedFiles: { name: string; data: string }[] = [];
-
-        for (const file of files) {
-            if (file.size > 10 * 1024 * 1024) { // 10MB
-                toast({
-                    title: "용량 초과",
-                    description: `${file.name} 파일이 10MB를 초과합니다.`,
-                    variant: "destructive"
-                });
-                continue;
-            }
-
-            try {
-                let processedFile: { name: string; data: string };
-
-                if (file.type.startsWith('image/')) {
-                    // 이미지 압축 적용
-                    const compressed = await compressImage(file, {
-                        maxWidth: 1280,
-                        maxHeight: 1280,
-                        quality: 0.7,
-                        maxSizeMB: 1
-                    });
-                    processedFile = compressed;
-
-                    const originalSize = formatFileSize(file.size);
-                    const compressedSize = formatFileSize(compressed.size);
-                    toast({
-                        title: "이미지 압축 완료",
-                        description: `${originalSize} → ${compressedSize}`,
-                    });
-                } else {
-                    // Excel, PDF 등은 Base64로 변환
-                    const base64 = await new Promise<string>((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result as string);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(file);
-                    });
-                    processedFile = { name: file.name, data: base64 };
-                }
-
-                processedFiles.push(processedFile);
-
-            } catch (error: any) {
-                console.error("File processing error:", error);
-                toast({
-                    title: "파일 처리 실패",
-                    description: `${file.name}: ${error.message}`,
-                    variant: "destructive"
-                });
-            }
-        }
-
-        // 함수형 업데이트로 안전하게 상태 반영
-        setAttachments(prev => [...prev, ...processedFiles]);
-        e.target.value = ''; // Reset for next selection
-    };
-
-    const removeAttachment = (index: number) => {
-        const newAttachments = attachments.filter((_, i) => i !== index);
-        setAttachments(newAttachments);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -529,15 +462,19 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                         multiple
                                         className="hidden"
                                         onChange={handleFileChange}
+                                        disabled={isUploading || attachments.length >= 4}
                                     />
                                     {attachments.length < 4 && (
                                         <label
                                             htmlFor={uniqueId}
-                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                            className={cn(
+                                                "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                                                isUploading && "opacity-50 cursor-wait"
+                                            )}
                                         >
                                             <Upload className="h-5 w-5 text-primary" />
                                             <span className="text-sm font-medium text-primary">
-                                                파일 선택 ({attachments.length}/4) - 이미지, PDF, 엑셀
+                                                {isUploading ? "업로드 중..." : `파일 선택 (${attachments.length}/4) - 이미지, PDF, 엑셀`}
                                             </span>
                                         </label>
                                     )}
@@ -547,7 +484,13 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     {attachments.map((file, index) => (
                                         <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
                                             <span className="text-sm text-muted-foreground truncate flex-1">
-                                                📎 {file.name}
+                                                {file.storageUrl ? (
+                                                    <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                                        📎 {file.name}
+                                                    </a>
+                                                ) : (
+                                                    <span className="flex items-center">📎 {file.name}</span>
+                                                )}
                                             </span>
                                             <Button
                                                 type="button"
@@ -569,8 +512,8 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         <Button type="button" variant="outline" onClick={() => normalizedOnOpenChange(false)}>
                             취소
                         </Button>
-                        <Button type="submit">
-                            {editingItem ? "수정" : "등록"}
+                        <Button type="submit" disabled={isUploading}>
+                            {isUploading ? "업로드 중..." : (editingItem ? "수정" : "등록")}
                         </Button>
                     </DialogFooter>
                 </form>

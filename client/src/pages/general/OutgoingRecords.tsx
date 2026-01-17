@@ -54,7 +54,7 @@ export default function OutgoingRecords() {
   const { toast } = useToast();
   const { checkPermission, tenants, currentTenant } = useAppContext();
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
-  const { downloadFile } = useDownload();
+  const { downloadFile, downloadAttachment } = useDownload();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -185,8 +185,7 @@ export default function OutgoingRecords() {
     teamCategory: string;
     projectName: string;
     recipient: string;
-    attachment: { name: string; data: string } | null;
-    attachments?: { name: string; data: string }[];
+    attachments: { name: string; storageUrl: string; storagePath: string }[];
     items: Array<{
       id: string;
       productName: string;
@@ -206,14 +205,12 @@ export default function OutgoingRecords() {
     // 수정 모드
     if (editingRecord) {
       const item = validItems[0];
-      let attributesObj: any = {};
+      const attributesObj: any = {};
 
       // Handle multiple attachments
       if (data.attachments && data.attachments.length > 0) {
         attributesObj.attachments = data.attachments;
-        attributesObj.attachment = data.attachments[0]; // Legacy support
-      } else if (data.attachment) {
-        attributesObj.attachment = data.attachment;
+        attributesObj.attachment = data.attachments[0]; // Legacy fallback
       }
 
       const payload = {
@@ -256,9 +253,7 @@ export default function OutgoingRecords() {
         if (i === 0) {
           if (data.attachments && data.attachments.length > 0) {
             attributesObj.attachments = data.attachments;
-            attributesObj.attachment = data.attachments[0];
-          } else if (data.attachment) {
-            attributesObj.attachment = data.attachment;
+            attributesObj.attachment = data.attachments[0]; // Legacy fallback
           }
         }
 
@@ -545,6 +540,24 @@ export default function OutgoingRecords() {
                         if (attachments.length === 0) return "-";
 
                         if (attachments.length === 1) {
+                          const file = attachments[0];
+                          if (file.storageUrl || file.storagePath) {
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadAttachment(file);
+                                }}
+                                title={file.name}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            );
+                          }
+
                           return (
                             <Button
                               variant="ghost"
@@ -576,22 +589,44 @@ export default function OutgoingRecords() {
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-2" align="end">
                               <div className="flex flex-col gap-1">
-                                {attachments.map((file: any, idx: number) => (
-                                  <Button
-                                    key={idx}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="justify-start h-8 text-xs max-w-[200px]"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      downloadFile(`/api/outgoing/${record.id}`, file.name);
-                                    }}
-                                    title={file.name}
-                                  >
-                                    <Download className="h-3 w-3 mr-2 shrink-0" />
-                                    <span className="truncate">{file.name}</span>
-                                  </Button>
-                                ))}
+                                {attachments.map((file: any, idx: number) => {
+                                  if (file.storageUrl || file.storagePath) {
+                                    return (
+                                      <Button
+                                        key={idx}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="justify-start h-8 text-xs max-w-[200px]"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          downloadAttachment(file);
+                                        }}
+
+                                        title={file.name}
+                                      >
+                                        <Download className="h-3 w-3 mr-2 shrink-0" />
+                                        <span className="truncate">{file.name}</span>
+                                      </Button>
+                                    );
+                                  }
+
+                                  return (
+                                    <Button
+                                      key={idx}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="justify-start h-8 text-xs max-w-[200px]"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        downloadFile(`/api/outgoing/${record.id}`, file.name);
+                                      }}
+                                      title={file.name}
+                                    >
+                                      <Download className="h-3 w-3 mr-2 shrink-0" />
+                                      <span className="truncate">{file.name}</span>
+                                    </Button>
+                                  );
+                                })}
                               </div>
                             </PopoverContent>
                           </Popover>
@@ -702,6 +737,6 @@ export default function OutgoingRecords() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </div >
   );
 }

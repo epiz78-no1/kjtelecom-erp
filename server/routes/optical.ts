@@ -445,6 +445,7 @@ export function registerOpticalRoutes(app: Express) {
     });
 
     // 반납 요청 API (현장팀용)
+    // 주의: 반납 로그는 승인 시에만 생성됩니다. 신청 시에는 returnRequestStatus만 변경합니다.
     app.post("/api/optical-cables/:id/request-return", requireAuth, requireTenant, async (req, res) => {
         const { id } = req.params;
         const tenantId = req.session!.tenantId!;
