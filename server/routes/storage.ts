@@ -1,6 +1,6 @@
 
 import { Router } from "express";
-import { createSignedUploadUrl, createSignedDownloadUrl, downloadFileStream } from "../lib/storage";
+import { createSignedUploadUrl, createSignedDownloadUrl, downloadFileStream } from "../lib/storage.js";
 import contentDisposition from "content-disposition";
 
 export function registerStorageRoutes(app: any) {
