@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Cable, Cuboid, ChevronDown, ChevronRight, ShoppingCart, Users } from "lucide-react";
+import { Loader2, Cable, Cuboid, ChevronDown, ChevronRight, ShoppingCart, Users, CornerDownRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
 import { FieldTeamCard, type FieldTeam } from "@/components/FieldTeamCard";
@@ -13,10 +13,18 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 export default function OpticalDashboard() {
     const { teams, divisions } = useAppContext();
     const [expandedDivisions, setExpandedDivisions] = useState<Record<string, boolean>>({});
+    const [filterCategory, setFilterCategory] = useState<string>("구매");
 
     const toggleDivision = (divisionName: string) => {
         setExpandedDivisions(prev => ({
@@ -65,6 +73,8 @@ export default function OpticalDashboard() {
     // 1. Aggregation by Division -> Product Name
     const statsByDivision = cables.reduce((acc, cable) => {
         if (cable.status === 'waste') return acc;
+        // Filter by selected category
+        if (cable.category !== filterCategory) return acc;
 
         const divisionName = cable.division || "-";
         const productName = cable.productName || "미지정";
@@ -185,10 +195,21 @@ export default function OpticalDashboard() {
             </div>
 
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-base font-medium">
                         항목별 재고 현황
                     </CardTitle>
+                    <div className="w-[100px]">
+                        <Select value={filterCategory} onValueChange={setFilterCategory}>
+                            <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="구분" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="구매">구매</SelectItem>
+                                <SelectItem value="철거">철거</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-x-auto">
@@ -229,7 +250,7 @@ export default function OpticalDashboard() {
                                                         )}
                                                         {div.name}
                                                     </TableCell>
-                                                    <TableCell className="text-center text-muted-foreground text-xs">
+                                                    <TableCell className="text-center text-muted-foreground text-sm font-medium">
                                                         {productList.length}개
                                                     </TableCell>
                                                     <TableCell className="text-right">{div.count.toLocaleString()}개</TableCell>
@@ -238,12 +259,17 @@ export default function OpticalDashboard() {
                                                 </TableRow>
 
                                                 {isExpanded && productList.map((prod) => (
-                                                    <TableRow key={`${div.name}-${prod.productName}`} className="bg-muted/10 hover:bg-muted/20 text-sm">
+                                                    <TableRow key={`${div.name}-${prod.productName}`} className="bg-slate-50/80 hover:bg-slate-100 transition-colors border-l-4 border-l-transparent">
                                                         <TableCell></TableCell>
-                                                        <TableCell className="text-center font-medium">{prod.productName}</TableCell>
-                                                        <TableCell className="text-right text-muted-foreground">{prod.count.toLocaleString()}개</TableCell>
-                                                        <TableCell className="text-right text-muted-foreground">{prod.length.toLocaleString()}m</TableCell>
-                                                        <TableCell className="text-right text-muted-foreground">₩{prod.amount.toLocaleString()}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center pl-4">
+                                                                <CornerDownRight className="mr-3 h-3 w-3 text-slate-400" />
+                                                                <span className="font-medium text-slate-700">{prod.productName}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-slate-600 text-sm">{prod.count.toLocaleString()}개</TableCell>
+                                                        <TableCell className="text-right text-sky-700 font-medium text-sm bg-sky-50/30">{prod.length.toLocaleString()}m</TableCell>
+                                                        <TableCell className="text-right text-slate-600 text-sm">₩{prod.amount.toLocaleString()}</TableCell>
                                                     </TableRow>
                                                 ))}
                                             </>

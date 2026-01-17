@@ -105,8 +105,8 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border h-14 justify-center">
-        <div className="flex items-center justify-center w-full px-2">
-          <img src="/logo.png" alt="(주)광주텔레콤" className="h-8 object-contain" />
+        <div className="flex items-center justify-start w-full px-2 pl-4">
+          <img src="/logo.png" alt="(주)광주텔레콤" className="h-8 ml-2 object-contain" />
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -164,7 +164,7 @@ export function AppSidebar() {
 
             {/* 일반 자재 관리 - 항목이 있을 때만 표시 */}
             {generalItems.length > 0 && (
-              <Collapsible defaultOpen className="group/collapsible">
+              <Collapsible className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip="일반 자재 관리">

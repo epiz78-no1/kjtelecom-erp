@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Settings as SettingsIcon, Building2, Users, Network, Award } from "lucide-react";
+import { LogOut, User, Settings as SettingsIcon, Users, Network, Award } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,20 +113,12 @@ function AppContent() {
 
                       {/* 모듈 타이틀 (왼쪽에서 옮겨옴) */}
                       <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-600">
-                          <Building2 className="h-4 w-4" />
-                        </div>
                         <span className="text-lg font-bold text-slate-900">자재관리</span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* Tenant Name Display */}
-                      {activeTenant && (
-                        <div className="hidden md:flex items-center gap-2 text-sm text-slate-600 font-medium border-r pr-3 mr-1">
-                          <span>{activeTenant.name}</span>
-                        </div>
-                      )}
+
 
                       {/* User Profile Menu - Everyone */}
                       <DropdownMenu>

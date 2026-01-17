@@ -52,7 +52,7 @@ export default function Login() {
                 setLocation("/tenant-select");
             } else {
                 // Otherwise, redirect to dashboard
-                setLocation("/");
+                setLocation("/optical-dashboard");
             }
         } catch (error: any) {
             toast({
@@ -129,9 +129,9 @@ export default function Login() {
 
                 {/* 바닥글 */}
                 <div className="mt-12 text-center text-sm text-slate-400">
-                    <p>© 2024 (주)광주텔레콤. All rights reserved.</p>
+                    {/* <p>© 2024 (주)광주텔레콤. All rights reserved.</p> */}
                     <div className="mt-2 text-xs text-slate-300">
-                        System v1.2.0
+                        System v1.2.30
                     </div>
                 </div>
             </div>
