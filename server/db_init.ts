@@ -117,12 +117,11 @@ export async function ensureUsers() {
         ];
 
         for (const u of usersToCreate) {
-            const hashedPassword = await bcrypt.hash(u.password, SALT_ROUNDS);
-
             // Find or Create User
             let [existingUser] = await db.select().from(users).where(eq(users.username, u.username));
             if (!existingUser) {
                 try {
+                    const hashedPassword = await bcrypt.hash(u.password, SALT_ROUNDS);
                     [existingUser] = await db.insert(users).values({
                         id: randomUUID(),
                         username: u.username,
