@@ -18,6 +18,12 @@ export const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Increased from 2000 to 10000
 });
+
+// Unexpected errors on idle clients can cause the process to crash if not handled
+pool.on('error', (err, client) => {
+  console.error('Unexpected error on idle client', err);
+  // process.exit(-1); // Do not exit on Vercel
+});
 export const db = drizzle(pool, { schema });
 
 console.log("PostgreSQL 데이터베이스 사용 중 (Supabase)");
