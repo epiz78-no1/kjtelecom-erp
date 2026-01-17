@@ -10,10 +10,10 @@ export async function ensureUsers() {
     console.log("🔒 Running Auto-Ensure Users...");
 
     // 0. Ensure Super Admin Always Exists
-    const adminPassword = await bcrypt.hash("admin", SALT_ROUNDS);
     let [adminUser] = await db.select().from(users).where(eq(users.username, "admin"));
 
     if (!adminUser) {
+        const adminPassword = await bcrypt.hash("admin", SALT_ROUNDS);
         [adminUser] = await db.insert(users).values({
             id: randomUUID(),
             username: "admin",
