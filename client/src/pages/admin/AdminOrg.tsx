@@ -338,7 +338,6 @@ export default function AdminOrg() {
                             <Label htmlFor="divName">부서명</Label>
                             <Input
                                 id="divName"
-                                placeholder="예: SKT사업부, 영업팀"
                                 value={divName}
                                 onChange={(e) => setDivName(e.target.value)}
                             />
@@ -381,7 +380,6 @@ export default function AdminOrg() {
                             <Label htmlFor="teamName">팀명</Label>
                             <Input
                                 id="teamName"
-                                placeholder="예: 광케이블 1팀"
                                 value={teamData.name}
                                 onChange={(e) => setTeamData({ ...teamData, name: e.target.value })}
                             />

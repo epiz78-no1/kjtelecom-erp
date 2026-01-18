@@ -54,20 +54,36 @@ export function useFileUpload({
         let totalOriginalSize = 0;
         let totalCompressedSize = 0;
 
-        for (const file of files) {
+        const uploadPromises = files.map(async (file) => {
             if (file.size > maxSizeMB * 1024 * 1024) {
-                toast({
-                    title: "용량 초과",
-                    description: `${file.name} 파일이 ${maxSizeMB}MB를 초과합니다.`,
-                    variant: "destructive"
-                });
-                continue;
+                return {
+                    status: 'rejected' as const,
+                    reason: new Error(`${file.name} 파일이 ${maxSizeMB}MB를 초과합니다.`),
+                    file
+                };
             }
 
             try {
-                // uploadFileToStorage in lib/storage.ts handles compression and SDK upload
                 const uploadedFile = await uploadFileToStorage(file);
+                return {
+                    status: 'fulfilled' as const,
+                    value: uploadedFile,
+                    file
+                };
+            } catch (error: any) {
+                return {
+                    status: 'rejected' as const,
+                    reason: error,
+                    file
+                };
+            }
+        });
 
+        const results = await Promise.all(uploadPromises);
+
+        for (const result of results) {
+            if (result.status === 'fulfilled') {
+                const uploadedFile = result.value;
                 newAttachments.push(uploadedFile);
                 successCount++;
 
@@ -75,12 +91,11 @@ export function useFileUpload({
                     totalOriginalSize += uploadedFile.originalSize || 0;
                     totalCompressedSize += uploadedFile.compressedSize || 0;
                 }
-
-            } catch (error: any) {
-                console.error("Upload error for file:", file.name, error);
+            } else {
+                console.error("Upload error for file:", result.file.name, result.reason);
                 toast({
                     title: "파일 업로드 실패",
-                    description: `${file.name}: ${error.message}`,
+                    description: `${result.file.name}: ${result.reason.message}`,
                     variant: "destructive"
                 });
             }

@@ -319,7 +319,6 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     id="projectCode"
                                     value={formData.projectCode}
                                     onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                    placeholder="예: PJ-001"
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -328,7 +327,6 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     id="projectName"
                                     value={formData.projectName}
                                     onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                                    placeholder="예: 테스트공사"
                                 />
                             </div>
                         </div>

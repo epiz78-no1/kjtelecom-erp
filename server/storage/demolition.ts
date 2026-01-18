@@ -33,11 +33,13 @@ export class DemolitionStorage {
 
     // 철거자재 목록 조회
     async getDemolitionMaterials(tenantId: string) {
-        return await db
-            .select()
-            .from(demolitionMaterials)
-            .where(eq(demolitionMaterials.tenantId, tenantId))
-            .orderBy(desc(demolitionMaterials.createdAt));
+        return await db.query.demolitionMaterials.findMany({
+            where: eq(demolitionMaterials.tenantId, tenantId),
+            orderBy: desc(demolitionMaterials.createdAt),
+            with: {
+                creator: true,
+            }
+        });
     }
 
     // 철거자재 상세 조회
@@ -132,11 +134,15 @@ export class DemolitionStorage {
             conditions.push(eq(demolitionMaterialLogs.teamId, filters.teamId));
         }
 
-        return await db
-            .select()
-            .from(demolitionMaterialLogs)
-            .where(and(...conditions))
-            .orderBy(desc(demolitionMaterialLogs.createdAt));
+        return await db.query.demolitionMaterialLogs.findMany({
+            where: and(...conditions),
+            orderBy: desc(demolitionMaterialLogs.createdAt),
+            with: {
+                material: true,
+                team: true,
+                creator: true
+            }
+        });
     }
 
     // 대시보드 데이터
