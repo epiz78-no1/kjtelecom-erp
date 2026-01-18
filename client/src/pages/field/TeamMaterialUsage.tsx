@@ -1550,7 +1550,6 @@ export default function TeamMaterialUsage() {
               <Input
                 value={formData.projectName}
                 onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                placeholder="예: 효자동 2가 함체교체"
                 data-testid="input-usage-project"
               />
             </div>
@@ -1660,7 +1659,6 @@ export default function TeamMaterialUsage() {
                           setFormData({ ...formData, items: newItems });
                         }}
                         min="0"
-                        placeholder="수량"
                       />
                     </div>
                     <div className="grid gap-2">
@@ -1672,7 +1670,6 @@ export default function TeamMaterialUsage() {
                           newItems[index].remark = e.target.value;
                           setFormData({ ...formData, items: newItems });
                         }}
-                        placeholder="비고"
                       />
                     </div>
                   </div>

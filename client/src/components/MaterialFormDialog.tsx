@@ -154,7 +154,6 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                     id="category"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="예: SKT"
                     required
                     className="h-9"
                   />
@@ -165,7 +164,6 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                     id="productName"
                     value={formData.productName}
                     onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                    placeholder="예: 광접속함체"
                     required
                     className="h-9"
                   />
@@ -178,7 +176,6 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
                   id="specification"
                   value={formData.specification}
                   onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                  placeholder="예: 가공 24C"
                   required
                   className="h-9"
                 />

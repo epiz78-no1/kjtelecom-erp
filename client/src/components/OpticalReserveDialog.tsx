@@ -115,7 +115,6 @@ export function OpticalReserveDialog({ open, onOpenChange, cable }: OpticalReser
                         <div className="space-y-2">
                             <Label>공사명 (예약 사유)</Label>
                             <Input
-                                placeholder="예: OO아파트 인입 공사"
                                 value={projectName}
                                 onChange={(e) => setProjectName(e.target.value)}
                                 required

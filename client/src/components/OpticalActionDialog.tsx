@@ -122,7 +122,6 @@ export function OpticalActionDialog({ open, onOpenChange, cable, actionType }: O
                     <div className="space-y-2">
                         <Label>비고 / 사유</Label>
                         <Input
-                            placeholder={isReturn ? "예: 공사 완료 후 잔량 반납" : "예: 파손으로 인한 폐기"}
                             value={remark}
                             onChange={(e) => setRemark(e.target.value)}
                         />

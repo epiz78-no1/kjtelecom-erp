@@ -403,7 +403,6 @@ export function UsageFormDialog({
                         <Input
                             value={formData.projectName}
                             onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                            placeholder="예: 효자동 2가 함체교체"
                             data-testid="input-usage-project"
                         />
                     </div>
@@ -509,7 +508,6 @@ export function UsageFormDialog({
                                                 setFormData({ ...formData, items: newItems });
                                             }}
                                             min="0"
-                                            placeholder="수량"
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -521,7 +519,6 @@ export function UsageFormDialog({
                                                 newItems[index].remark = e.target.value;
                                                 setFormData({ ...formData, items: newItems });
                                             }}
-                                            placeholder="비고"
                                         />
                                     </div>
                                 </div>

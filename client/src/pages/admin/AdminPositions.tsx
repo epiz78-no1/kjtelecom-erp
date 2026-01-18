@@ -137,7 +137,6 @@ export default function AdminPositions() {
                     <CardContent className="space-y-4">
                         <div className="flex gap-2">
                             <Input
-                                placeholder="예: 과장, 팀장, 부장"
                                 value={newPositionName}
                                 onChange={(e) => setNewPositionName(e.target.value)}
                                 onKeyDown={(e) => {

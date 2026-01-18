@@ -597,6 +597,7 @@ export const demolitionMaterials = pgTable("demolition_materials", {
   projectCode: text("project_code").notNull(), // 공사번호 (필수)
   projectName: text("project_name").notNull(), // 공사명 (필수)
   demolitionDate: text("demolition_date").notNull(), // 철거일자
+  workerName: text("worker_name"), // 작업자
 
   // 자재 정보
   productName: text("product_name").notNull(),
@@ -638,13 +639,16 @@ export const apiInsertDemolitionMaterialSchema = z.object({
   projectCode: z.string(), // 필수
   projectName: z.string(), // 필수
   demolitionDate: z.string(),
+  workerName: z.string().optional(),
   productName: z.string(),
   specification: z.string(),
   originalQuantity: z.number().min(0),
   remainingQuantity: z.number().min(0).optional(),
   estimatedValue: z.number().min(0).optional(),
+  currentTeamId: z.string().optional(),
   remark: z.string().optional(),
   attributes: z.string().optional(),
+  status: z.string().optional(),
 });
 export type InsertDemolitionMaterial = z.infer<typeof insertDemolitionMaterialSchema>;
 export type DemolitionMaterial = typeof demolitionMaterials.$inferSelect;
@@ -715,6 +719,10 @@ export const demolitionMaterialsRelations = relations(demolitionMaterials, ({ on
     fields: [demolitionMaterials.reviewedBy],
     references: [users.id],
   }),
+  creator: one(users, {
+    fields: [demolitionMaterials.createdBy],
+    references: [users.id],
+  }),
   logs: many(demolitionMaterialLogs),
 }));
 
@@ -730,6 +738,10 @@ export const demolitionMaterialLogsRelations = relations(demolitionMaterialLogs,
   team: one(teams, {
     fields: [demolitionMaterialLogs.teamId],
     references: [teams.id],
+  }),
+  creator: one(users, {
+    fields: [demolitionMaterialLogs.createdBy],
+    references: [users.id],
   }),
 }));
 

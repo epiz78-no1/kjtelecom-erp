@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2, MoreHorizontal } from "lucide-react";
+import { Plus, Trash2, Loader2, MoreHorizontal, Upload, Download } from "lucide-react";
+import { useColumnResize } from "@/hooks/useColumnResize";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { useDownload } from "@/hooks/useDownload";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import {
@@ -46,6 +49,7 @@ interface DemolitionMaterial {
     specification: string;
     remainingQuantity: number;
     status: string;
+    projectCode?: string;
 }
 
 export default function DemolitionOutgoing() {
@@ -57,6 +61,22 @@ export default function DemolitionOutgoing() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    const { widths, handleResize } = useColumnResize('demolition-outgoing-widths', {
+        logDate: 100,
+        team: 100,
+        projectCode: 100,
+        projectName: 220,
+        productName: 160,
+        specification: 200,
+        usedQuantity: 80,
+        workerName: 100,
+        creator: 80,
+        attachment: 60,
+        remark: 150,
+    });
+    const { attachments, setAttachments, handleFileChange, removeAttachment, clearAttachments, isUploading } = useFileUpload();
+    const { downloadAttachment } = useDownload();
 
     const [formData, setFormData] = useState({
         materialId: "",
@@ -90,7 +110,10 @@ export default function DemolitionOutgoing() {
             const res = await fetch(`/api/demolition-materials/${data.materialId}/usage`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
+                body: JSON.stringify({
+                    ...data,
+                    attributes: JSON.stringify({ attachments })
+                }),
                 credentials: "include",
             });
             if (!res.ok) throw new Error(await res.text());
@@ -102,6 +125,7 @@ export default function DemolitionOutgoing() {
             toast({ title: "출고 등록이 완료되었습니다" });
             setDialogOpen(false);
             resetForm();
+            clearAttachments();
         },
         onError: (error: any) => {
             toast({ title: "출고 실패", description: error.message, variant: "destructive" });
@@ -152,6 +176,7 @@ export default function DemolitionOutgoing() {
                 </div>
                 <Button onClick={() => {
                     resetForm();
+                    clearAttachments();
                     setDialogOpen(true);
                 }}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -176,38 +201,112 @@ export default function DemolitionOutgoing() {
                     <table className="w-full caption-bottom text-sm table-fixed">
                         <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                             <TableRow className="h-8">
-                                <TableHead className="text-center align-middle bg-background">출고일자</TableHead>
-                                <TableHead className="text-center align-middle bg-background">관리번호</TableHead>
-                                <TableHead className="text-center align-middle bg-background">수령팀</TableHead>
-                                <TableHead className="text-center align-middle bg-background">공사번호</TableHead>
-                                <TableHead className="text-center align-middle bg-background">공사명</TableHead>
-                                <TableHead className="text-center align-middle bg-background">품명</TableHead>
-                                <TableHead className="text-center align-middle bg-background">규격</TableHead>
-                                <TableHead className="text-center align-middle bg-background">출고량</TableHead>
-                                <TableHead className="text-center align-middle bg-background">작업자</TableHead>
-                                <TableHead className="text-center align-middle bg-background">비고</TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.logDate }}>
+                                    출고일자
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('logDate')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.team }}>
+                                    수령팀
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('team')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.projectCode }}>
+                                    공사번호
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('projectCode')} />
+                                </TableHead>
+                                <TableHead className="text-left align-middle bg-background relative" style={{ width: widths.projectName }}>
+                                    공사명
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('projectName')} />
+                                </TableHead>
+                                <TableHead className="text-left align-middle bg-background relative" style={{ width: widths.productName }}>
+                                    품명
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('productName')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.specification }}>
+                                    규격
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('specification')} />
+                                </TableHead>
+                                <TableHead className="text-right align-middle bg-background relative" style={{ width: widths.usedQuantity }}>
+                                    출고량
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('usedQuantity')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.workerName }}>
+                                    작업자
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('workerName')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.creator }}>
+                                    입력자
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('creator')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.attachment }}>
+                                    첨부
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('attachment')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.remark }}>
+                                    비고
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('remark')} />
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredLogs.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                                         출고 내역이 없습니다
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filteredLogs.map((log: any) => (
-                                    <TableRow key={log.id} className="h-6 [\u0026_td]:py-0">
-                                        <TableCell className="text-center align-middle">{log.logDate}</TableCell>
-                                        <TableCell className="text-center align-middle font-medium">{log.material?.managementNo || ''}</TableCell>
-                                        <TableCell className="text-center align-middle">{log.team?.name || ''}</TableCell>
-                                        <TableCell className="text-center align-middle">{log.projectCode || ''}</TableCell>
-                                        <TableCell className="text-left align-middle">{log.projectName || ''}</TableCell>
-                                        <TableCell className="text-left align-middle">{log.material?.productName || ''}</TableCell>
-                                        <TableCell className="text-center align-middle">{log.material?.specification || ''}</TableCell>
-                                        <TableCell className="text-right align-middle font-medium">{log.usedQuantity?.toLocaleString() || ''}</TableCell>
-                                        <TableCell className="text-center align-middle">{log.workerName || ''}</TableCell>
-                                        <TableCell className="text-center align-middle">{log.remark || ''}</TableCell>
+                                    <TableRow key={log.id} className="h-6 [&_td]:py-0">
+                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.logDate}</TableCell>
+
+                                        <TableCell className="text-center align-middle max-w-[100px]">
+                                            <div className="truncate" title={log.team?.name || ''}>{log.team?.name || ''}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle max-w-[100px]">
+                                            <div className="truncate" title={log.projectCode || ''}>{log.projectCode || ''}</div>
+                                        </TableCell>
+                                        <TableCell className="text-left align-middle max-w-[220px]">
+                                            <div className="truncate" title={log.projectName || ''}>{log.projectName || ''}</div>
+                                        </TableCell>
+                                        <TableCell className="text-left align-middle max-w-[160px]">
+                                            <div className="truncate" title={log.material?.productName || ''}>{log.material?.productName || ''}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle max-w-[200px]">
+                                            <div className="truncate" title={log.material?.specification || ''}>{log.material?.specification || ''}</div>
+                                        </TableCell>
+                                        <TableCell className="text-right align-middle font-medium whitespace-nowrap">{log.usedQuantity?.toLocaleString() || ''}</TableCell>
+                                        <TableCell className="text-center align-middle max-w-[100px]">
+                                            <div className="truncate" title={log.workerName || ''}>{log.workerName || ''}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle max-w-[80px]">
+                                            <div className="truncate" title={log.creator?.name || ''}>{log.creator?.name || ''}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle">
+                                            {(() => {
+                                                if (!log.attributes) return null;
+                                                try {
+                                                    const attrs = typeof log.attributes === 'string' ? JSON.parse(log.attributes) : log.attributes;
+                                                    const files = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
+                                                    if (files.length > 0) {
+                                                        return (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={() => downloadAttachment(files[0])}
+                                                                title={files[0].name}
+                                                            >
+                                                                <Download className="h-4 w-4" />
+                                                            </Button>
+                                                        );
+                                                    }
+                                                } catch (e) { }
+                                                return null;
+                                            })()}
+                                        </TableCell>
+                                        <TableCell className="text-center align-middle max-w-[150px]">
+                                            <div className="truncate" title={log.remark || ''}>{log.remark || ''}</div>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
@@ -328,6 +427,52 @@ export default function DemolitionOutgoing() {
                                 onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
                                 rows={3}
                             />
+                        </div>
+
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label className="text-right pt-2">첨부파일 (최대 4개)</Label>
+                            <div className="col-span-3">
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        id="file-upload"
+                                        className="hidden"
+                                        multiple
+                                        onChange={handleFileChange}
+                                        accept="image/*,.pdf,.xlsx,.xls"
+                                    />
+                                    {attachments.length < 4 && (
+                                        <Label
+                                            htmlFor="file-upload"
+                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                        >
+                                            <Upload className="h-5 w-5 text-primary" />
+                                            <span className="text-sm font-medium text-primary">
+                                                {isUploading ? "업로드 중..." : `파일 선택 (${attachments.length}/4) - 이미지, PDF, 엑셀`}
+                                            </span>
+                                        </Label>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2 mt-2">
+                                    {attachments.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                                            <span className="text-sm text-muted-foreground truncate flex-1">
+                                                📎 {file.name}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                onClick={() => removeAttachment(index)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
                         <DialogFooter>
