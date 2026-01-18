@@ -848,7 +848,6 @@ export default function FieldOpticalUsage() {
 
             {/* Dialogs */}
             <OpticalUsageDialog
-                key={editingLog ? editingLog.id : dialogOpen ? 'new' : 'closed'}
                 open={dialogOpen}
                 onOpenChange={(open) => !open && closeDialog()}
                 editingLog={editingLog}

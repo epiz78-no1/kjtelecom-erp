@@ -274,9 +274,13 @@ export class OpticalStorage {
 
 
     async getOpticalCableLog(id: string, tenantId: string): Promise<OpticalCableLog | undefined> {
-        return await db.query.opticalCableLogs.findFirst({
-            where: and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId))
+        const result = await db.query.opticalCableLogs.findFirst({
+            where: and(eq(opticalCableLogs.id, id), eq(opticalCableLogs.tenantId, tenantId)),
+            with: {
+                cable: true
+            }
         });
+        return result as any; // Type assertion needed because 'with' adds nested cable
     }
 
     async updateOpticalCableLog(id: string, updates: Partial<InsertOpticalCableLog>, tenantId: string): Promise<OpticalCableLog | undefined> {
