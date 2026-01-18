@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InventoryItemSelector } from "@/components/InventoryItemSelector";
 import type { IncomingRecord, InventoryItem } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 interface IncomingDialogProps {
     open: boolean;
@@ -50,7 +51,7 @@ interface IncomingDialogProps {
         division: string;
         supplier: string;
         projectName: string;
-        attachment: { name: string; data: string } | null;
+        attachments: { name: string; storageUrl: string; storagePath: string }[];
         items: Array<{
             id: string;
             productName: string;
@@ -76,7 +77,7 @@ export function IncomingDialog({
         division: "SKT",
         supplier: "",
         projectName: "",
-        attachments: [] as { name: string; data: string }[],
+
         items: [{
             id: Date.now().toString(),
             productName: "",
@@ -91,16 +92,23 @@ export function IncomingDialog({
     const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
     const { toast } = useToast();
 
+    const {
+        attachments,
+        setAttachments,
+        handleFileChange,
+        removeAttachment,
+        clearAttachments
+    } = useFileUpload();
+
     // Reset form when dialog opens/closes or editing record changes
     useEffect(() => {
         if (open && editingRecord) {
             // Editing mode: Set initial data from props
-            const initializeForm = (record: IncomingRecord, attachments: { name: string; data: string }[] = []) => {
+            const initializeForm = (record: IncomingRecord, attachments: any[] = []) => {
                 setFormData({
                     division: record.division,
                     supplier: record.supplier,
                     projectName: record.projectName,
-                    attachments: attachments,
                     items: [{
                         id: Date.now().toString(),
                         productName: record.productName,
@@ -110,11 +118,19 @@ export function IncomingDialog({
                         remark: record.remark || "",
                     }]
                 });
+
+                // Initialize attachments via hook
+                setAttachments(attachments.map(att => ({
+                    name: att.name,
+                    storageUrl: att.storageUrl || "",
+                    storagePath: att.storagePath || ""
+                })));
+
                 setSelectedDate(new Date(record.date));
             };
 
             // 1. Initial render with existing data (attachments might be empty due to optimization)
-            let initialAttachments: { name: string; data: string }[] = [];
+            let initialAttachments: any[] = [];
             try {
                 const attrs = JSON.parse(editingRecord.attributes || "{}");
                 if (attrs.attachments && Array.isArray(attrs.attachments)) {
@@ -137,16 +153,21 @@ export function IncomingDialog({
                     if (fullRecord && fullRecord.attributes) {
                         try {
                             const attrs = JSON.parse(fullRecord.attributes);
-                            let loadedAttachments: { name: string; data: string }[] = [];
+                            let loadedAttachments: any[] = [];
                             if (attrs.attachments && Array.isArray(attrs.attachments)) {
                                 loadedAttachments = attrs.attachments;
                             } else if (attrs.attachment) {
                                 loadedAttachments = [attrs.attachment];
                             }
 
-                            // Update attachments in state
+                            // Update attachments in state via hook
                             if (loadedAttachments.length > 0) {
-                                setFormData(prev => ({ ...prev, attachments: loadedAttachments }));
+                                const formattedAttachments = loadedAttachments.map(att => ({
+                                    name: att.name,
+                                    storageUrl: att.storageUrl || "",
+                                    storagePath: att.storagePath || ""
+                                }));
+                                setAttachments(formattedAttachments);
                             }
                         } catch (e) {
                             console.error("Failed to parse attributes from full record", e);
@@ -164,7 +185,7 @@ export function IncomingDialog({
                 division: "SKT",
                 supplier: "",
                 projectName: "",
-                attachments: [],
+
                 items: [{
                     id: Date.now().toString(),
                     productName: "",
@@ -174,6 +195,7 @@ export function IncomingDialog({
                     remark: "",
                 }]
             });
+            clearAttachments();
             setSelectedDate(new Date());
         }
     }, [open, editingRecord]);
@@ -206,100 +228,15 @@ export function IncomingDialog({
     }, [inventoryItems, formData.items, activeItemIndex]);
 
     const handleSubmit = () => {
-        // Compatibility: Save primarily to 'attachments', but also 'attachment' (first one) to prevent breakages in other views if they only look at 'attachment'
-        // Actually, better to migrate fully. But to be safe, I will send both or just handle it in the backend/storage.
-        // For now, let's keep the submit signature aligned but pass the new data structure.
-        // The parent onSubmit expects `attachment` currently. I need to update the interface or pass it loosely.
-        // Let's modify the interface first or cast it.
-        // But since I can't easily modify the parent interface in this one step without breaking type check, I will pass it as `any` or update the interface in the replacement.
-
-        // Wait, I should update the interface in the same file.
         onSubmit({
             date: selectedDate,
             ...formData,
-            // Pass the first attachment as 'attachment' legacy field if needed, or just let 'attachments' be handled if I update schema/backend. 
-            // The type definition for onSubmit needs to be updated.
-            attachment: formData.attachments[0] || null,
-            attributes: JSON.stringify({ attachments: formData.attachments }) // Pass attributes explicitly if needed, but onSubmit usually deconstructs.
-        } as any);
+            // Pass attachments from hook
+            attachments
+        });
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
 
-        const currentCount = formData.attachments.length;
-        if (currentCount + files.length > 4) {
-            toast({
-                title: "파일 개수 초과",
-                description: `최대 4개까지 첨부할 수 있습니다. (현재 ${currentCount}개)`,
-                variant: "destructive"
-            });
-            e.target.value = ''; // Reset input
-            return;
-        }
-
-        const newAttachments = [...formData.attachments];
-
-        for (const file of files) {
-            if (file.size > 10 * 1024 * 1024) { // 10MB
-                toast({
-                    title: "용량 초과",
-                    description: `${file.name} 파일이 10MB를 초과합니다.`,
-                    variant: "destructive"
-                });
-                continue;
-            }
-
-            try {
-                let processedFile: { name: string; data: string };
-
-                if (file.type.startsWith('image/')) {
-                    // 이미지 압축 적용
-                    const compressed = await compressImage(file, {
-                        maxWidth: 1280,
-                        maxHeight: 1280,
-                        quality: 0.7,
-                        maxSizeMB: 1
-                    });
-                    processedFile = compressed;
-
-                    const originalSize = formatFileSize(file.size);
-                    const compressedSize = formatFileSize(compressed.size);
-                    toast({
-                        title: "이미지 압축 완료",
-                        description: `${originalSize} → ${compressedSize} `,
-                    });
-                } else {
-                    // Excel, PDF 등은 Base64로 변환
-                    const base64 = await new Promise<string>((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result as string);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(file);
-                    });
-                    processedFile = { name: file.name, data: base64 };
-                }
-
-                newAttachments.push(processedFile);
-
-            } catch (error: any) {
-                toast({
-                    title: "파일 업로드 실패",
-                    description: `${file.name}: ${error.message}`,
-                    variant: "destructive"
-                });
-            }
-        }
-
-        setFormData({ ...formData, attachments: newAttachments });
-        e.target.value = ''; // Reset for next selection
-    };
-
-    const removeAttachment = (index: number) => {
-        const newAttachments = formData.attachments.filter((_, i) => i !== index);
-        setFormData({ ...formData, attachments: newAttachments });
-    };
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -486,21 +423,21 @@ export function IncomingDialog({
                                     className="hidden"
                                     onChange={handleFileChange}
                                 />
-                                {formData.attachments.length < 4 && (
+                                {attachments.length < 4 && (
                                     <label
                                         htmlFor="incoming-file-upload"
                                         className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                                     >
                                         <Upload className="h-5 w-5 text-primary" />
                                         <span className="text-sm font-medium text-primary">
-                                            파일 선택 ({formData.attachments.length}/4) - 이미지, PDF, 엑셀
+                                            파일 선택 ({attachments.length}/4) - 이미지, PDF, 엑셀
                                         </span>
                                     </label>
                                 )}
                             </div>
 
                             <div className="space-y-2 mt-2">
-                                {formData.attachments.map((file, index) => (
+                                {attachments.map((file, index) => (
                                     <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
                                         <span className="text-sm text-muted-foreground truncate flex-1">
                                             📎 {file.name}

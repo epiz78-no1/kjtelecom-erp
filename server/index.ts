@@ -5,8 +5,10 @@ import connectPgSimple from "connect-pg-simple";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerInventoryRoutes } from "./routes/inventory.js";
 import { registerOpticalRoutes } from "./routes/optical.js";
+import { registerDemolitionRoutes } from "./routes/demolition.js";
 import { registerTeamsRoutes } from "./routes/teams.js";
 import { registerSystemRoutes } from "./routes/system.js";
+import { registerStorageRoutes } from "./routes/storage.js";
 import { tenantContext } from "./middleware/tenant.js";
 import { serveStatic } from "./static.js";
 import { createServer } from "http";
@@ -117,6 +119,8 @@ registerAuthRoutes(app);
 registerInventoryRoutes(app);
 registerTeamsRoutes(app);
 registerOpticalRoutes(app);
+registerDemolitionRoutes(app);
+registerStorageRoutes(app);
 registerAdminRoutes(app);
 
 // Template Download API (Global priority)
@@ -202,8 +206,12 @@ if (process.env.NODE_ENV === "production") {
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
+
+  // Log the error for debugging on Vercel
+  console.error('[Global Error Handler]', err);
+
+  // Send JSON response and stop propagation
   res.status(status).json({ message });
-  throw err;
 });
 
 // Server Listen

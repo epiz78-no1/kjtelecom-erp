@@ -70,7 +70,7 @@ export default function FieldOpticalUsage() {
     const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
     const team = teams.find(t => t.id === currentTenantData?.teamId);
     const isFieldTeam = team ? teamCategories.includes(team.teamCategory) : false;
-    const { downloadFile } = useDownload();
+    const { downloadFile, downloadAttachment } = useDownload();
 
     const canManage = canWrite && !isFieldTeam;
     const canRegister = canWrite;
@@ -541,7 +541,7 @@ export default function FieldOpticalUsage() {
                                                         const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
                                                         if (!attr) return '-';
 
-                                                        const attachments: { name: string }[] = [];
+                                                        const attachments: { name: string; storageUrl?: string; data?: string }[] = [];
                                                         if (attr.attachments && Array.isArray(attr.attachments)) {
                                                             attachments.push(...attr.attachments);
                                                         } else if (attr.attachment && typeof attr.attachment === 'object') {
@@ -558,7 +558,11 @@ export default function FieldOpticalUsage() {
                                                                     className="h-8 w-8 p-0"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                        if (attachments[0].storageUrl) {
+                                                                            downloadAttachment(attachments[0]);
+                                                                        } else {
+                                                                            downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                        }
                                                                     }}
                                                                     title={attachments[0].name}
                                                                 >
@@ -590,7 +594,11 @@ export default function FieldOpticalUsage() {
                                                                                 className="justify-start h-8 text-xs max-w-[200px]"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
-                                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                    if (file.storageUrl) {
+                                                                                        downloadAttachment(file);
+                                                                                    } else {
+                                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                    }
                                                                                 }}
                                                                                 title={file.name}
                                                                             >
@@ -840,7 +848,6 @@ export default function FieldOpticalUsage() {
 
             {/* Dialogs */}
             <OpticalUsageDialog
-                key={editingLog ? editingLog.id : dialogOpen ? 'new' : 'closed'}
                 open={dialogOpen}
                 onOpenChange={(open) => !open && closeDialog()}
                 editingLog={editingLog}

@@ -80,6 +80,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                 title: action === 'approve' ? "반납이 승인되었습니다" : "반납이 반려되었습니다"
             });
             queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${cableId}`] });
+            queryClient.invalidateQueries({ queryKey: [`/api/optical-cables/${cableId}/logs`] }); // 로그 목록 갱신
             queryClient.invalidateQueries({ queryKey: ["/api/optical-cables"] });
             // 승인 시 다이얼로그 닫기
             if (action === 'approve') {

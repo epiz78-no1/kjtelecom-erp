@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.2.30 (2026-01-18) - 광케이블 사용 내역 수정 버그 해결
+ 
+ ### 🐞 Bug Fixes & Stabilization
+ - **광케이블 사용 내역 수정 오작동 해결**:
+   - 원인: API 요청 엔드포인트 불일치 (`/api/optical-cable-logs` vs `/api/optical-cables/logs`) 문제로 404 발생.
+   - 해결: 클라이언트 API 호출 URL을 서버 라우트와 일치하도록 수정.
+ - **동기화 및 UX 개선**:
+   - 수정 데이터 로딩 시점과 렌더링 시점의 불일치로 폼이 비어 보이는 현상 해결 (Loading Overlay 도입).
+   - 개발용 디버그 로그 및 불필요한 알림 제거로 사용자 경험 최적화.
+ 
+ ## v1.2.29 (2026-01-17) - 파일 업로드/다운로드 안정성 강화 및 버그 수정
+
+### 🐛 Bug Fixes & Improvements
+- **파일 업로드/다운로드 시스템 안정화 (Phase 4.1 완료)**:
+  - `IncomingDialog`, `OutgoingDialog`, `OpticalAssignmentDialog` 등 전역에서 `useFileUpload`, `useDownload` 훅 적용 검증 완료.
+  - **무한 루프 버그 수정**: `OpticalAssignmentDialog`에서 `refetchMembers` 의존성 문제로 인한 API 과다 호출 및 화면 멈춤 현상 해결.
+  - **데이터 무결성 강화**: `OutgoingDialog` 필수 값(수령팀, 수령인) 누락 시 제출 방지 유효성 검사 추가.
+- **광케이블 반납 승인 프로세스 개선**:
+  - 반납 승인 시 이력 목록이 즉시 갱신되지 않던 문제 해결 (Query Invalidation 추가).
+  - 반납 신청 시 잘못된 로그 생성으로 인한 상태 불일치 문제 예방 로직 적용.
+- **프로젝트 규칙 강화**:
+  - `PROJECT_RULES.md`에 파일 처리 훅 `useFileUpload`, `useDownload` 사용을 '필수(Mandatory)'로 격상.
 ## v1.2.28 (2026-01-16) - 현장팀 광케이블 표시 로직 및 PC 사용 등록 정상화
 
 ### 🐛 Bug Fixes

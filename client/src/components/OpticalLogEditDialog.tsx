@@ -28,10 +28,9 @@ import {
 } from "@/components/ui/popover";
 import { CalendarIcon, Loader2, Upload, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import type { OpticalCableLog } from "@shared/schema";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 const formSchema = z.object({
     projectCode: z.string().optional(),
@@ -51,7 +50,19 @@ interface Props {
 
 export function OpticalLogEditDialog({ open, onOpenChange, log, onSubmit }: Props) {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [attachment, setAttachment] = useState<{ name: string; data: string } | null>(null);
+
+    // Hook integration for single attachment
+    const {
+        attachments,
+        setAttachments,
+        handleFileChange,
+        removeAttachment,
+        clearAttachments,
+        isUploading
+    } = useFileUpload({
+        maxFiles: 1, // Log edit typically has one attachment? or multiple? PREVIOUS code handled 'attachment' (single)
+        maxSizeMB: 10
+    });
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -69,13 +80,19 @@ export function OpticalLogEditDialog({ open, onOpenChange, log, onSubmit }: Prop
             try {
                 const attrs = JSON.parse(log.attributes || "{}");
                 remark = attrs.remark || "";
+
+                // Handle attachment loading
                 if (attrs.attachment) {
-                    setAttachment(attrs.attachment);
+                    setAttachments([attrs.attachment]);
+                } else if (attrs.attachments && Array.isArray(attrs.attachments) && attrs.attachments.length > 0) {
+                    // If it was multiple, take the first one or logic needs adjustment.
+                    // The previous code only handled 'attachment' field in state, but 'attrs' might have 'attachments'
+                    setAttachments(attrs.attachments);
                 } else {
-                    setAttachment(null);
+                    setAttachments([]);
                 }
             } catch {
-                setAttachment(null);
+                setAttachments([]);
             }
 
             form.reset({
@@ -85,24 +102,43 @@ export function OpticalLogEditDialog({ open, onOpenChange, log, onSubmit }: Prop
                 remark,
             });
         }
-    }, [log, open]);
+    }, [log, open, setAttachments, form]);
 
     const handleSubmit = async (values: FormValues) => {
         if (!log) return;
         setIsSubmitting(true);
         try {
             // Prepare attributes with remark
-            let attributes = {};
+            let attributes: any = {};
             try {
                 attributes = JSON.parse(log.attributes || "{}");
             } catch { }
 
+            // Construct new attributes
+            // Conserving existing fields except remark and attachments
+            const newAttributes = {
+                ...attributes,
+                remark: values.remark,
+                // If single attachment is expected:
+                attachment: attachments.length > 0 ? attachments[0] : null,
+                // Or if we want to standardize on 'attachments' array?
+                // The previous code used 'attachment'. Let's stick to that for compatibility or upgrade?
+                // The refactored code elsewhere uses 'attachments' array.
+                // However, 'log' edit might be on old records.
+                // Let's use 'attachment' if 1 file, or maybe just cleanup.
+                // Replicating previous behavior: set 'attachment' to result
+            };
+
+            // Wait, previous code: attributes: JSON.stringify({ ...attributes, remark: values.remark, attachment }),
+            // So it was overwriting 'attachment'.
+
             const payload = {
                 ...values,
-                attributes: JSON.stringify({ ...attributes, remark: values.remark, attachment }),
+                attributes: JSON.stringify(newAttributes),
             };
 
             await onSubmit(log.id, payload);
+            clearAttachments();
             onOpenChange(false);
         } catch (error) {
             console.error(error);
@@ -210,63 +246,39 @@ export function OpticalLogEditDialog({ open, onOpenChange, log, onSubmit }: Prop
                                         type="file"
                                         className="hidden"
                                         id="edit-file-upload"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                try {
-                                                    if (file.size > 10 * 1024 * 1024) {
-                                                        alert("파일 크기가 10MB를 초과합니다.");
-                                                        return;
-                                                    }
-
-                                                    let processedFile: { name: string; data: string };
-
-                                                    if (file.type.startsWith('image/')) {
-                                                        const compressed = await compressImage(file, {
-                                                            maxWidth: 1920,
-                                                            maxHeight: 1920,
-                                                            quality: 0.8,
-                                                            maxSizeMB: 5
-                                                        });
-                                                        processedFile = compressed;
-                                                    } else {
-                                                        const base64 = await new Promise<string>((resolve, reject) => {
-                                                            const reader = new FileReader();
-                                                            reader.onload = () => resolve(reader.result as string);
-                                                            reader.onerror = reject;
-                                                            reader.readAsDataURL(file);
-                                                        });
-                                                        processedFile = { name: file.name, data: base64 };
-                                                    }
-
-                                                    setAttachment(processedFile);
-                                                } catch (error: any) {
-                                                    alert(error.message || "파일 처리 중 오류가 발생했습니다.");
-                                                }
-                                            }
-                                        }}
+                                        onChange={handleFileChange}
+                                        disabled={isUploading}
                                     />
                                     <label
                                         htmlFor="edit-file-upload"
-                                        className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                        className={cn(
+                                            "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                                            isUploading && "opacity-50 cursor-wait"
+                                        )}
                                     >
                                         <Upload className="h-5 w-5 text-primary" />
                                         <span className="text-sm font-medium text-primary">
-                                            {attachment ? attachment.name : "파일 선택 또는 드래그"}
+                                            {isUploading ? "업로드 중..." : (attachments.length > 0 ? attachments[0].name : "파일 선택")}
                                         </span>
                                     </label>
                                 </div>
-                                {attachment && (
+                                {attachments.length > 0 && (
                                     <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
                                         <span className="text-sm text-muted-foreground truncate">
-                                            📎 {attachment.name}
+                                            {attachments[0].storageUrl ? (
+                                                <a href={attachments[0].storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                                    📎 {attachments[0].name}
+                                                </a>
+                                            ) : (
+                                                <span className="flex items-center">📎 {attachments[0].name}</span>
+                                            )}
                                         </span>
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
                                             className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => setAttachment(null)}
+                                            onClick={() => removeAttachment(0)}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -279,7 +291,7 @@ export function OpticalLogEditDialog({ open, onOpenChange, log, onSubmit }: Prop
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                                 취소
                             </Button>
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting || isUploading}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 수정 저장
                             </Button>

@@ -224,6 +224,97 @@ const stock = await db.select()
 
 ---
 
+
+---
+
+## 4.5 파일 업로드/다운로드 규칙 (File Handling) ⭐ **필수**
+
+> **[!IMPORTANT]**
+> 모든 파일 업로드/다운로드는 **반드시** `useFileUpload`와 `useDownload` 훅을 사용해야 합니다.
+> 직접 구현하거나 다른 방식을 사용하는 것은 **금지**됩니다.
+
+### A. 필수 훅 사용
+
+**검증 완료**: 2026-01-17 기준, 모든 메뉴(입고, 출고, 사용등록, 광케이블 등)에서 정상 작동 확인됨.
+
+#### 업로드: `useFileUpload` 훅
+```typescript
+import { useFileUpload } from "@/hooks/useFileUpload";
+
+const { 
+  attachments, 
+  handleFileSelect, 
+  removeAttachment, 
+  isUploading 
+} = useFileUpload();
+```
+
+**특징**:
+- 이미지 자동 압축 (용량 절감)
+- Supabase Storage에 UUID 파일명으로 저장
+- DB에는 원본 파일명 + Storage 경로만 저장 (Base64 저장 금지)
+- 업로드 진행 상황 토스트 알림
+- 압축 절감량 표시
+
+#### 다운로드: `useDownload` 훅
+```typescript
+import { useDownload } from "@/hooks/useDownload";
+
+const { downloadFile, downloadAttachment } = useDownload();
+
+// 사용 예시
+downloadAttachment(file); // file: { name, storagePath, storageUrl }
+```
+
+**특징**:
+- Supabase Storage에서 파일 가져오기
+- 원본 파일명으로 다운로드 (한글, 공백, 특수문자 지원)
+- Blob URL 방식으로 브라우저 호환성 보장
+- 다운로드 시작/완료 토스트 알림
+
+### B. 파일 메타데이터 저장 구조
+
+DB의 `attributes` JSONB 필드에 다음 구조로 저장:
+
+```typescript
+{
+  "attachments": [
+    {
+      "name": "스크린샷 2026-01-17 15.31.12.png",  // 원본 파일명
+      "storagePath": "1768633946188_0p0qexu79.png", // UUID 파일명
+      "storageUrl": "https://...supabase.co/storage/v1/object/public/attachments/1768633946188_0p0qexu79.png",
+      "size": 169847,
+      "type": "image/png",
+      "isCompressed": true,
+      "originalSize": 250000,
+      "compressedSize": 169847
+    }
+  ]
+}
+```
+
+**중요**: `data` 필드(Base64)는 절대 저장하지 않습니다. Storage URL만 사용합니다.
+
+### C. 스토리지 구조
+
+- **Provider**: Supabase Storage
+- **Bucket**: `attachments` (기본)
+- **파일명 규칙**: `{timestamp}_{randomId}.{ext}` (예: `1768633946188_0p0qexu79.png`)
+- **경로**: 플랫 구조 (폴더 없음)
+
+### D. 구현 체크리스트
+
+새로운 파일 업로드/다운로드 기능 추가 시:
+
+- [ ] `useFileUpload` 훅 import 및 사용
+- [ ] `useDownload` 훅 import 및 사용  
+- [ ] DB 스키마의 `attributes` 필드가 JSONB 타입인지 확인
+- [ ] 업로드 시 `attachments` 배열 구조로 저장
+- [ ] 다운로드 시 `downloadAttachment(file)` 호출
+- [ ] Base64 데이터를 DB에 저장하지 않는지 확인
+
+---
+
 ## 5. 트랜잭션 및 로직 통합 패턴 (Transaction Patterns)
 - **상태 변경과 이력 생성의 원자성**: `opticalCables`와 같은 자산의 상태 변경 시, 반드시 상태 업데이트와 로그 생성을 하나의 트랜잭션으로 묶어야 합니다.
   - 패턴: `storage.createOpticalCableLog` 내부에서 `db.transaction` 사용.
@@ -584,27 +675,199 @@ graph TD
 3. 스키마가 일치하지 않으면 배포가 중단됩니다. 이 경우, 운영 DB에 마이그레이션을 적용(`drizzle-kit push` 등)하여 스키마를 동기화한 후 재시도해야 합니다.
 
 
-## 16. 파일 처리 및 저장소 규칙 (File Handling & Storage)
+## 16. 파일 처리 및 저장소 규칙 (File Handling & Storage) ⭐ **UPDATED**
 
-### A. 데이터 구조 (Data Structure)
-- **JSON 기반 저장**: 파일 메타데이터와 Base64 데이터를 `attributes` JSON 컬럼 내에 저장합니다.
-- **다중 파일 지원 (표준)**:
-  - `attributes.attachments`: `{ name: string, data: string }[]` 배열 구조 사용.
-  - 레거시 호환성: 단일 파일 필드 `attributes.attachment`도 읽기 시 지원하되, 쓰기 시에는 가급적 `attachments[0]`과 동기화하거나 마이그레이션.
+### A. 저장 방식 (Storage Strategy)
 
-### B. 데이터 전송 최적화 (Optimization)
-- **목록 조회 (List API)**:
-  - `GET /api/xxx`: `attributes` 내부의 `data` (Base64 본문) 필드를 **제거(delete)** 하고 메타데이터만 전송해야 합니다.
-  - 목적: 목록 조회 시 수 MB 단위의 불필요한 데이터 전송 방지.
-- **상세/다운로드 (Detail/Download)**:
-  - 다운로드는 별도 API(`GET /api/xxx/:id`)를 호출하여 `data`가 포함된 전체 레코드를 받아 수행하거나, 클라이언트 측 `useDownload` 훅을 사용합니다.
+**원칙**: 모든 첨부파일은 **Supabase Storage**에 직접 저장하고, DB에는 **URL만 저장**합니다.
 
-### C. 다운로드 구현 로직 (Client-side)
-- **`useDownload` 훅 사용**:
-  - `client/src/hooks/useDownload.ts`의 `downloadFile` 함수를 사용합니다.
-  - 로직:
-    1. 목록에 `data`가 없으므로 식별자(ID)로 전체 레코드 Fetch (`/api/xxx/:id`).
-    2. 받아온 레코드의 `attributes.attachments`에서 해당 파일명 매칭.
-    3. Base64 데이터를 Blob으로 변환하여 브라우저 다운로드 트리거.
-- **파일명 중복 처리**: 동일 파일명 다운로드 시 브라우저가 자동 처리하거나, 업로드 시점에 이름 변경(timestamp append 등)을 권장.
+#### 🎯 왜 Supabase Storage를 사용하는가?
+- ✅ **효율성**: Base64 인코딩 불필요 (파일 크기 33% 감소)
+- ✅ **성능**: 서버 부하 감소, 네트워크 전송량 최소화
+- ✅ **확장성**: 대용량 파일 처리 용이
+- ✅ **직접 접근**: 공개 URL로 즉시 다운로드 가능
+
+#### ❌ 기존 방식 (Deprecated)
+```typescript
+// ❌ Base64로 DB에 저장 (사용 금지)
+{
+  "attachments": [
+    {
+      "name": "파일.jpg",
+      "data": "data:image/jpeg;base64,/9j/4AAQ..." // ❌ 파일 크기 33% 증가
+    }
+  ]
+}
+```
+
+#### ✅ 새로운 방식 (Required)
+```typescript
+// ✅ Supabase Storage URL만 DB에 저장
+{
+  "attachments": [
+    {
+      "name": "파일.jpg",
+      "storageUrl": "https://xxx.supabase.co/storage/v1/object/public/attachments/...",
+      "storagePath": "attachments/1234567890_파일.jpg"
+    }
+  ]
+}
+```
+
+### B. 프론트엔드 구현 (Frontend Implementation)
+
+#### 1. Supabase Client 설정
+```typescript
+// client/src/lib/supabase.ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+```
+
+#### 2. 파일 업로드 유틸리티
+```typescript
+// client/src/lib/storage.ts
+import { supabase } from './supabase';
+
+export async function uploadFileToStorage(
+  file: File,
+  bucket: string = 'attachments'
+): Promise<{ storageUrl: string; storagePath: string }> {
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${bucket}/${timestamp}_${safeName}`;
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) throw new Error(`업로드 실패: ${error.message}`);
+
+  const { data: { publicUrl } } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(data.path);
+
+  return {
+    storageUrl: publicUrl,
+    storagePath: data.path
+  };
+}
+```
+
+#### 3. 사용 예시
+```typescript
+// 파일 업로드
+const handleFileUpload = async (file: File) => {
+  try {
+    const { storageUrl, storagePath } = await uploadFileToStorage(file);
+    
+    setFormData({
+      ...formData,
+      attachments: [
+        ...formData.attachments,
+        {
+          name: file.name,
+          storageUrl,
+          storagePath
+        }
+      ]
+    });
+  } catch (error) {
+    toast({ title: "업로드 실패", variant: "destructive" });
+  }
+};
+
+// 다운로드 (URL 직접 접근)
+<a href={attachment.storageUrl} download={attachment.name}>
+  다운로드
+</a>
+```
+
+### C. 백엔드 처리 (Backend Handling)
+
+#### 1. 데이터 저장
+```typescript
+// 프론트엔드에서 이미 업로드된 파일 정보를 받아 저장
+app.post("/api/demolition-materials", async (req, res) => {
+  const { attributes } = req.body;
+  
+  // attributes에는 이미 storageUrl이 포함되어 있음
+  // 별도 처리 불필요, 그대로 DB에 저장
+  await storage.createDemolitionMaterial({
+    ...req.body,
+    attributes: JSON.stringify(attributes)
+  });
+});
+```
+
+#### 2. 목록 조회 최적화
+```typescript
+// 목록 조회 시 attachments는 메타데이터만 포함 (data 필드 없음)
+// storageUrl만 있으므로 추가 최적화 불필요
+```
+
+### D. 환경 변수 설정 (Environment Variables)
+
+#### 필수 환경 변수
+```bash
+# .env (프론트엔드)
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# .env (백엔드 - 기존)
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### E. 마이그레이션 가이드 (Migration Guide)
+
+#### 기존 Base64 데이터 마이그레이션
+```typescript
+// scripts/migrate-base64-to-storage.ts
+// 운영 서버 배포 시 실행할 마이그레이션 스크립트
+// 1. 기존 attributes에서 Base64 데이터 추출
+// 2. Supabase Storage에 업로드
+// 3. storageUrl로 업데이트
+```
+
+#### 호환성 유지
+- **읽기**: 기존 Base64 데이터와 새로운 storageUrl 모두 지원
+- **쓰기**: 새로운 데이터는 무조건 storageUrl 사용
+- **마이그레이션**: 운영 서버 배포 시 일괄 변환
+
+### F. 보안 및 권한 (Security & Permissions)
+
+#### Supabase Storage 정책 (RLS Policies)
+```sql
+-- attachments 버킷 정책
+-- 1. 모든 사용자 읽기 가능 (공개)
+CREATE POLICY "Public Access"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'attachments');
+
+-- 2. 인증된 사용자만 업로드 가능
+CREATE POLICY "Authenticated Upload"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'attachments' AND auth.role() = 'authenticated');
+
+-- 3. 본인이 업로드한 파일만 삭제 가능
+CREATE POLICY "Owner Delete"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'attachments' AND auth.uid() = owner);
+```
+
+### G. 체크리스트 (Checklist)
+
+신규 첨부파일 기능 구현 시:
+- [ ] `uploadFileToStorage` 유틸리티 사용
+- [ ] `storageUrl`, `storagePath` 저장
+- [ ] 다운로드는 URL 직접 접근
+- [ ] Base64 인코딩 사용 금지
+- [ ] 환경 변수 설정 확인
 

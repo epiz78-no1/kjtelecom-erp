@@ -54,7 +54,7 @@ export default function IncomingRecords() {
   const { toast } = useToast();
   const { checkPermission, tenants, currentTenant } = useAppContext();
   const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
-  const { downloadFile } = useDownload();
+  const { downloadFile, downloadAttachment } = useDownload();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -181,8 +181,7 @@ export default function IncomingRecords() {
     division: string;
     supplier: string;
     projectName: string;
-    attachment: { name: string; data: string } | null;
-    attachments?: { name: string; data: string }[];
+    attachments: { name: string; storageUrl: string; storagePath: string }[];
     items: Array<{
       id: string;
       productName: string;
@@ -207,9 +206,7 @@ export default function IncomingRecords() {
       // Handle multiple attachments
       if (data.attachments && data.attachments.length > 0) {
         attributesObj.attachments = data.attachments;
-        attributesObj.attachment = data.attachments[0]; // Legacy support
-      } else if (data.attachment) {
-        attributesObj.attachment = data.attachment;
+        attributesObj.attachment = data.attachments[0]; // Legacy fallback
       }
 
       const payload = {
@@ -252,8 +249,6 @@ export default function IncomingRecords() {
           if (data.attachments && data.attachments.length > 0) {
             attributesObj.attachments = data.attachments;
             attributesObj.attachment = data.attachments[0];
-          } else if (data.attachment) {
-            attributesObj.attachment = data.attachment;
           }
         }
 
@@ -537,6 +532,8 @@ export default function IncomingRecords() {
                         if (attachments.length === 0) return "-";
 
                         if (attachments.length === 1) {
+                          const file = attachments[0];
+
                           return (
                             <Button
                               variant="ghost"
@@ -544,9 +541,9 @@ export default function IncomingRecords() {
                               className="h-8 w-8 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                downloadFile(`/api/incoming/${record.id}`, attachments[0].name);
+                                downloadAttachment(file);
                               }}
-                              title={attachments[0].name}
+                              title={file.name}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
@@ -576,7 +573,11 @@ export default function IncomingRecords() {
                                     className="justify-start h-8 text-xs max-w-[200px]"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      downloadFile(`/api/incoming/${record.id}`, file.name);
+                                      if (file.storageUrl || file.storagePath) {
+                                        downloadAttachment(file);
+                                      } else {
+                                        downloadFile(`/api/incoming/${record.id}`, file.name);
+                                      }
                                     }}
                                     title={file.name}
                                   >
@@ -692,6 +693,6 @@ export default function IncomingRecords() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </div >
   );
 }

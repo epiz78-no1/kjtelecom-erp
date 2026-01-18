@@ -54,7 +54,7 @@ export default function OpticalIncoming() {
     const { tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
     const { open: dialogOpen, editingItem: editingCable, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCable>();
-    const { downloadFile } = useDownload();
+    const { downloadFile, downloadAttachment } = useDownload();
     const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
     const bulkUploadMutation = useBulkUploadOpticalCables();
@@ -354,7 +354,11 @@ export default function OpticalIncoming() {
                                                                 className="h-8 w-8 p-0"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    if (attachments[0].storageUrl) {
+                                                                        downloadAttachment(attachments[0]);
+                                                                    } else {
+                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    }
                                                                 }}
                                                                 title={attachments[0].name}
                                                             >
@@ -386,7 +390,11 @@ export default function OpticalIncoming() {
                                                                             className="justify-start h-8 text-xs max-w-[200px]"
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                if (file.storageUrl) {
+                                                                                    downloadAttachment(file);
+                                                                                } else {
+                                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                }
                                                                             }}
                                                                             title={file.name}
                                                                         >

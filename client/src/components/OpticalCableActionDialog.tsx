@@ -6,7 +6,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Trash2 } from "lucide-react";
-import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import {
     Dialog,
     DialogContent,
@@ -27,6 +26,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { z } from "zod";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/imageCompression";
 
 type ActionType = 'assign' | 'return' | 'waste';
 
@@ -53,12 +55,34 @@ export function OpticalCableActionDialog({
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
+    // Hook integration for Usage Attachments
+    const {
+        attachments: usageAttachments,
+        setAttachments: setUsageAttachments,
+        handleFileChange: handleUsageFileChange,
+        removeAttachment: removeUsageAttachment,
+        clearAttachments: clearUsageAttachments,
+        isUploading: isUsageUploading
+    } = useFileUpload({
+        maxFiles: 4,
+        maxSizeMB: 10
+    });
+
+    // Hook integration for Waste Photos
+    const {
+        attachments: wastePhotos,
+        setAttachments: setWastePhotos,
+        handleFileChange: handleWasteFileChange,
+        removeAttachment: removeWasteAttachment,
+        clearAttachments: clearWasteAttachments,
+        isUploading: isWasteUploading
+    } = useFileUpload({
+        maxFiles: 4,
+        maxSizeMB: 10
+    });
+
     // Waste-specific state
     const [wasteReason, setWasteReason] = useState("");
-    const [wastePhotos, setWastePhotos] = useState<Array<{ name: string; data: string; size: number }>>([]);
-
-    // Usage attachments state
-    const [usageAttachments, setUsageAttachments] = useState<Array<{ name: string; data: string; size: number }>>([]);
 
     // 액션 타입에 따른 제목 및 설명
     const getTitle = () => {
@@ -97,10 +121,10 @@ export function OpticalCableActionDialog({
             });
             // Reset waste-specific fields
             setWasteReason("");
-            setWastePhotos([]);
-            setUsageAttachments([]);
+            clearWasteAttachments();
+            clearUsageAttachments();
         }
-    }, [open, cable, actionType, form]);
+    }, [open, cable, actionType, form, clearWasteAttachments, clearUsageAttachments]);
 
     const mutation = useMutation({
         mutationFn: async (data: FormData) => {
@@ -151,9 +175,16 @@ export function OpticalCableActionDialog({
         mutation.mutate(data);
     };
 
+    // Helper for safe file handling wrapper
+    const handleFileChangeWrapper = async (e: React.ChangeEvent<HTMLInputElement>, handler: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>) => {
+        // Optional: If we want to restore compression in the future, we could intercept files here
+        // For now, we delegate to the hook
+        await handler(e);
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{getTitle()}</DialogTitle>
                 </DialogHeader>
@@ -183,7 +214,7 @@ export function OpticalCableActionDialog({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>불출 대상 팀 *</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value ? String(field.value) : undefined}>
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="팀을 선택하세요" />
@@ -191,7 +222,7 @@ export function OpticalCableActionDialog({
                                             </FormControl>
                                             <SelectContent>
                                                 {teams.map((team) => (
-                                                    <SelectItem key={team.id} value={team.id}>
+                                                    <SelectItem key={team.id} value={String(team.id)}>
                                                         {team.name}
                                                     </SelectItem>
                                                 ))}
@@ -239,74 +270,49 @@ export function OpticalCableActionDialog({
                                         <div className="mt-2 space-y-2">
                                             {/* Upload Button */}
                                             {wastePhotos.length < 4 && (
-                                                <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
-                                                    <Upload className="h-5 w-5 text-primary" />
-                                                    <span className="text-sm font-medium text-primary">
-                                                        사진 선택 ({wastePhotos.length}/4) - 이미지 파일
-                                                    </span>
+                                                <div className="relative">
                                                     <Input
+                                                        id="waste-file-upload"
                                                         type="file"
                                                         accept="image/*"
                                                         multiple
                                                         className="hidden"
-                                                        onChange={async (e) => {
-                                                            const files = Array.from(e.target.files || []);
-                                                            const remainingSlots = 4 - wastePhotos.length;
-                                                            const filesToProcess = files.slice(0, remainingSlots);
-                                                            let compressedCount = 0;
-
-                                                            for (const file of filesToProcess) {
-                                                                if (file.size > 10 * 1024 * 1024) {
-                                                                    toast({
-                                                                        title: "파일 크기 초과",
-                                                                        description: `${file.name}은(는) 10MB를 초과합니다.`,
-                                                                        variant: "destructive"
-                                                                    });
-                                                                    continue;
-                                                                }
-
-                                                                try {
-                                                                    const compressed = await compressImage(file, {
-                                                                        maxWidth: 1920,
-                                                                        maxHeight: 1920,
-                                                                        quality: 0.8,
-                                                                        maxSizeMB: 5
-                                                                    });
-
-                                                                    setWastePhotos(prev => [...prev, compressed]);
-                                                                    compressedCount++;
-                                                                } catch (error) {
-                                                                    toast({
-                                                                        title: "압축 실패",
-                                                                        description: error instanceof Error ? error.message : "이미지 압축에 실패했습니다.",
-                                                                        variant: "destructive"
-                                                                    });
-                                                                }
-                                                            }
-
-                                                            if (compressedCount > 0) {
-                                                                toast({
-                                                                    title: "이미지 압축 완료",
-                                                                    description: `${compressedCount}개 이미지가 압축되었습니다`,
-                                                                });
-                                                            }
-
-                                                            // Reset input
-                                                            e.target.value = '';
-                                                        }}
+                                                        onChange={handleWasteFileChange}
+                                                        disabled={isWasteUploading}
                                                     />
-                                                </label>
+                                                    <label
+                                                        htmlFor="waste-file-upload"
+                                                        className={cn(
+                                                            "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                                                            isWasteUploading && "opacity-50 cursor-wait"
+                                                        )}
+                                                    >
+                                                        <Upload className="h-5 w-5 text-primary" />
+                                                        <span className="text-sm font-medium text-primary">
+                                                            {isWasteUploading ? "업로드 중..." : `사진 선택 (${wastePhotos.length}/4)`}
+                                                        </span>
+                                                    </label>
+                                                </div>
                                             )}
 
                                             {/* File List */}
                                             {wastePhotos.map((photo, index) => (
                                                 <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                                                    <span className="text-sm truncate">📷 {photo.name} ({formatFileSize(photo.size)})</span>
+                                                    <span className="text-sm text-muted-foreground truncate flex-1">
+                                                        {photo.storageUrl ? (
+                                                            <a href={photo.storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                                                📷 {photo.name}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="flex items-center">📷 {photo.name}</span>
+                                                        )}
+                                                    </span>
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => setWastePhotos(prev => prev.filter((_, i) => i !== index))}
+                                                        onClick={() => removeWasteAttachment(index)}
+                                                        className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
@@ -360,75 +366,48 @@ export function OpticalCableActionDialog({
                                 </label>
                                 <div className="space-y-2">
                                     {usageAttachments.length < 4 && (
-                                        <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
-                                            <Upload className="h-5 w-5 text-primary" />
-                                            <span className="text-sm font-medium text-primary">
-                                                파일 선택 ({usageAttachments.length}/4)
-                                            </span>
+                                        <div className="relative">
                                             <Input
+                                                id="usage-file-upload"
                                                 type="file"
                                                 accept="image/*,.pdf"
                                                 multiple
                                                 className="hidden"
-                                                onChange={async (e) => {
-                                                    const files = Array.from(e.target.files || []);
-                                                    const remainingSlots = 4 - usageAttachments.length;
-                                                    const filesToProcess = files.slice(0, remainingSlots);
-                                                    let compressedCount = 0;
-
-                                                    for (const file of filesToProcess) {
-                                                        try {
-                                                            let processedFile = file;
-                                                            if (file.type.startsWith('image/')) {
-                                                                const compressed = await compressImage(file, {
-                                                                    maxWidth: 1280,
-                                                                    maxHeight: 1280,
-                                                                    quality: 0.7,
-                                                                    maxSizeMB: 1
-                                                                });
-                                                                processedFile = compressed;
-                                                                compressedCount++;
-                                                            }
-
-                                                            const reader = new FileReader();
-                                                            reader.onload = () => {
-                                                                setUsageAttachments(prev => [...prev, {
-                                                                    name: file.name,
-                                                                    data: reader.result as string,
-                                                                    size: processedFile.size
-                                                                }]);
-                                                            };
-                                                            reader.readAsDataURL(processedFile);
-                                                        } catch (error) {
-                                                            toast({
-                                                                title: "파일 처리 실패",
-                                                                description: `${file.name} 처리 중 오류가 발생했습니다.`,
-                                                                variant: "destructive"
-                                                            });
-                                                        }
-                                                    }
-
-                                                    if (compressedCount > 0) {
-                                                        toast({
-                                                            title: "이미지 압축 완료",
-                                                            description: `${compressedCount}개 이미지가 압축되었습니다`,
-                                                        });
-                                                    }
-
-                                                    e.target.value = '';
-                                                }}
+                                                onChange={handleUsageFileChange}
+                                                disabled={isUsageUploading}
                                             />
-                                        </label>
+                                            <label
+                                                htmlFor="usage-file-upload"
+                                                className={cn(
+                                                    "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                                                    isUsageUploading && "opacity-50 cursor-wait"
+                                                )}
+                                            >
+                                                <Upload className="h-5 w-5 text-primary" />
+                                                <span className="text-sm font-medium text-primary">
+                                                    {isUsageUploading ? "업로드 중..." : `파일 선택 (${usageAttachments.length}/4)`}
+                                                </span>
+                                            </label>
+                                        </div>
                                     )}
 
                                     {usageAttachments.map((file, index) => (
                                         <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                                            <span className="text-sm truncate">📎 {file.name} ({formatFileSize(file.size)})</span>
+                                            <span className="text-sm text-muted-foreground truncate flex-1">
+                                                {file.storageUrl ? (
+                                                    <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+                                                        📎 {file.name}
+                                                    </a>
+                                                ) : (
+                                                    <span className="flex items-center">📎 {file.name}</span>
+                                                )}
+                                            </span>
                                             <Button
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => setUsageAttachments(prev => prev.filter((_, i) => i !== index))}
+                                                onClick={() => removeUsageAttachment(index)}
+                                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -457,8 +436,8 @@ export function OpticalCableActionDialog({
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                                 취소
                             </Button>
-                            <Button type="submit" disabled={mutation.isPending}>
-                                {mutation.isPending ? "처리 중..." : "등록"}
+                            <Button type="submit" disabled={mutation.isPending || isWasteUploading || isUsageUploading}>
+                                {mutation.isPending || isWasteUploading || isUsageUploading ? "처리 중..." : "등록"}
                             </Button>
                         </DialogFooter>
                     </form>
