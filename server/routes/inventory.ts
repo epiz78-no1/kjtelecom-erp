@@ -288,6 +288,81 @@ export function registerInventoryRoutes(app: Express) {
         }
     });
 
+    app.patch("/api/outgoing/:id", requireAuth, requireTenant, async (req, res) => {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ error: "Invalid ID" });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        const oldRecord = await storage.getOutgoingRecord(id, tenantId);
+
+        const updates = { ...req.body };
+        if (updates.productName) updates.productName = updates.productName.trim();
+        if (updates.specification) updates.specification = updates.specification.trim();
+        if (updates.division) updates.division = updates.division.trim();
+        if (updates.teamCategory) updates.teamCategory = updates.teamCategory.trim();
+        if (updates.projectName) updates.projectName = updates.projectName.trim();
+        if (updates.recipient) updates.recipient = updates.recipient.trim();
+
+        const record = await storage.updateOutgoingRecord(id, updates, tenantId);
+
+        if (!record) {
+            return res.status(404).json({ error: "Record not found" });
+        }
+
+        if (oldRecord) {
+            await syncInventoryItem(oldRecord.productName, oldRecord.specification, oldRecord.division, tenantId);
+        }
+        if (record && (record.productName !== oldRecord?.productName || record.specification !== oldRecord?.specification || record.division !== oldRecord?.division)) {
+            await syncInventoryItem(record.productName, record.specification, record.division, tenantId);
+        }
+
+        res.json(record);
+    });
+
+    app.delete("/api/outgoing/:id", requireAuth, requireTenant, async (req, res) => {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ error: "Invalid ID" });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        const record = await storage.getOutgoingRecord(id, tenantId);
+        const success = await storage.deleteOutgoingRecord(id, tenantId);
+
+        if (!success) {
+            return res.status(404).json({ error: "Record not found" });
+        }
+
+        if (record) {
+            await syncInventoryItem(record.productName, record.specification, record.division, tenantId);
+        }
+
+        res.status(204).send();
+    });
+
+    app.post("/api/outgoing/bulk-delete", requireAuth, requireTenant, async (req, res) => {
+        const { ids } = req.body;
+        if (!Array.isArray(ids)) {
+            return res.status(400).json({ error: "IDs must be an array" });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        const records = await storage.getOutgoingRecords(tenantId);
+        const recordsToDelete = records.filter(r => ids.includes(r.id));
+
+        const deletedCount = await storage.bulkDeleteOutgoingRecords(ids, tenantId);
+
+        const itemsToSync = new Set(recordsToDelete.map(r => `${r.productName}|${r.specification}|${r.division}`));
+        await Promise.all(Array.from(itemsToSync).map(async (itemKey) => {
+            const [productName, specification, division] = itemKey.split('|');
+            await syncInventoryItem(productName, specification, division, tenantId);
+        }));
+
+        res.json({ deletedCount });
+    });
+
     // ... (bulk upload omitted for brevity, logic is similar if needed later)
 
     app.get("/api/material-usage", requireAuth, requireTenant, async (req, res) => {
