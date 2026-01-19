@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.2.32 (2026-01-19) - 일반자재 출고내역 수정/삭제 버그 핫픽스
+ 
+ ### 🐞 Bug Fixes (Hotfix)
+ - **일반자재 출고내역 수정/삭제 오류 해결**:
+   - `server/routes/inventory.ts`에 누락되었던 `PATCH /api/outgoing/:id` 및 `DELETE /api/outgoing/:id` 라우트 추가.
+   - 출고 내역 일괄 삭제(`bulk-delete`) 기능 복구 및 재고 수량 자동 재계산 로직 적용.
+
 ## v1.2.31 (2026-01-18) - 자재현황 폐기/재사용 처리 개선 및 UI 정렬
  
  ### 🐞 Bug Fixes & Stabilization
