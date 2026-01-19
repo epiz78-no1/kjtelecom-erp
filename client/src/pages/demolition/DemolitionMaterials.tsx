@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { Badge } from "@/components/ui/badge";
 import {
     TableHeader,
     TableRow,
@@ -54,6 +55,7 @@ interface DemolitionMaterial {
     productName: string;
     specification: string;
     originalQuantity: number;
+    usedQuantity: number;
     remainingQuantity: number;
     status: string;
     remark?: string;
@@ -336,6 +338,22 @@ export default function DemolitionMaterials() {
                                     규격
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('specification')} />
                                 </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.originalQuantity }}>
+                                    원수량
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('originalQuantity')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.usedQuantity }}>
+                                    사용/출고
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('usedQuantity')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.remainingQuantity }}>
+                                    잔량
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('remainingQuantity')} />
+                                </TableHead>
+                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.status }}>
+                                    상태
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('status')} />
+                                </TableHead>
                                 <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.attachment }}>
                                     첨부
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('attachment')} />
@@ -358,9 +376,10 @@ export default function DemolitionMaterials() {
                                 filteredMaterials.map((material) => (
                                     <TableRow
                                         key={material.id}
-                                        className={`h-6 [\u0026_td]:py-0 ${material.status === 'pending_review' ? 'bg-yellow-50/50 hover:bg-yellow-50/80' :
-                                            material.status === 'rejected' ? 'bg-red-50/50 hover:bg-red-50/80' :
-                                                ''
+                                        className={`h-6 [&_td]:py-0 ${material.status === 'pending_review' ? 'bg-yellow-50/50 hover:bg-yellow-100/50' :
+                                            (material.status === 'rejected' || material.status === 'disposed' || material.remainingQuantity === 0) ? 'bg-red-100/50 hover:bg-red-200/50' :
+                                                (material.status === 'in_use') ? 'bg-blue-100/50 hover:bg-blue-200/50' :
+                                                    'hover:bg-muted/50'
                                             }`}
                                     >
                                         <TableCell className="text-center align-middle">{material.division}</TableCell>
@@ -370,6 +389,24 @@ export default function DemolitionMaterials() {
                                         <TableCell className="text-left align-middle">{material.projectName}</TableCell>
                                         <TableCell className="text-center align-middle">{material.productName}</TableCell>
                                         <TableCell className="text-center align-middle">{material.specification}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4">{material.originalQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4">{material.usedQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4 font-bold">{material.remainingQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-center align-middle">
+                                            <Badge variant={
+                                                material.status === 'pending_review' ? 'outline' :
+                                                    (material.status === 'rejected' || material.status === 'disposed' || material.remainingQuantity === 0) ? 'destructive' :
+                                                        material.status === 'in_use' ? 'default' :
+                                                            'secondary'
+                                            } className="text-[10px] px-1 h-5">
+                                                {material.status === 'pending_review' ? '검토중' :
+                                                    material.status === 'rejected' ? '반려' :
+                                                        (material.status === 'disposed' || material.remainingQuantity === 0) ? '소진/폐기' :
+                                                            material.status === 'in_use' ? '사용중/현장' :
+                                                                material.status === 'approved_reusable' ? '승인(미사용)' :
+                                                                    material.status}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell className="text-center align-middle">
                                             {(() => {
                                                 if (!material.attributes) return null;
@@ -661,6 +698,6 @@ export default function DemolitionMaterials() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

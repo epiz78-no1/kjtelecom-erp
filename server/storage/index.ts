@@ -3,6 +3,7 @@ import { UserStorage } from "./user.js";
 import { InventoryStorage } from "./inventory.js";
 import { OpticalStorage } from "./optical.js";
 import { TeamStorage } from "./teams.js";
+import { DemolitionStorage } from "./demolition.js";
 
 // Utility type to merge classes
 function applyMixins(derivedCtor: any, constructors: any[]) {
@@ -80,6 +81,7 @@ class DatabaseStorage implements IStorage {
     deleteOpticalCableLog!: OpticalStorage['deleteOpticalCableLog'];
     bulkDeleteOpticalCableLogs!: OpticalStorage['bulkDeleteOpticalCableLogs'];
     updateCableReservation!: OpticalStorage['updateCableReservation'];
+    bulkAssignOpticalCables!: OpticalStorage['bulkAssignOpticalCables'];
 
     getDivisions!: TeamStorage['getDivisions'];
     getDivision!: TeamStorage['getDivision'];
@@ -99,8 +101,23 @@ class DatabaseStorage implements IStorage {
     createPosition!: TeamStorage['createPosition'];
     updatePosition!: TeamStorage['updatePosition'];
     deletePosition!: TeamStorage['deletePosition'];
+
+    // Demolition
+    generateDemolitionManagementNo!: DemolitionStorage['generateDemolitionManagementNo'];
+    getDemolitionMaterials!: DemolitionStorage['getDemolitionMaterials'];
+    getDemolitionMaterial!: DemolitionStorage['getDemolitionMaterial'];
+    createDemolitionMaterial!: DemolitionStorage['createDemolitionMaterial'];
+    updateDemolitionMaterial!: DemolitionStorage['updateDemolitionMaterial'];
+    createDemolitionMaterialLog!: DemolitionStorage['createDemolitionMaterialLog'];
+    getDemolitionMaterialLogs!: DemolitionStorage['getDemolitionMaterialLogs'];
+    getAllDemolitionMaterialLogs!: DemolitionStorage['getAllDemolitionMaterialLogs'];
+    getDemolitionMaterialLog!: DemolitionStorage['getDemolitionMaterialLog'];
+    updateDemolitionMaterialLog!: DemolitionStorage['updateDemolitionMaterialLog'];
+    deleteDemolitionMaterialLog!: DemolitionStorage['deleteDemolitionMaterialLog'];
+    bulkDeleteDemolitionMaterialLogs!: DemolitionStorage['bulkDeleteDemolitionMaterialLogs'];
+    getDemolitionDashboard!: DemolitionStorage['getDemolitionDashboard'];
 }
 
-applyMixins(DatabaseStorage, [UserStorage, InventoryStorage, OpticalStorage, TeamStorage]);
+applyMixins(DatabaseStorage, [UserStorage, InventoryStorage, OpticalStorage, TeamStorage, DemolitionStorage]);
 
 export const storage = new DatabaseStorage();

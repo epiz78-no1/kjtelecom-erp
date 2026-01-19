@@ -1,5 +1,11 @@
 # Project Rules & Coding Conventions (Current)
 
+> **[!!!!! CRITICAL INSTRUCTION !!!!!]**
+> **모든 소통(대화, 주석, 커밋 메시지, 문서)은 반드시 "한국어(Korean)"로 작성해야 합니다.**
+> **All communication must be in Korean.**
+
+
+
 이 문서는 현재 구축된 시스템의 실제 코드베이스를 분석하여 도출된 **기술 표준 및 개발 규칙**입니다. 모든 신규 개발은 이 규칙을 준수하여 기존 코드와 일관성을 유지해야 합니다.
 
 ## 1. 기술 스택 (Tech Stack)
@@ -458,6 +464,10 @@ DB의 `attributes` JSONB 필드에 다음 구조로 저장:
     - **"예:" 또는 "ex:" 접두어 사용 금지**: "예: PJ-001"과 같은 형식의 placeholder는 사용하지 않습니다.
     - **Placeholder 생략 권장**: 라벨(Label)만으로 의미가 명확한 경우 placeholder를 삭제하여 UI를 간결하게 유지합니다.
     - **예외**: 날짜 형식(YYYY-MM-DD) 등 입력 포맷 가이드가 반드시 필요한 경우에만 제한적으로 사용합니다.
+
+  - **테이블 행 액션 (Table Row Actions)**:
+    - **더보기 메뉴 (Ellipsis Menu)**: 테이블 행의 수정/삭제 등 액션은 `...` 아이콘(`MoreHorizontal`)을 사용한 `DropdownMenu`로 제공해야 합니다.
+    - **공간 절약**: 개별 버튼을 나열하는 것보다 공간을 절약하고 깔끔한 UI를 제공합니다.
 
 ## 11. 문서 관리 전략 (Documentation Strategy)
 - **ROADMAP.md (누적 관리)**:

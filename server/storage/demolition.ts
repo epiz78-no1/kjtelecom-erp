@@ -175,4 +175,127 @@ export class DemolitionStorage {
             materials: materials.slice(0, 20) // 최근 20개만
         };
     }
+    async getDemolitionMaterialLog(id: string, tenantId: string) {
+        const results = await db
+            .select()
+            .from(demolitionMaterialLogs)
+            .where(and(
+                eq(demolitionMaterialLogs.id, id),
+                eq(demolitionMaterialLogs.tenantId, tenantId)
+            ))
+            .limit(1);
+
+        return results[0] || null;
+    }
+
+    async updateDemolitionMaterialLog(id: string, updates: Partial<InsertDemolitionMaterialLog>, tenantId: string) {
+        // 1. 기존 로그 조회
+        const oldLog = await this.getDemolitionMaterialLog(id, tenantId);
+        if (!oldLog) return null;
+
+        // 2. 자재 조회
+        const material = await this.getDemolitionMaterial(oldLog.materialId, tenantId);
+        if (!material) throw new Error("Material not found");
+
+        let remainingQuantity = material.remainingQuantity;
+        let usedQuantity = material.usedQuantity;
+
+        // 3. 수량 변경이 있는 경우 자재 잔량/사용량 조정
+        if (updates.usedQuantity !== undefined && updates.usedQuantity !== oldLog.usedQuantity) {
+            const diff = updates.usedQuantity - oldLog.usedQuantity;
+
+            if (remainingQuantity < diff) {
+                throw new Error(`잔량이 부족합니다 (필요: ${diff}, 보유: ${remainingQuantity})`);
+            }
+
+            remainingQuantity -= diff;
+            usedQuantity += diff;
+        }
+
+        // 4. 자재 상태 업데이트 (수량이 변경된 경우만)
+        if (updates.usedQuantity !== undefined && updates.usedQuantity !== oldLog.usedQuantity) {
+            let newStatus = material.status;
+            if (remainingQuantity === 0) {
+                newStatus = 'disposed'; // 잔량이 0이면 소진/폐기 처리
+            } else if (usedQuantity > 0) {
+                newStatus = 'in_use'; // 사용 중
+            } else {
+                newStatus = 'approved_reusable'; // 다시 미사용 상태 (승인됨)
+            }
+
+            await this.updateDemolitionMaterial(material.id, {
+                remainingQuantity,
+                usedQuantity,
+                status: newStatus
+            }, tenantId);
+        }
+
+        // 5. 로그 업데이트
+        const [updatedLog] = await db
+            .update(demolitionMaterialLogs)
+            .set({
+                ...updates,
+                // 수량 변경 시 before/after 조정
+                beforeQuantity: updates.usedQuantity !== undefined ? material.remainingQuantity : oldLog.beforeQuantity,
+                afterQuantity: updates.usedQuantity !== undefined ? remainingQuantity : oldLog.afterQuantity
+            })
+            .where(and(
+                eq(demolitionMaterialLogs.id, id),
+                eq(demolitionMaterialLogs.tenantId, tenantId)
+            ))
+            .returning();
+
+        return updatedLog;
+    }
+
+    async deleteDemolitionMaterialLog(id: string, tenantId: string) {
+        // 1. 기존 로그 조회
+        const log = await this.getDemolitionMaterialLog(id, tenantId);
+        if (!log) return false;
+
+        // 2. 자재 조회 및 수량 복구 (outgoing, usage, dispose 타입인 경우)
+        if (log.logType === 'outgoing' || log.logType === 'usage' || log.logType === 'dispose') {
+            const material = await this.getDemolitionMaterial(log.materialId, tenantId);
+            if (material) {
+                const quantityToRestore = log.usedQuantity || 0;
+                const newRemaining = material.remainingQuantity + quantityToRestore;
+                const newUsed = Math.max(0, material.usedQuantity - quantityToRestore);
+
+                let newStatus = material.status;
+                if (newRemaining === 0) {
+                    newStatus = 'disposed';
+                } else if (newUsed > 0) {
+                    newStatus = 'in_use';
+                } else {
+                    newStatus = 'approved_reusable';
+                }
+
+                await this.updateDemolitionMaterial(material.id, {
+                    remainingQuantity: newRemaining,
+                    usedQuantity: newUsed,
+                    status: newStatus
+                }, tenantId);
+            }
+        }
+
+        // 3. 로그 삭제
+        const result = await db
+            .delete(demolitionMaterialLogs)
+            .where(and(
+                eq(demolitionMaterialLogs.id, id),
+                eq(demolitionMaterialLogs.tenantId, tenantId)
+            ));
+
+        return result.rowCount ? result.rowCount > 0 : false;
+    }
+
+    async bulkDeleteDemolitionMaterialLogs(ids: string[], tenantId: string) {
+        let deletedCount = 0;
+        for (const id of ids) {
+            const success = await this.deleteDemolitionMaterialLog(id, tenantId);
+            if (success) deletedCount++;
+        }
+        return deletedCount;
+    }
 }
+
