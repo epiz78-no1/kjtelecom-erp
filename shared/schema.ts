@@ -660,7 +660,7 @@ export const demolitionMaterialLogs = pgTable("demolition_material_logs", {
   materialId: varchar("material_id").notNull().references(() => demolitionMaterials.id, { onDelete: "cascade" }),
   teamId: varchar("team_id").references(() => teams.id),
 
-  logType: text("log_type").notNull(), // receive, review, usage, dispose
+  logType: text("log_type").notNull(), // receive, review, outgoing, usage, dispose
 
   // 사용/재사용 정보
   projectCode: text("project_code"),
@@ -690,7 +690,7 @@ export const insertDemolitionMaterialLogSchema = createInsertSchema(demolitionMa
 export const apiInsertDemolitionMaterialLogSchema = z.object({
   materialId: z.string(),
   teamId: z.string().optional(),
-  logType: z.enum(['receive', 'review', 'usage', 'dispose']),
+  logType: z.enum(['receive', 'review', 'outgoing', 'usage', 'dispose']),
   projectCode: z.string().optional(),
   projectName: z.string().optional(),
   usedQuantity: z.number().min(0).optional(),

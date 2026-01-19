@@ -10,10 +10,34 @@ import {
     type Invitation, type InsertInvitation,
     type UserTenant, type InsertUserTenant,
     type OpticalCable, type InsertOpticalCable,
-    type OpticalCableLog, type InsertOpticalCableLog
+    type OpticalCableLog, type InsertOpticalCableLog,
+    type DemolitionMaterial, type InsertDemolitionMaterial,
+    type DemolitionMaterialLog, type InsertDemolitionMaterialLog
 } from "../../shared/schema.js";
 
 export interface IStorage {
+
+
+    // Demolition Materials
+    generateDemolitionManagementNo(tenantId: string): Promise<string>;
+    getDemolitionMaterials(tenantId: string): Promise<DemolitionMaterial[]>;
+    getDemolitionMaterial(id: string, tenantId: string): Promise<DemolitionMaterial | undefined>;
+    createDemolitionMaterial(material: InsertDemolitionMaterial, tenantId: string): Promise<DemolitionMaterial>;
+    updateDemolitionMaterial(id: string, updates: Partial<InsertDemolitionMaterial>, tenantId: string): Promise<DemolitionMaterial | undefined>;
+
+    // Demolition Logs
+    createDemolitionMaterialLog(log: InsertDemolitionMaterialLog, tenantId: string): Promise<DemolitionMaterialLog>;
+    getDemolitionMaterialLogs(materialId: string, tenantId: string): Promise<DemolitionMaterialLog[]>;
+    getAllDemolitionMaterialLogs(tenantId: string): Promise<DemolitionMaterialLog[]>;
+    getDemolitionMaterialLog(id: string, tenantId: string): Promise<DemolitionMaterialLog | null>;
+    updateDemolitionMaterialLog(id: string, updates: Partial<InsertDemolitionMaterialLog>, tenantId: string): Promise<DemolitionMaterialLog | null>;
+    deleteDemolitionMaterialLog(id: string, tenantId: string): Promise<boolean>;
+    bulkDeleteDemolitionMaterialLogs(ids: string[], tenantId: string): Promise<number>;
+    getDemolitionDashboard(tenantId: string): Promise<any>;
+
+    // Optical Cables
+    // ...
+
     // User & Auth
     getUser(id: string): Promise<User | undefined>;
     getUserByUsername(username: string): Promise<User | undefined>;

@@ -406,10 +406,7 @@ export default function DemolitionIncoming() {
                                     수량
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('originalQuantity')} />
                                 </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.status }}>
-                                    상태
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('status')} />
-                                </TableHead>
+
                                 <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.workerName }}>
                                     작업자
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('workerName')} />
@@ -432,7 +429,7 @@ export default function DemolitionIncoming() {
                         <TableBody>
                             {materials.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={13} className="h-24 text-center">
+                                    <TableCell colSpan={12} className="h-24 text-center">
                                         데이터가 없습니다.
                                     </TableCell>
                                 </TableRow>
@@ -465,17 +462,7 @@ export default function DemolitionIncoming() {
                                             <div className="truncate" title={material.specification}>{material.specification}</div>
                                         </TableCell>
                                         <TableCell className="text-center align-middle font-medium whitespace-nowrap" style={{ width: widths.originalQuantity }}>{material.originalQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle" style={{ width: widths.status }}>
-                                            <span className={`px-2 py-1 rounded text-xs ${material.status === 'pending_review' ? 'bg-yellow-100 text-yellow-800' :
-                                                material.status === 'approved_reusable' ? 'bg-green-100 text-green-800' :
-                                                    material.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                {material.status === 'pending_review' ? '검토대기' :
-                                                    material.status === 'approved_reusable' ? '재사용가능' :
-                                                        material.status === 'rejected' ? '재사용불가' : material.status}
-                                            </span>
-                                        </TableCell>
+
                                         <TableCell className="text-center align-middle max-w-[100px]" style={{ width: widths.workerName }}>
                                             <div className="truncate" title={material.workerName || ''}>{material.workerName || ''}</div>
                                         </TableCell>
@@ -504,9 +491,9 @@ export default function DemolitionIncoming() {
                                                         return (
                                                             <Popover>
                                                                 <PopoverTrigger asChild>
-                                                                    <Button variant="ghost" size="sm" className="h-6 px-1 text-xs">
-                                                                        <Paperclip className="h-3 w-3 mr-1" />
-                                                                        <span>{files.length}</span>
+                                                                    <Button variant="ghost" size="sm" className="h-6 gap-1 px-2">
+                                                                        <Paperclip className="h-4 w-4" />
+                                                                        <span className="text-xs font-medium">{files.length}</span>
                                                                     </Button>
                                                                 </PopoverTrigger>
                                                                 <PopoverContent className="w-auto p-2" align="center">

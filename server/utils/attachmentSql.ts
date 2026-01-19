@@ -14,6 +14,7 @@ export function getAttachmentsSql(attributesColumn: any) {
   return sql<string>`
     (
       CASE 
+        WHEN ${attributesColumn} IS NULL OR ${attributesColumn} = '' THEN '[]'::jsonb
         WHEN length(${attributesColumn}) < 1000 THEN ${attributesColumn}::jsonb
         WHEN ${attributesColumn}::jsonb ? 'attachments' THEN
           jsonb_set(
@@ -44,7 +45,8 @@ export function getAttachmentsSql(attributesColumn: any) {
 export function getOpticalAttachmentsSql(attributesColumn: any) {
   return sql<string>`
         CASE 
-            WHEN length(${attributesColumn}) < 1000 THEN ${attributesColumn}
+            WHEN ${attributesColumn} IS NULL OR ${attributesColumn} = '' THEN '{}'::jsonb
+            WHEN length(${attributesColumn}) < 1000 THEN ${attributesColumn}::jsonb
             ELSE 
                 (
                     SELECT jsonb_set(

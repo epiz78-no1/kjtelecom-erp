@@ -260,7 +260,7 @@ export function registerDemolitionRoutes(app: Express) {
             const log = await storage.createDemolitionMaterialLog({
                 ...parseResult.data,
                 materialId: id,
-                logType: 'usage',
+                logType: parseResult.data.logType || 'usage',
                 beforeQuantity: material.remainingQuantity,
                 afterQuantity: newRemaining,
                 tenantId,
@@ -278,5 +278,57 @@ export function registerDemolitionRoutes(app: Express) {
         const tenantId = req.session!.tenantId!;
         const data = await storage.getDemolitionDashboard(tenantId);
         res.json(data);
+    });
+    // 로그 수정 (사용/폐기 등)
+    app.patch("/api/demolition-logs/:id", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        const tenantId = req.session!.tenantId!;
+        const parseResult = apiInsertDemolitionMaterialLogSchema.partial().safeParse(req.body);
+
+        if (!parseResult.success) {
+            return res.status(400).json({ error: parseResult.error.message });
+        }
+
+        try {
+            const updated = await storage.updateDemolitionMaterialLog(id, parseResult.data, tenantId);
+            if (!updated) {
+                return res.status(404).json({ error: "Log not found" });
+            }
+            res.json(updated);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // 로그 삭제
+    app.delete("/api/demolition-logs/:id", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        const tenantId = req.session!.tenantId!;
+
+        try {
+            const success = await storage.deleteDemolitionMaterialLog(id, tenantId);
+            if (!success) {
+                return res.status(404).json({ error: "Log not found" });
+            }
+            res.status(204).send();
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // 로그 일괄 삭제
+    app.post("/api/demolition-logs/bulk-delete", requireAuth, requireTenant, async (req, res) => {
+        const { ids } = req.body;
+        if (!Array.isArray(ids)) {
+            return res.status(400).json({ error: "IDs must be an array" });
+        }
+
+        const tenantId = req.session!.tenantId!;
+        try {
+            const deletedCount = await storage.bulkDeleteDemolitionMaterialLogs(ids, tenantId);
+            res.json({ deletedCount });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
     });
 }
