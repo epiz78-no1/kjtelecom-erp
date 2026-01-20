@@ -82,7 +82,7 @@ export function getOpticalAttachmentsSql(attributesColumn: any) {
                             '[]'::jsonb
                         )
                     ) - 'data' #- '{attachment,data}'
-                )::text
+                )::jsonb
         END
     `;
 }
