@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Settings as SettingsIcon, Users, Network, Award } from "lucide-react";
+import { LogOut, User, Settings as SettingsIcon, Users, Network, Award, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,39 +20,48 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Link } from "wouter";
-import Dashboard from "@/pages/general/Dashboard";
-import Inventory from "@/pages/general/Inventory";
-import IncomingRecords from "@/pages/general/IncomingRecords";
-import OutgoingRecords from "@/pages/general/OutgoingRecords";
+import { lazy, Suspense } from "react";
+
+// Synchronous imports for critical paths (Auth)
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 import TenantSelect from "@/pages/auth/TenantSelect";
-import Auth from "@/pages/auth/Auth";
-import OpticalDashboard from "@/pages/optical/OpticalDashboard";
-// ... Optical files remain in optical/ but need to check index if any
-import OpticalCables from "@/pages/optical/OpticalCables";
-import OpticalIncoming from "@/pages/optical/OpticalIncoming";
-import OpticalOutgoing from "@/pages/optical/OpticalOutgoing";
-import TeamOutgoing from "@/pages/field/TeamOutgoing";
-import TeamMaterialUsage from "@/pages/field/TeamMaterialUsage";
-import FieldOpticalStatus from "@/pages/field/FieldOpticalStatus";
-import FieldOpticalUsage from "@/pages/field/FieldOpticalUsage";
-import Settings from "@/pages/common/Settings";
-import AdminMembers from "@/pages/admin/AdminMembers";
-import AdminOrg from "@/pages/admin/AdminOrg";
-import AdminPositions from "@/pages/admin/AdminPositions";
-import SuperAdminDashboard from "@/pages/admin/SuperAdminDashboard";
 import NotFound from "@/pages/common/NotFound";
+
+// Lazy imports for other pages to improve initial load time
+const Dashboard = lazy(() => import("@/pages/general/Dashboard"));
+const Inventory = lazy(() => import("@/pages/general/Inventory"));
+const IncomingRecords = lazy(() => import("@/pages/general/IncomingRecords"));
+const OutgoingRecords = lazy(() => import("@/pages/general/OutgoingRecords"));
+
+const Auth = lazy(() => import("@/pages/auth/Auth"));
+
+// Optical Pages
+const OpticalDashboard = lazy(() => import("@/pages/optical/OpticalDashboard"));
+const OpticalCables = lazy(() => import("@/pages/optical/OpticalCables"));
+const OpticalIncoming = lazy(() => import("@/pages/optical/OpticalIncoming"));
+const OpticalOutgoing = lazy(() => import("@/pages/optical/OpticalOutgoing"));
+const TeamOutgoing = lazy(() => import("@/pages/field/TeamOutgoing"));
+const TeamMaterialUsage = lazy(() => import("@/pages/field/TeamMaterialUsage"));
+const FieldOpticalStatus = lazy(() => import("@/pages/field/FieldOpticalStatus"));
+const FieldOpticalUsage = lazy(() => import("@/pages/field/FieldOpticalUsage"));
+
+// Demolition Pages
+const DemolitionDashboard = lazy(() => import("@/pages/demolition/DemolitionDashboard"));
+const DemolitionMaterials = lazy(() => import("@/pages/demolition/DemolitionMaterials"));
+const DemolitionIncoming = lazy(() => import("@/pages/demolition/DemolitionIncoming"));
+const DemolitionOutgoing = lazy(() => import("@/pages/demolition/DemolitionOutgoing"));
+const TeamMaterialUsageDemolition = lazy(() => import("@/pages/field/TeamMaterialUsageDemolition"));
+const TeamOutgoingDemolition = lazy(() => import("@/pages/field/TeamOutgoingDemolition"));
+
+// Admin & Settings
+const Settings = lazy(() => import("@/pages/common/Settings"));
+const AdminMembers = lazy(() => import("@/pages/admin/AdminMembers"));
+const AdminOrg = lazy(() => import("@/pages/admin/AdminOrg"));
+const AdminPositions = lazy(() => import("@/pages/admin/AdminPositions"));
+const SuperAdminDashboard = lazy(() => import("@/pages/admin/SuperAdminDashboard"));
+
 import { FEATURE_FLAGS } from "@/lib/constants";
-
-// Demolition Material Pages
-import DemolitionDashboard from "@/pages/demolition/DemolitionDashboard";
-import DemolitionMaterials from "@/pages/demolition/DemolitionMaterials";
-import DemolitionIncoming from "@/pages/demolition/DemolitionIncoming";
-import DemolitionOutgoing from "@/pages/demolition/DemolitionOutgoing";
-import TeamMaterialUsageDemolition from "@/pages/field/TeamMaterialUsageDemolition";
-import TeamOutgoingDemolition from "@/pages/field/TeamOutgoingDemolition";
-
 
 
 function AppContent() {
@@ -60,7 +69,7 @@ function AppContent() {
   const [location] = useLocation();
   const activeTenant = tenants.find(t => t.id === currentTenant);
 
-  // Show loading state
+  // Show loading state for initial auth check
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -72,13 +81,13 @@ function AppContent() {
     );
   }
 
-  // Public routes (login, register)
+  // Public routes (login, register) - Synchronous
   return (
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/tenant-select" component={TenantSelect} />
-      <Route path="/super-admin" component={SuperAdminDashboard} />
+
       <Route>
         {() => {
           // Protected routes - require authentication
@@ -86,14 +95,29 @@ function AppContent() {
             return <Login />;
           }
 
+          // Suspense Fallback
+          const LoadingFallback = () => (
+            <div className="flex h-full w-full items-center justify-center min-h-[50vh]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          );
+
           // Strict Separation: Super Admin cannot access tenant routes
           if (user.username === 'admin') {
-            // Use window location to ensure clean state or useRedirect
-            // Since we are inside a Route w/o path (catch-all for authenticated),
-            // and /super-admin is defined ABOVE this block,
-            // reaching here means the user is trying to access a tenant page (/, /inventory, etc).
-            // We must redirect them back to super-admin.
-            window.location.href = "/super-admin";
+            if (location !== '/super-admin') {
+              window.location.href = "/super-admin";
+              return null;
+            }
+            return (
+              <Suspense fallback={<LoadingFallback />}>
+                <SuperAdminDashboard />
+              </Suspense>
+            );
+          }
+
+          // Normal User blocked from super-admin
+          if (location === '/super-admin') {
+            window.location.href = "/";
             return null;
           }
 
@@ -182,35 +206,37 @@ function AppContent() {
                     </div>
                   </header>
                   <main className="flex-1 overflow-auto p-6">
-                    <Switch>
-                      <Route path="/" component={Dashboard} />
-                      <Route path="/inventory" component={Inventory} />
-                      <Route path="/incoming" component={IncomingRecords} />
-                      <Route path="/outgoing" component={OutgoingRecords} />
-                      <Route path="/team-outgoing" component={TeamOutgoing} />
-                      <Route path="/team-material-usage" component={TeamMaterialUsage} />
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Switch>
+                        <Route path="/" component={Dashboard} />
+                        <Route path="/inventory" component={Inventory} />
+                        <Route path="/incoming" component={IncomingRecords} />
+                        <Route path="/outgoing" component={OutgoingRecords} />
+                        <Route path="/team-outgoing" component={TeamOutgoing} />
+                        <Route path="/team-material-usage" component={TeamMaterialUsage} />
 
-                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-cables" component={OpticalCables} />}
-                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-dashboard" component={OpticalDashboard} />}
-                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-incoming" component={OpticalIncoming} />}
-                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-outgoing" component={OpticalOutgoing} />}
-                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/team-outgoing-optical" component={FieldOpticalStatus} />}
-                      {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/team-material-usage-optical" component={FieldOpticalUsage} />}
+                        {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-cables" component={OpticalCables} />}
+                        {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-dashboard" component={OpticalDashboard} />}
+                        {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-incoming" component={OpticalIncoming} />}
+                        {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/optical-outgoing" component={OpticalOutgoing} />}
+                        {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/team-outgoing-optical" component={FieldOpticalStatus} />}
+                        {FEATURE_FLAGS.ENABLE_OPTICAL && <Route path="/team-material-usage-optical" component={FieldOpticalUsage} />}
 
-                      {/* Demolition Material Routes */}
-                      <Route path="/demolition-dashboard" component={DemolitionDashboard} />
-                      <Route path="/demolition-materials" component={DemolitionMaterials} />
-                      <Route path="/demolition-incoming" component={DemolitionIncoming} />
-                      <Route path="/demolition-outgoing" component={DemolitionOutgoing} />
-                      <Route path="/team-material-usage-demolition" component={TeamMaterialUsageDemolition} />
-                      <Route path="/team-outgoing-demolition" component={TeamOutgoingDemolition} />
+                        {/* Demolition Material Routes */}
+                        <Route path="/demolition-dashboard" component={DemolitionDashboard} />
+                        <Route path="/demolition-materials" component={DemolitionMaterials} />
+                        <Route path="/demolition-incoming" component={DemolitionIncoming} />
+                        <Route path="/demolition-outgoing" component={DemolitionOutgoing} />
+                        <Route path="/team-material-usage-demolition" component={TeamMaterialUsageDemolition} />
+                        <Route path="/team-outgoing-demolition" component={TeamOutgoingDemolition} />
 
-                      <Route path="/admin/members" component={AdminMembers} />
-                      <Route path="/admin/org" component={AdminOrg} />
-                      <Route path="/admin/positions" component={AdminPositions} />
-                      <Route path="/settings" component={Settings} />
-                      <Route component={NotFound} />
-                    </Switch>
+                        <Route path="/admin/members" component={AdminMembers} />
+                        <Route path="/admin/org" component={AdminOrg} />
+                        <Route path="/admin/positions" component={AdminPositions} />
+                        <Route path="/settings" component={Settings} />
+                        <Route component={NotFound} />
+                      </Switch>
+                    </Suspense>
                   </main>
                 </div>
               </div>

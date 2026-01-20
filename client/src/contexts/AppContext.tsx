@@ -75,6 +75,7 @@ interface AppContextType {
   login: (credentials: LoginData) => Promise<void>;
   refetchAuth: () => void;
   checkPermission: (menu: keyof Permissions, requiredLevel: 'read' | 'write' | 'own_only') => boolean;
+  setTenant: (tenantId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -97,8 +98,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const switchTenantMutation = useMutation({
+    mutationFn: async (tenantId: string) => {
+      await apiRequest("POST", "/api/auth/switch-tenant", { tenantId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      window.location.reload(); // Reload to ensure clean state with new tenant
+    },
+  });
+
   const logout = async () => {
     await logoutMutation.mutateAsync();
+  };
+
+  const setTenant = async (tenantId: string) => {
+    await switchTenantMutation.mutateAsync(tenantId);
   };
 
   const loginMutation = useMutation({
@@ -277,6 +292,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           return false;
         },
+        setTenant
       }}
     >
       {children}

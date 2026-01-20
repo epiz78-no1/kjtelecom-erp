@@ -233,7 +233,9 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
 
     // 수정 모드에서 케이블이 목록에 없으면 추가
     if (editingCable && !availableCables.find(c => c.id === editingCable.id)) {
-        availableCables = [editingCable, ...availableCables];
+        // Cast or add missing properties to match the query type
+        const cableWithLogs = { ...editingCable, logs: [] };
+        availableCables = [cableWithLogs, ...availableCables];
     }
 
 

@@ -49,6 +49,7 @@ import { Loader } from "lucide-react";
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
+import { InspectionPreviewDialog } from "@/components/InspectionPreviewDialog";
 
 export default function IncomingRecords() {
   const { toast } = useToast();
@@ -60,6 +61,7 @@ export default function IncomingRecords() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState<IncomingRecord | null>(null);
   const { open: dialogOpen, editingItem: editingRecord, handleOpen: openDialog, handleClose: closeDialog, setOpen: setDialogOpen } = useDialogState<IncomingRecord>();
 
@@ -367,15 +369,26 @@ export default function IncomingRecords() {
               data-testid="input-search-incoming"
             />
             {selectedIds.size > 0 && isTenantOwner && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setBulkDeleteOpen(true)}
-                data-testid="button-bulk-delete"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                선택 삭제 ({selectedIds.size})
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewOpen(true)}
+                  disabled={selectedIds.size === 0}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  입고 검사서 출력
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  data-testid="button-bulk-delete"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  선택 삭제 ({selectedIds.size})
+                </Button>
+              </>
             )}
           </div>
           <div className="text-sm text-muted-foreground">
@@ -684,6 +697,14 @@ export default function IncomingRecords() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <InspectionPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        selectedRecords={records.filter(r => selectedIds.has(r.id))}
+      />
+
+
     </div >
   );
 }

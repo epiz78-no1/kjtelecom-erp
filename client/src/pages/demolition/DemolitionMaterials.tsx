@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     TableHeader,
     TableRow,
@@ -44,23 +45,8 @@ import { useAppContext } from "@/contexts/AppContext";
 import { Loader2, MoreHorizontal, CheckCircle, XCircle, Pencil, Trash2, Download, Paperclip } from "lucide-react";
 import { useColumnResize } from "@/hooks/useColumnResize";
 
-interface DemolitionMaterial {
-    id: string;
-    managementNo: string;
-    division: string;
-    category: string;
-    projectCode: string;
-    projectName: string;
-    demolitionDate: string;
-    productName: string;
-    specification: string;
-    originalQuantity: number;
-    usedQuantity: number;
-    remainingQuantity: number;
-    status: string;
-    remark?: string;
-    attributes?: any;
-}
+import { DemolitionMaterial } from "@/types/demolition";
+import { parseAttributes } from "@/utils/demolitionUtils";
 
 export default function DemolitionMaterials() {
     const { toast } = useToast();
@@ -76,13 +62,19 @@ export default function DemolitionMaterials() {
         projectName: 250,
         productName: 150,
         specification: 180,
+        originalQuantity: 80,
+        usedQuantity: 80,
+        remainingQuantity: 80,
+        status: 120, // '승인(미사용)' 등 긴 텍스트 고려
         attachment: 60,
         remark: 150,
     });
 
     const [searchQuery, setSearchQuery] = useState("");
-
     const [selectedStatus, setSelectedStatus] = useState("전체");
+
+    // New state for filtering completed/disposed items
+    const [showCompleted, setShowCompleted] = useState(false);
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
@@ -209,7 +201,12 @@ export default function DemolitionMaterials() {
             (selectedStatus === "재사용가능" && m.status === "approved_reusable") ||
             (selectedStatus === "재사용불가" && m.status === "rejected");
 
-        return matchesSearch && matchesStatus;
+        // Hide completed/disposed items unless checkbox is checked
+        // Completed: remainingQuantity === 0 OR status is 'disposed' or 'rejected'
+        const isCompleted = m.remainingQuantity === 0 || m.status === 'disposed';
+        const matchesCompletion = showCompleted ? true : !isCompleted;
+
+        return matchesSearch && matchesStatus && matchesCompletion;
     });
 
     const handleReview = (id: string, decision: 'approved' | 'rejected') => {
@@ -292,6 +289,20 @@ export default function DemolitionMaterials() {
                     className="max-w-sm"
                 />
 
+                <div className="flex items-center space-x-2">
+                    <Checkbox
+                        id="show-completed"
+                        checked={showCompleted}
+                        onCheckedChange={(checked) => setShowCompleted(checked as boolean)}
+                    />
+                    <label
+                        htmlFor="show-completed"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                        사용완료/폐기 포함
+                    </label>
+                </div>
+
                 <div className="ml-auto text-sm text-muted-foreground flex items-center gap-3">
                     {materials.filter(m => m.status === 'pending_review').length > 0 && (
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-50 border border-yellow-200 rounded text-xs">
@@ -350,10 +361,6 @@ export default function DemolitionMaterials() {
                                     잔량
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('remainingQuantity')} />
                                 </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.status }}>
-                                    상태
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('status')} />
-                                </TableHead>
                                 <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.attachment }}>
                                     첨부
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('attachment')} />
@@ -382,39 +389,24 @@ export default function DemolitionMaterials() {
                                                     'hover:bg-muted/50'
                                             }`}
                                     >
-                                        <TableCell className="text-center align-middle">{material.division}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.category}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.demolitionDate}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.projectCode}</TableCell>
-                                        <TableCell className="text-left align-middle">{material.projectName}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.productName}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.specification}</TableCell>
-                                        <TableCell className="text-right align-middle pr-4">{material.originalQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right align-middle pr-4">{material.usedQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right align-middle pr-4 font-bold">{material.remainingQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle">
-                                            <Badge variant={
-                                                material.status === 'pending_review' ? 'outline' :
-                                                    (material.status === 'rejected' || material.status === 'disposed' || material.remainingQuantity === 0) ? 'destructive' :
-                                                        material.status === 'in_use' ? 'default' :
-                                                            'secondary'
-                                            } className="text-[10px] px-1 h-5">
-                                                {material.status === 'pending_review' ? '검토중' :
-                                                    material.status === 'rejected' ? '반려' :
-                                                        (material.status === 'disposed' || material.remainingQuantity === 0) ? '소진/폐기' :
-                                                            material.status === 'in_use' ? '사용중/현장' :
-                                                                material.status === 'approved_reusable' ? '승인(미사용)' :
-                                                                    material.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.division}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.category}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.demolitionDate}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.projectCode}</TableCell>
+                                        <TableCell className="text-left align-middle truncate overflow-hidden" title={material.projectName}>{material.projectName}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden" title={material.productName}>{material.productName}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.specification}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4 truncate overflow-hidden">{material.originalQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4 truncate overflow-hidden">{material.usedQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4 font-bold truncate overflow-hidden">{material.remainingQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-center align-middle overflow-hidden">
                                             {(() => {
-                                                if (!material.attributes) return null;
-                                                try {
-                                                    const attrs = typeof material.attributes === 'string' ? JSON.parse(material.attributes) : material.attributes;
-                                                    const files = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
-                                                    if (files.length === 1) {
-                                                        return (
+                                                const { attachments: files } = parseAttributes(material.attributes);
+                                                if (!files || files.length === 0) return null;
+
+                                                if (files.length === 1) {
+                                                    return (
+                                                        <div className="flex justify-center items-center w-full">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
@@ -424,13 +416,15 @@ export default function DemolitionMaterials() {
                                                             >
                                                                 <Download className="h-4 w-4" />
                                                             </Button>
-                                                        );
-                                                    } else if (files.length > 1) {
-                                                        return (
+                                                        </div>
+                                                    );
+                                                } else if (files.length > 1) {
+                                                    return (
+                                                        <div className="flex justify-center items-center w-full">
                                                             <Popover>
                                                                 <PopoverTrigger asChild>
-                                                                    <Button variant="ghost" size="sm" className="h-6 px-1 text-xs">
-                                                                        <Paperclip className="h-3 w-3 mr-1" />
+                                                                    <Button variant="ghost" size="icon" className="h-6 w-8 text-xs flex items-center justify-center gap-1">
+                                                                        <Paperclip className="h-3 w-3" />
                                                                         <span>{files.length}</span>
                                                                     </Button>
                                                                 </PopoverTrigger>
@@ -448,20 +442,19 @@ export default function DemolitionMaterials() {
                                                                                 onClick={() => downloadAttachment(file)}
                                                                                 title={file.name}
                                                                             >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
                                                                                 <span className="truncate">{file.name}</span>
                                                                             </Button>
                                                                         ))}
                                                                     </div>
                                                                 </PopoverContent>
                                                             </Popover>
-                                                        );
-                                                    }
-                                                } catch (e) { }
+                                                        </div>
+                                                    );
+                                                }
                                                 return null;
                                             })()}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle">{material.remark || ''}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.remark || ''}</TableCell>
                                         <TableCell className="text-center align-middle">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

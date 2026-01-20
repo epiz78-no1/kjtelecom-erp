@@ -41,17 +41,8 @@ import { DemolitionOutgoingDialog } from "@/components/DemolitionOutgoingDialog"
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 
-interface DemolitionMaterial {
-    id: string;
-    managementNo: string;
-    projectName: string;
-    productName: string;
-    specification: string;
-    remainingQuantity: number;
-    status: string;
-    projectCode?: string;
-    division: string;
-}
+import { DemolitionMaterial } from "@/types/demolition";
+import { parseAttributes } from "@/utils/demolitionUtils";
 
 export default function DemolitionOutgoing() {
     const { toast } = useToast();
@@ -416,61 +407,56 @@ export default function DemolitionOutgoing() {
                                         </TableCell>
                                         <TableCell className="text-center align-middle">
                                             {(() => {
-                                                if (!log.attributes) return null;
-                                                try {
-                                                    const attrs = typeof log.attributes === 'string' ? JSON.parse(log.attributes) : log.attributes;
-                                                    const files = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
-                                                    if (files.length === 0) return null;
+                                                const { attachments: files } = parseAttributes(log.attributes);
+                                                if (!files || files.length === 0) return null;
 
-                                                    if (files.length === 1) {
-                                                        return (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={() => downloadAttachment(files[0])}
-                                                                title={files[0].name}
-                                                            >
-                                                                <Download className="h-4 w-4" />
-                                                            </Button>
-                                                        );
-                                                    } else {
-                                                        return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-6 gap-1 px-2"
-                                                                    >
-                                                                        <Paperclip className="h-4 w-4" />
-                                                                        <span className="text-xs font-medium">{files.length}</span>
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2" align="center">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">
-                                                                            첨부파일 {files.length}개
-                                                                        </div>
-                                                                        {files.map((file: any, index: number) => (
-                                                                            <Button
-                                                                                key={index}
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
-                                                                                onClick={() => downloadAttachment(file)}
-                                                                            >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                            </Button>
-                                                                        ))}
+                                                if (files.length === 1) {
+                                                    return (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0"
+                                                            onClick={() => downloadAttachment(files[0])}
+                                                            title={files[0].name}
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                        </Button>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 gap-1 px-2"
+                                                                >
+                                                                    <Paperclip className="h-4 w-4" />
+                                                                    <span className="text-xs font-medium">{files.length}</span>
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="center">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">
+                                                                        첨부파일 {files.length}개
                                                                     </div>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        );
-                                                    }
-                                                } catch (e) { }
-                                                return null;
+                                                                    {files.map((file: any, index: number) => (
+                                                                        <Button
+                                                                            key={index}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
+                                                                            onClick={() => downloadAttachment(file)}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
+                                                }
                                             })()}
                                         </TableCell>
                                         <TableCell className="text-center align-middle max-w-[150px]">
