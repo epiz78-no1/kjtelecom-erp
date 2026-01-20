@@ -61,7 +61,8 @@ app.use(session({
   store: new PgStore({
     pool, // Uses existing db pool from ./db
     tableName: 'session',
-    createTableIfMissing: true // Although we ran SQL, this is safe
+    createTableIfMissing: true, // Although we ran SQL, this is safe
+    ttl: 3600 // 1 hour session duration (server-side)
   }),
   secret: process.env.SESSION_SECRET || 'pro-tracker-secret-key-change-in-production',
   resave: false,

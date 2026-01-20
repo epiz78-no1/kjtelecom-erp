@@ -5,7 +5,14 @@ import { IncomingRecord } from '@shared/schema';
 // Helper to fetch image as buffer
 const fetchImage = async (url: string): Promise<ArrayBuffer> => {
     try {
-        const response = await fetch(url, { credentials: 'include' });
+        // Remove credentials: 'include' as these are public URLs usually
+        // Add mode: 'cors' and cache: 'no-cache' for robust fetching
+        const response = await fetch(url, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache'
+        });
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
         const blob = await response.blob();
         return await blob.arrayBuffer();
     } catch (e) {
@@ -14,17 +21,83 @@ const fetchImage = async (url: string): Promise<ArrayBuffer> => {
     }
 };
 
+// Helper to compress and resize image
+const compressImage = async (url: string, maxWidth: number = 800): Promise<ArrayBuffer> => {
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache'
+        });
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+        const blob = await response.blob();
+
+        // Create image element
+        const img = new Image();
+        const imageUrl = URL.createObjectURL(blob);
+
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = imageUrl;
+        });
+
+        // Calculate new dimensions
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+        }
+
+        // Create canvas and resize
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) throw new Error('Failed to get canvas context');
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to JPEG blob with 85% quality
+        const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) resolve(blob);
+                    else reject(new Error('Failed to compress image'));
+                },
+                'image/jpeg',
+                0.85
+            );
+        });
+
+        // Clean up
+        URL.revokeObjectURL(imageUrl);
+
+        return await compressedBlob.arrayBuffer();
+    } catch (e) {
+        console.error("Image compression failed:", e);
+        // Fallback to original fetch
+        return await fetchImage(url);
+    }
+};
+
 // Helper to get attachments from attributes
 const getAttachments = (record: IncomingRecord): any[] => {
     try {
-        if (record.attributes) {
-            const parsed = JSON.parse(record.attributes);
-            return Array.isArray(parsed) ? parsed : (parsed.attachments || []);
-        }
+        if (!record.attributes) return [];
+        const attrs = typeof record.attributes === 'string' ? JSON.parse(record.attributes) : record.attributes;
+
+        if (Array.isArray(attrs)) return attrs;
+        if (attrs.attachments && Array.isArray(attrs.attachments)) return attrs.attachments;
+        if (attrs.attachment) return [attrs.attachment];
+        return [];
     } catch (e) {
-        // ignore
+        console.error("getAttachments error:", e);
+        return [];
     }
-    return [];
 };
 
 export const generateInspectionExcel = async (selectedRecords: IncomingRecord[]) => {
@@ -359,14 +432,16 @@ export const generateInspectionExcel = async (selectedRecords: IncomingRecord[])
         }
     });
 
-    // Columns: A(Seq), B(Date), C(Name), D(Spec), E(Maker), F(Qty)
+    // Columns: All equal width for perfect symmetry
+    // Total width: 88 / 6 columns = ~14.67 each
+    // Left 3 cols (A-C) = Right 3 cols (D-F) = 44 each
     sheet2.columns = [
-        { width: 6 },  // A
-        { width: 12 }, // B
-        { width: 15 }, // C
-        { width: 25 }, // D
-        { width: 20 }, // E
-        { width: 10 }, // F
+        { width: 14.67 },  // A (순번)
+        { width: 14.67 },  // B (입고일)
+        { width: 14.67 },  // C (품명)
+        { width: 14.67 },  // D (규격)
+        { width: 14.67 },  // E (제조사)
+        { width: 14.67 },  // F (수량)
     ];
 
     // Title
@@ -415,48 +490,73 @@ export const generateInspectionExcel = async (selectedRecords: IncomingRecord[])
             cell.font = { name: '맑은 고딕', size: 10 };
         });
 
-        // --- Image Area ---
+        // --- Image Area - 2 photos side by side ---
         const imgStartR = s2Row + 2;
-        const imgEndR = imgStartR + 15; // 15 rows for image height
-        sheet2.mergeCells(`A${imgStartR}:F${imgEndR}`);
-        const imgCell = sheet2.getCell(`A${imgStartR}`);
-        // imgCell.border = thinBorder; // Border around image area
-        // Outer border for merged cell
-        // ExcelJS requires referencing the top-left cell for style, but border on merged cells can be tricky.
-        // It's often safer to apply border to the top-left cell.
-        // Let's rely on manual border application if needed, or simple box.
+        const imgEndR = imgStartR + 12; // Reduced from 15 to 12 rows for height to fit 3 items per page
 
         const attachments = getAttachments(record);
-        let imageUrl: string | null = null;
-        if (attachments.length > 0) {
-            imageUrl = attachments[0].url;
-        }
+        const photo1Url = attachments.length > 0 ? (attachments[0].storageUrl || attachments[0].url) : null;
+        const photo2Url = attachments.length > 1 ? (attachments[1].storageUrl || attachments[1].url) : null;
 
-        if (imageUrl) {
+        // Left photo area (columns A-C)
+        sheet2.mergeCells(`A${imgStartR}:C${imgEndR}`);
+        const leftCell = sheet2.getCell(`A${imgStartR}`);
+
+        if (photo1Url) {
             try {
-                const imgBuffer = await fetchImage(imageUrl);
+                const imgBuffer = await compressImage(photo1Url, 800);
                 const imageId = workbook.addImage({
                     buffer: imgBuffer,
-                    extension: 'png',
+                    extension: 'jpeg',
                 });
-                // Add image with margins inside the cell
+                // Add image to left half (columns A-C: 0-3)
+                // No padding - fill the entire cell
                 sheet2.addImage(imageId, {
-                    tl: { col: 0.1, row: imgStartR - 1 + 0.1 } as any,
-                    br: { col: 5.9, row: imgEndR - 0.1 } as any,
+                    tl: { col: 0, row: imgStartR - 1 } as any,
+                    br: { col: 3, row: imgEndR } as any,
                     editAs: 'oneCell'
                 });
             } catch (err) {
-                console.error("Image loading failed:", err);
-                imgCell.value = "이미지 로드 실패";
-                imgCell.alignment = centerAlign;
+                console.error("Image 1 loading failed:", err);
+                leftCell.value = "이미지 로드 실패";
+                leftCell.alignment = centerAlign;
             }
         } else {
-            imgCell.value = "첨부 사진 없음";
-            imgCell.alignment = centerAlign;
+            leftCell.value = "첨부 사진 없음";
+            leftCell.alignment = centerAlign;
+        }
+
+        // Right photo area (columns D-F: 3-6)
+        sheet2.mergeCells(`D${imgStartR}:F${imgEndR}`);
+        const rightCell = sheet2.getCell(`D${imgStartR}`);
+
+        if (photo2Url) {
+            try {
+                const imgBuffer = await compressImage(photo2Url, 800);
+                const imageId = workbook.addImage({
+                    buffer: imgBuffer,
+                    extension: 'jpeg',
+                });
+                // Add image to right half (columns D-F: 3-6)
+                // No padding - fill the entire cell
+                sheet2.addImage(imageId, {
+                    tl: { col: 3, row: imgStartR - 1 } as any,
+                    br: { col: 6, row: imgEndR } as any,
+                    editAs: 'oneCell'
+                });
+            } catch (err) {
+                console.error("Image 2 loading failed:", err);
+                rightCell.value = "이미지 로드 실패";
+                rightCell.alignment = centerAlign;
+            }
+        } else {
+            rightCell.value = "첨부 사진 없음";
+            rightCell.alignment = centerAlign;
         }
 
         s2Row = imgEndR + 2; // Move to next block with 1 empty row gap
     }
+
 
     // Save
     const buffer = await workbook.xlsx.writeBuffer();
