@@ -76,6 +76,10 @@ export default function DemolitionMaterials() {
         projectName: 250,
         productName: 150,
         specification: 180,
+        originalQuantity: 80,
+        usedQuantity: 80,
+        remainingQuantity: 80,
+        status: 120, // '승인(미사용)' 등 긴 텍스트 고려
         attachment: 60,
         remark: 150,
     });
@@ -350,10 +354,6 @@ export default function DemolitionMaterials() {
                                     잔량
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('remainingQuantity')} />
                                 </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.status }}>
-                                    상태
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('status')} />
-                                </TableHead>
                                 <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.attachment }}>
                                     첨부
                                     <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('attachment')} />
@@ -382,32 +382,17 @@ export default function DemolitionMaterials() {
                                                     'hover:bg-muted/50'
                                             }`}
                                     >
-                                        <TableCell className="text-center align-middle">{material.division}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.category}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.demolitionDate}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.projectCode}</TableCell>
-                                        <TableCell className="text-left align-middle">{material.projectName}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.productName}</TableCell>
-                                        <TableCell className="text-center align-middle">{material.specification}</TableCell>
-                                        <TableCell className="text-right align-middle pr-4">{material.originalQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right align-middle pr-4">{material.usedQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right align-middle pr-4 font-bold">{material.remainingQuantity.toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle">
-                                            <Badge variant={
-                                                material.status === 'pending_review' ? 'outline' :
-                                                    (material.status === 'rejected' || material.status === 'disposed' || material.remainingQuantity === 0) ? 'destructive' :
-                                                        material.status === 'in_use' ? 'default' :
-                                                            'secondary'
-                                            } className="text-[10px] px-1 h-5">
-                                                {material.status === 'pending_review' ? '검토중' :
-                                                    material.status === 'rejected' ? '반려' :
-                                                        (material.status === 'disposed' || material.remainingQuantity === 0) ? '소진/폐기' :
-                                                            material.status === 'in_use' ? '사용중/현장' :
-                                                                material.status === 'approved_reusable' ? '승인(미사용)' :
-                                                                    material.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.division}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.category}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.demolitionDate}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.projectCode}</TableCell>
+                                        <TableCell className="text-left align-middle truncate overflow-hidden" title={material.projectName}>{material.projectName}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden" title={material.productName}>{material.productName}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.specification}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4 truncate overflow-hidden">{material.originalQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4 truncate overflow-hidden">{material.usedQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right align-middle pr-4 font-bold truncate overflow-hidden">{material.remainingQuantity.toLocaleString()}</TableCell>
+                                        <TableCell className="text-center align-middle overflow-hidden">
                                             {(() => {
                                                 if (!material.attributes) return null;
                                                 try {
@@ -415,53 +400,58 @@ export default function DemolitionMaterials() {
                                                     const files = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
                                                     if (files.length === 1) {
                                                         return (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={() => downloadAttachment(files[0])}
-                                                                title={files[0].name}
-                                                            >
-                                                                <Download className="h-4 w-4" />
-                                                            </Button>
+                                                            <div className="flex justify-center items-center w-full">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={() => downloadAttachment(files[0])}
+                                                                    title={files[0].name}
+                                                                >
+                                                                    <Download className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
                                                         );
                                                     } else if (files.length > 1) {
                                                         return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button variant="ghost" size="sm" className="h-6 px-1 text-xs">
-                                                                        <Paperclip className="h-3 w-3 mr-1" />
-                                                                        <span>{files.length}</span>
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2" align="center">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">
-                                                                            첨부파일 ({files.length})
+                                                            <div className="flex justify-center items-center w-full">
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-6 w-8 text-xs flex items-center justify-center gap-1">
+                                                                            <Paperclip className="h-3 w-3" />
+                                                                            <span>{files.length}</span>
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-2" align="center">
+                                                                        <div className="flex flex-col gap-1">
+                                                                            <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">
+                                                                                첨부파일 ({files.length})
+                                                                            </div>
+                                                                            {files.map((file: any, idx: number) => (
+                                                                                <Button
+                                                                                    key={idx}
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
+                                                                                    onClick={() => downloadAttachment(file)}
+                                                                                    title={file.name}
+                                                                                >
+                                                                                    <span className="truncate">{file.name}</span>
+                                                                                </Button>
+                                                                            ))}
                                                                         </div>
-                                                                        {files.map((file: any, idx: number) => (
-                                                                            <Button
-                                                                                key={idx}
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
-                                                                                onClick={() => downloadAttachment(file)}
-                                                                                title={file.name}
-                                                                            >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                            </Button>
-                                                                        ))}
-                                                                    </div>
-                                                                </PopoverContent>
-                                                            </Popover>
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            </div>
                                                         );
                                                     }
-                                                } catch (e) { }
+                                                } catch (e) {
+                                                    console.error('Failed to parse attributes:', e);
+                                                }
                                                 return null;
                                             })()}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle">{material.remark || ''}</TableCell>
+                                        <TableCell className="text-center align-middle truncate overflow-hidden">{material.remark || ''}</TableCell>
                                         <TableCell className="text-center align-middle">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

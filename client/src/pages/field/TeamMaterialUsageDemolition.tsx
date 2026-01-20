@@ -586,7 +586,7 @@ export default function TeamMaterialUsageDemolition() {
                                             <TableCell className="text-left align-middle truncate border-r" title={log.projectName}>{log.projectName || ''}</TableCell>
                                             <TableCell className="text-center align-middle truncate border-r" title={log.productName}>{log.productName || ''}</TableCell>
                                             <TableCell className="text-center align-middle truncate border-r" title={log.spec}>{log.spec || ''}</TableCell>
-                                            <TableCell className="text-right align-middle font-bold border-r pr-2">{log.usedQuantity?.toLocaleString() || '0'}</TableCell>
+                                            <TableCell className="text-center align-middle font-bold border-r">{log.usedQuantity?.toLocaleString() || '0'}</TableCell>
                                             <TableCell className="text-center align-middle truncate border-r">{log.workerName || ''}</TableCell>
                                             <TableCell className="text-center align-middle truncate border-r">{log.remark || ''}</TableCell>
                                             <TableCell className="text-center align-middle truncate text-muted-foreground border-r">{log.creatorName || ''}</TableCell>
@@ -763,7 +763,7 @@ export default function TeamMaterialUsageDemolition() {
 
                                 <div className="space-y-4 border rounded-lg p-4 bg-muted/20">
                                     <div className="flex justify-between items-center">
-                                        <h4 className="text-sm font-medium">보유 자재 선택 ({formData.items.length})</h4>
+                                        <h4 className="text-sm font-medium">보유 자재 선택</h4>
 
                                     </div>
 
@@ -785,7 +785,7 @@ export default function TeamMaterialUsageDemolition() {
                                             )}
 
                                             <div className="grid gap-2">
-                                                <Label className="text-xs text-muted-foreground">보유 자재 선택 ({index + 1})</Label>
+                                                <Label className="text-xs text-muted-foreground">보유 자재 선택</Label>
                                                 <Select
                                                     value={item.materialId}
                                                     onValueChange={(val) => updateItem(item.id, 'materialId', val)}
