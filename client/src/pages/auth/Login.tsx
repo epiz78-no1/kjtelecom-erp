@@ -131,7 +131,7 @@ export default function Login() {
                 <div className="mt-12 text-center text-sm text-slate-400">
                     {/* <p>© 2024 (주)광주텔레콤. All rights reserved.</p> */}
                     <div className="mt-2 text-xs text-slate-300">
-                        System v1.2.30
+                        System v{import.meta.env.APP_VERSION}
                     </div>
                 </div>
             </div>
