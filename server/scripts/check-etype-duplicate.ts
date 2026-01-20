@@ -23,9 +23,6 @@ async function checkETypeDuplicate() {
         console.log(`    규격: "${item.specification}" (길이: ${item.specification.length})`);
         console.log(`    사업: "${item.division}" (길이: ${item.division.length})`);
         console.log(`    재고: ${item.remaining}`);
-        console.log(`    사무실: ${item.officeStock}`);
-        console.log(`    현장팀: ${item.fieldStock}`);
-        console.log(`    생성일: ${item.createdAt}`);
         console.log(`    단가: ${item.unitPrice}`);
         console.log(`    금액: ${item.totalAmount}`);
 
@@ -67,7 +64,7 @@ async function checkETypeDuplicate() {
             console.log(`\n⚠️  중복 발견: "${key}"`);
             console.log(`   총 ${group.length}개 항목:`);
             group.forEach(item => {
-                console.log(`   - ID ${item.id}: 재고 ${item.remaining}, 생성일 ${item.createdAt}`);
+                console.log(`   - ID ${item.id}: 재고 ${item.remaining}`);
             });
         }
     });
