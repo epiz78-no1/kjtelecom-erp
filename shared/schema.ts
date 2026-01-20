@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, serial, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -541,6 +541,10 @@ export const opticalCableLogs = pgTable("optical_cable_logs", {
   attributes: text("attributes"), // JSON for additional data like remark, attachment
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    cableIdIdx: index("optical_cable_logs_cable_id_idx").on(table.cableId),
+  };
 });
 
 export const insertOpticalCableLogSchema = createInsertSchema(opticalCableLogs).omit({ id: true, createdAt: true });
