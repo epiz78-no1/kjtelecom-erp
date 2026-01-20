@@ -1,4 +1,3 @@
-// @ts-ignore
 import { saveAs } from 'file-saver';
 import ExcelJS from 'exceljs';
 import { IncomingRecord } from '@shared/schema';
