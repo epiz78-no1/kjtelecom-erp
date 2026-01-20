@@ -73,6 +73,8 @@ export default function OpticalCables() {
         setSearchQuery,
         selectedCategory,
         setSelectedCategory,
+        selectedDivision,
+        setSelectedDivision,
         filteredItems: filteredCables,
         categories
     } = useTableFilters(cables, {
@@ -371,6 +373,20 @@ export default function OpticalCables() {
                     {filterOpen && (
                         <div className="p-3 border rounded-lg bg-muted/30">
                             <div className="flex flex-wrap items-end gap-2">
+                                {/* Division Filter */}
+                                <div className="w-[110px]">
+                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">사업</label>
+                                    <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="사업" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="전체">전체</SelectItem>
+                                            <SelectItem value="SKT">SKT</SelectItem>
+                                            <SelectItem value="SKB">SKB</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 {/* Category Filter */}
                                 <div className="w-[110px]">
                                     <label className="text-xs font-medium mb-1 block text-muted-foreground">구분</label>

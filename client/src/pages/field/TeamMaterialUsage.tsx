@@ -58,6 +58,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InventoryItemSelector } from "@/components/InventoryItemSelector";
+import { TeamInventorySelector } from "@/components/TeamInventorySelector";
 import {
   Popover,
   PopoverContent,
@@ -1578,71 +1579,52 @@ export default function TeamMaterialUsage() {
 
                   <div className="grid gap-2">
                     <Label className="text-xs text-muted-foreground">보유 자재 선택 ({index + 1})</Label>
-                    <Select
+                    <TeamInventorySelector
+                      items={teamInventory.filter(inv => {
+                        // 1. 이미 선택된 아이템 제외
+                        const isAlreadySelected = formData.items.some((existingItem, i) =>
+                          i !== index && existingItem.inventoryItemId === inv.inventoryItemId
+                        );
+                        if (isAlreadySelected) return false;
+
+                        // 2. 다른 사업(SKT/SKB) 자재 제외 (첫 번째 선택이 있는 경우)
+                        const firstDivision = formData.items.find(i => i.division)?.division;
+                        if (firstDivision && inv.division !== firstDivision) return false;
+
+                        return true;
+                      })}
                       disabled={!formData.teamCategory}
                       value={teamInventory.find(inv =>
                         (item.inventoryItemId && inv.inventoryItemId === item.inventoryItemId) ||
                         (!item.inventoryItemId && inv.productName === item.productName && inv.specification === item.specification)
-                      )?.id?.toString() || ""}
-                      onValueChange={(key) => {
-                        const selectedInventory = teamInventory.find(i => i.id.toString() === key);
-                        if (selectedInventory) {
-                          const newItems = [...formData.items];
-                          newItems[index] = {
-                            ...newItems[index],
-                            division: selectedInventory.division,
-                            category: selectedInventory.category,
-                            productName: selectedInventory.productName,
-                            specification: selectedInventory.specification,
-                            inventoryItemId: selectedInventory.inventoryItemId,
-                          };
+                      )?.id || ""}
+                      onChange={(id, selectedInventory) => {
+                        const newItems = [...formData.items];
+                        newItems[index] = {
+                          ...newItems[index],
+                          division: selectedInventory.division,
+                          category: selectedInventory.category,
+                          productName: selectedInventory.productName,
+                          specification: selectedInventory.specification,
+                          inventoryItemId: selectedInventory.inventoryItemId,
+                        };
 
-                          if (index === formData.items.length - 1) {
-                            newItems.push({
-                              id: Date.now().toString(),
-                              division: "",
-                              category: "",
-                              productName: "",
-                              specification: "",
-                              quantity: "",
-                              inventoryItemId: undefined,
-                              remark: ""
-                            });
-                          }
-
-                          setFormData({ ...formData, items: newItems });
+                        if (index === formData.items.length - 1) {
+                          newItems.push({
+                            id: Date.now().toString(),
+                            division: "",
+                            category: "",
+                            productName: "",
+                            specification: "",
+                            quantity: "",
+                            inventoryItemId: undefined,
+                            remark: ""
+                          });
                         }
+
+                        setFormData({ ...formData, items: newItems });
                       }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={formData.teamCategory ? "자재를 선택하세요" : "팀을 먼저 선택하세요"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(() => {
-                          // 이미 선택된 아이템들 중 첫 번째로 유효한 사업 정보를 찾음
-                          const firstDivision = formData.items.find(i => i.division)?.division;
-
-                          return teamInventory
-                            .filter(inv => {
-                              // 1. 이미 선택된 아이템 제외
-                              const isAlreadySelected = formData.items.some((existingItem, i) =>
-                                i !== index && existingItem.inventoryItemId === inv.inventoryItemId
-                              );
-                              if (isAlreadySelected) return false;
-
-                              // 2. 다른 사업(SKT/SKB) 자재 제외 (첫 번째 선택이 있는 경우)
-                              if (firstDivision && inv.division !== firstDivision) return false;
-
-                              return true;
-                            })
-                            .map((inv) => (
-                              <SelectItem key={inv.id} value={inv.id.toString()}>
-                                [{inv.division}] {inv.productName} ({inv.specification}) - 잔여: {inv.remaining.toLocaleString()}
-                              </SelectItem>
-                            ));
-                        })()}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
