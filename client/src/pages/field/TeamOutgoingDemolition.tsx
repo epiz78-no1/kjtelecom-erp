@@ -43,7 +43,7 @@ export default function TeamOutgoingDemolition() {
 
     const { data: logs = [], isLoading } = useQuery<any[]>({
         queryKey: ["/api/demolition-logs"],
-        select: (data) => data.filter((log: any) => ['outgoing', 'usage'].includes(log.logType)),
+        select: (data) => data.filter((log: any) => ['outgoing', 'usage', 'return', 'dispose'].includes(log.logType)),
     });
 
     const { widths, startResizing } = useColumnResize({
@@ -76,7 +76,13 @@ export default function TeamOutgoingDemolition() {
                 quantity: 0
             });
         }
-        stockMap.get(key).quantity += (log.usedQuantity || 0);
+
+        const qty = log.usedQuantity || 0;
+        if (log.logType === 'outgoing') {
+            stockMap.get(key).quantity += qty;
+        } else if (['usage', 'return', 'dispose'].includes(log.logType)) {
+            stockMap.get(key).quantity -= qty;
+        }
     });
 
     // Convert to array and filter out zero stock (if any)
@@ -107,10 +113,10 @@ export default function TeamOutgoingDemolition() {
             "현장팀": item.teamCategory,
             "품명": item.productName,
             "규격": item.specification,
-            "출고 수량": item.quantity
+            "보유 수량": item.quantity // Changed from 출고 수량
         }));
 
-        exportToExcel(dataToExport, "현장팀_철거자재_출고현황");
+        exportToExcel(dataToExport, "현장팀_철거자재_보유현황"); // Changed filename
     };
 
     if (isLoading) {
@@ -128,8 +134,8 @@ export default function TeamOutgoingDemolition() {
                 <div className="flex-shrink-0 space-y-4 pb-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold">현장팀별 철거자재 출고 현황</h1>
-                            <p className="text-muted-foreground">각 현장팀에 출고된 철거자재 수량을 조회합니다</p>
+                            <h1 className="text-2xl font-bold">현장팀별 철거자재 보유 현황</h1>
+                            <p className="text-muted-foreground">목록에서 사라진 자재는 보유 수량이 0인 자재입니다</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             {canWrite && !isFieldTeam && (
@@ -244,7 +250,7 @@ export default function TeamOutgoingDemolition() {
                                         />
                                     </TableHead>
                                     <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.quantity }}>
-                                        출고 수량
+                                        보유 수량
                                         <div
                                             onMouseDown={(e) => startResizing('quantity', e)}
                                             className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
@@ -256,7 +262,7 @@ export default function TeamOutgoingDemolition() {
                                 {filteredStock.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                            출고된 자재가 없습니다
+                                            보유한 자재가 없습니다
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -343,7 +349,7 @@ export default function TeamOutgoingDemolition() {
                     {filteredStock.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                             <Package className="h-8 w-8 mb-2 opacity-50" />
-                            <p className="text-sm">출고된 자재가 없습니다</p>
+                            <p className="text-sm">보유한 자재가 없습니다</p>
                         </div>
                     ) : (
                         filteredStock.map((item) => (
@@ -369,7 +375,7 @@ export default function TeamOutgoingDemolition() {
                                         {item.specification || "-"}
                                     </div>
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-xs text-muted-foreground">수량:</span>
+                                        <span className="text-xs text-muted-foreground">보유:</span>
                                         <span className="text-base font-bold text-primary">
                                             {item.quantity.toLocaleString()}
                                         </span>

@@ -29,18 +29,8 @@ import { ko } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
-interface DemolitionMaterial {
-    id: string;
-    managementNo: string;
-    projectName: string;
-    productName: string;
-    specification: string;
-    remainingQuantity: number;
-    status: string;
-    projectCode?: string;
-    division: string;
-    currentTeamId?: string | number;
-}
+import { DemolitionMaterial } from "@/types/demolition";
+import { parseAttributes } from "@/utils/demolitionUtils";
 
 interface DemolitionOutgoingDialogProps {
     open: boolean;
@@ -139,17 +129,9 @@ export function DemolitionOutgoingDialog({
             };
 
             let initialAttachments: any[] = [];
-            try {
-                const attrs = typeof editingRecord.attributes === 'string'
-                    ? JSON.parse(editingRecord.attributes)
-                    : editingRecord.attributes || {};
 
-                if (attrs.attachments && Array.isArray(attrs.attachments)) {
-                    initialAttachments = attrs.attachments;
-                } else if (attrs.attachment) {
-                    initialAttachments = [attrs.attachment];
-                }
-            } catch (e) { }
+            const attrs = parseAttributes(editingRecord?.attributes);
+            initialAttachments = attrs.attachments || [];
 
             initializeForm(editingRecord, initialAttachments);
 

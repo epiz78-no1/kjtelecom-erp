@@ -62,17 +62,8 @@ import { ko } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { exportToExcel } from "@/lib/excel";
 
-interface DemolitionMaterial {
-    id: string;
-    managementNo: string;
-    projectName: string;
-    productName: string;
-    specification: string;
-    remainingQuantity: number;
-    status: string;
-    division?: string;
-    currentTeamId?: string | number;
-}
+import { DemolitionMaterial } from "@/types/demolition";
+import { parseAttributes } from "@/utils/demolitionUtils";
 
 export default function TeamMaterialUsageDemolition() {
     const { toast } = useToast();
@@ -558,14 +549,7 @@ export default function TeamMaterialUsageDemolition() {
                                 </TableRow>
                             ) : (
                                 displayedLogs.map((log: any) => {
-                                    let files: any[] = [];
-                                    try {
-                                        if (log.attributes) {
-                                            const attrs = JSON.parse(log.attributes);
-                                            if (attrs.attachments) files = attrs.attachments;
-                                            else if (attrs.attachment) files = [attrs.attachment];
-                                        }
-                                    } catch (e) { }
+                                    const { attachments: files } = parseAttributes(log.attributes);
 
                                     const rowColor = log.logType === 'dispose' ? 'bg-red-50/50 hover:bg-red-100/50' :
                                         'hover:bg-muted/50';

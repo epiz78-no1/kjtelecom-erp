@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     TableHeader,
     TableRow,
@@ -44,23 +45,8 @@ import { useAppContext } from "@/contexts/AppContext";
 import { Loader2, MoreHorizontal, CheckCircle, XCircle, Pencil, Trash2, Download, Paperclip } from "lucide-react";
 import { useColumnResize } from "@/hooks/useColumnResize";
 
-interface DemolitionMaterial {
-    id: string;
-    managementNo: string;
-    division: string;
-    category: string;
-    projectCode: string;
-    projectName: string;
-    demolitionDate: string;
-    productName: string;
-    specification: string;
-    originalQuantity: number;
-    usedQuantity: number;
-    remainingQuantity: number;
-    status: string;
-    remark?: string;
-    attributes?: any;
-}
+import { DemolitionMaterial } from "@/types/demolition";
+import { parseAttributes } from "@/utils/demolitionUtils";
 
 export default function DemolitionMaterials() {
     const { toast } = useToast();
@@ -85,8 +71,10 @@ export default function DemolitionMaterials() {
     });
 
     const [searchQuery, setSearchQuery] = useState("");
-
     const [selectedStatus, setSelectedStatus] = useState("전체");
+
+    // New state for filtering completed/disposed items
+    const [showCompleted, setShowCompleted] = useState(false);
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
@@ -213,7 +201,12 @@ export default function DemolitionMaterials() {
             (selectedStatus === "재사용가능" && m.status === "approved_reusable") ||
             (selectedStatus === "재사용불가" && m.status === "rejected");
 
-        return matchesSearch && matchesStatus;
+        // Hide completed/disposed items unless checkbox is checked
+        // Completed: remainingQuantity === 0 OR status is 'disposed' or 'rejected'
+        const isCompleted = m.remainingQuantity === 0 || m.status === 'disposed';
+        const matchesCompletion = showCompleted ? true : !isCompleted;
+
+        return matchesSearch && matchesStatus && matchesCompletion;
     });
 
     const handleReview = (id: string, decision: 'approved' | 'rejected') => {
@@ -295,6 +288,20 @@ export default function DemolitionMaterials() {
                     placeholder="품명, 공사명, 관리번호 검색..."
                     className="max-w-sm"
                 />
+
+                <div className="flex items-center space-x-2">
+                    <Checkbox
+                        id="show-completed"
+                        checked={showCompleted}
+                        onCheckedChange={(checked) => setShowCompleted(checked as boolean)}
+                    />
+                    <label
+                        htmlFor="show-completed"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                        사용완료/폐기 포함
+                    </label>
+                </div>
 
                 <div className="ml-auto text-sm text-muted-foreground flex items-center gap-3">
                     {materials.filter(m => m.status === 'pending_review').length > 0 && (
@@ -394,59 +401,55 @@ export default function DemolitionMaterials() {
                                         <TableCell className="text-right align-middle pr-4 font-bold truncate overflow-hidden">{material.remainingQuantity.toLocaleString()}</TableCell>
                                         <TableCell className="text-center align-middle overflow-hidden">
                                             {(() => {
-                                                if (!material.attributes) return null;
-                                                try {
-                                                    const attrs = typeof material.attributes === 'string' ? JSON.parse(material.attributes) : material.attributes;
-                                                    const files = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
-                                                    if (files.length === 1) {
-                                                        return (
-                                                            <div className="flex justify-center items-center w-full">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={() => downloadAttachment(files[0])}
-                                                                    title={files[0].name}
-                                                                >
-                                                                    <Download className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        );
-                                                    } else if (files.length > 1) {
-                                                        return (
-                                                            <div className="flex justify-center items-center w-full">
-                                                                <Popover>
-                                                                    <PopoverTrigger asChild>
-                                                                        <Button variant="ghost" size="icon" className="h-6 w-8 text-xs flex items-center justify-center gap-1">
-                                                                            <Paperclip className="h-3 w-3" />
-                                                                            <span>{files.length}</span>
-                                                                        </Button>
-                                                                    </PopoverTrigger>
-                                                                    <PopoverContent className="w-auto p-2" align="center">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">
-                                                                                첨부파일 ({files.length})
-                                                                            </div>
-                                                                            {files.map((file: any, idx: number) => (
-                                                                                <Button
-                                                                                    key={idx}
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
-                                                                                    onClick={() => downloadAttachment(file)}
-                                                                                    title={file.name}
-                                                                                >
-                                                                                    <span className="truncate">{file.name}</span>
-                                                                                </Button>
-                                                                            ))}
+                                                const { attachments: files } = parseAttributes(material.attributes);
+                                                if (!files || files.length === 0) return null;
+
+                                                if (files.length === 1) {
+                                                    return (
+                                                        <div className="flex justify-center items-center w-full">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={() => downloadAttachment(files[0])}
+                                                                title={files[0].name}
+                                                            >
+                                                                <Download className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    );
+                                                } else if (files.length > 1) {
+                                                    return (
+                                                        <div className="flex justify-center items-center w-full">
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="h-6 w-8 text-xs flex items-center justify-center gap-1">
+                                                                        <Paperclip className="h-3 w-3" />
+                                                                        <span>{files.length}</span>
+                                                                    </Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-auto p-2" align="center">
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">
+                                                                            첨부파일 ({files.length})
                                                                         </div>
-                                                                    </PopoverContent>
-                                                                </Popover>
-                                                            </div>
-                                                        );
-                                                    }
-                                                } catch (e) {
-                                                    console.error('Failed to parse attributes:', e);
+                                                                        {files.map((file: any, idx: number) => (
+                                                                            <Button
+                                                                                key={idx}
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
+                                                                                onClick={() => downloadAttachment(file)}
+                                                                                title={file.name}
+                                                                            >
+                                                                                <span className="truncate">{file.name}</span>
+                                                                            </Button>
+                                                                        ))}
+                                                                    </div>
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        </div>
+                                                    );
                                                 }
                                                 return null;
                                             })()}

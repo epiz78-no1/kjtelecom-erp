@@ -153,7 +153,7 @@ export class DemolitionStorage {
             total: materials.length,
             pendingReview: materials.filter(m => m.status === 'pending_review').length,
             approvedReusable: materials.filter(m => m.status === 'approved_reusable').length,
-            inUse: materials.filter(m => m.status === 'in_use').length,
+            inUse: materials.filter(m => m.usedQuantity > 0).length,
             disposed: materials.filter(m => m.status === 'disposed').length,
             rejected: materials.filter(m => m.status === 'rejected').length,
             totalOriginalQuantity: materials.reduce((sum, m) => sum + m.originalQuantity, 0),
