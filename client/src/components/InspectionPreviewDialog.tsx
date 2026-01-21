@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -45,6 +46,22 @@ export function InspectionPreviewDialog({
     const today = new Date();
     const dateStr = `${today.getFullYear()} .   ${today.getMonth() + 1} .   ${today.getDate()} .`;
 
+    const [isDownloading, setIsDownloading] = useState(false);
+    const reportRef = useRef<HTMLDivElement>(null);
+    const photosRef = useRef<HTMLDivElement>(null);
+
+    const handleDownload = async () => {
+        try {
+            setIsDownloading(true);
+            await generateInspectionExcel(selectedRecords);
+        } catch (error) {
+            console.error("Excel download failed:", error);
+            // Optionally add toast error here if valid
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
@@ -68,8 +85,8 @@ export function InspectionPreviewDialog({
 
                     <ScrollArea className="flex-1 border rounded-md bg-white p-4">
                         {/* --- Report Tab --- */}
-                        <TabsContent value="report" className="mt-0 min-w-[700px]">
-                            <div className="border border-black p-8 bg-white text-black text-sm">
+                        <TabsContent value="report" className="mt-0 min-w-[700px]" forceMount>
+                            <div ref={reportRef} className="border border-black p-8 bg-white text-black text-sm">
                                 {/* Header */}
                                 <h1 className="text-2xl font-bold mb-6 text-left">■ 신규 자재 입고검사 보고서</h1>
 
@@ -195,19 +212,21 @@ export function InspectionPreviewDialog({
                         </TabsContent>
 
                         {/* --- Photos Tab --- */}
-                        <TabsContent value="photos" className="mt-0">
-                            <div className="bg-white p-8 min-w-[700px]">
+                        <TabsContent value="photos" className="mt-0" forceMount>
+                            <div ref={photosRef} className="bg-white p-8 min-w-[700px]">
                                 <h1 className="text-2xl font-bold mb-6 text-left">■ 신규자재 입고 검사 보고서(별첨)</h1>
 
                                 <div className="flex flex-col gap-8">
                                     {selectedRecords.map((record, idx) => {
                                         const attachments = getAttachments(record);
-                                        const imageUrl = attachments.length > 0 ? attachments[0].url : null;
+                                        // Get up to 2 photos
+                                        const photo1 = attachments.length > 0 ? (attachments[0].storageUrl || attachments[0].url) : null;
+                                        const photo2 = attachments.length > 1 ? (attachments[1].storageUrl || attachments[1].url) : null;
 
                                         return (
                                             <div key={record.id} className="border border-black break-inside-avoid">
                                                 {/* Header */}
-                                                <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr_4rem] border-b border-black text-center text-xs font-bold bg-gray-100">
+                                                <div className="grid grid-cols-[6fr_13fr_25fr_25fr_13fr_6fr] border-b border-black text-center text-xs font-bold bg-gray-100">
                                                     <div className="border-r border-black p-2">순번</div>
                                                     <div className="border-r border-black p-2">입고일</div>
                                                     <div className="border-r border-black p-2">품명</div>
@@ -215,7 +234,7 @@ export function InspectionPreviewDialog({
                                                     <div className="border-r border-black p-2">제조사명 / Serial No.</div>
                                                     <div className="p-2">수량</div>
                                                 </div>
-                                                <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr_4rem] border-b border-black text-center text-xs">
+                                                <div className="grid grid-cols-[6fr_13fr_25fr_25fr_13fr_6fr] border-b border-black text-center text-xs">
                                                     <div className="border-r border-black p-2">{idx + 1}</div>
                                                     <div className="border-r border-black p-2">{format(new Date(record.date), 'yyyy-MM-dd')}</div>
                                                     <div className="border-r border-black p-2">{record.productName}</div>
@@ -223,24 +242,44 @@ export function InspectionPreviewDialog({
                                                     <div className="border-r border-black p-2">{record.supplier}</div>
                                                     <div className="p-2">{record.quantity}개</div>
                                                 </div>
-                                                {/* Image Area */}
-                                                <div className="h-[400px] flex items-center justify-center p-4 bg-slate-50">
-                                                    {imageUrl ? (
-                                                        <img
-                                                            src={imageUrl}
-                                                            alt={record.productName}
-                                                            className="max-h-full max-w-full object-contain"
-                                                            onError={(e) => {
-                                                                (e.target as HTMLImageElement).src = '';
-                                                                // Could set a placeholder or error state visible
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <div className="flex flex-col items-center text-muted-foreground gap-2">
-                                                            <ImageIcon className="h-10 w-10 opacity-20" />
-                                                            <span>첨부된 사진이 없습니다</span>
-                                                        </div>
-                                                    )}
+                                                {/* Image Area - 2 photos side by side */}
+                                                <div className="grid grid-cols-[6fr_13fr_25fr_25fr_13fr_6fr] h-[300px]">
+                                                    {/* Photo 1 (Spans first 3 columns: 순번, 입고일, 품명) */}
+                                                    <div className="col-span-3 flex items-center justify-center bg-slate-50 border-r border-black p-4 relative">
+                                                        {photo1 ? (
+                                                            <img
+                                                                src={photo1}
+                                                                alt={`${record.productName} - 1`}
+                                                                className="w-full h-full object-contain"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).src = '';
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center justify-center w-full h-full text-muted-foreground gap-2">
+                                                                <ImageIcon className="h-8 w-8 opacity-20" />
+                                                                <span className="text-xs">사진 없음</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* Photo 2 (Spans last 3 columns: 규격, 제조사, 수량) */}
+                                                    <div className="col-span-3 flex items-center justify-center bg-slate-50 p-4 relative">
+                                                        {photo2 ? (
+                                                            <img
+                                                                src={photo2}
+                                                                alt={`${record.productName} - 2`}
+                                                                className="w-full h-full object-contain"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).src = '';
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center justify-center w-full h-full text-muted-foreground gap-2">
+                                                                <ImageIcon className="h-8 w-8 opacity-20" />
+                                                                <span className="text-xs">사진 없음</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -255,9 +294,9 @@ export function InspectionPreviewDialog({
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         취소
                     </Button>
-                    <Button onClick={() => generateInspectionExcel(selectedRecords)}>
-                        <Download className="mr-2 h-4 w-4" />
-                        엑셀 다운로드
+                    <Button onClick={handleDownload} disabled={isDownloading}>
+                        <Download className={`mr-2 h-4 w-4 ${isDownloading ? 'animate-bounce' : ''}`} />
+                        {isDownloading ? '다운로드 중...' : '엑셀 다운로드'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -1,5 +1,5 @@
 import { exportToExcel } from "@/lib/excel";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Popover,
   PopoverContent,
@@ -49,6 +49,8 @@ import { useColumnResize } from "@/hooks/useColumnResize";
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 
 export default function OutgoingRecords() {
   const { toast } = useToast();
@@ -147,22 +149,35 @@ export default function OutgoingRecords() {
     }
   });
 
-  const filteredRecords = records.filter(
-    (record) =>
-      (record.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (record.recipient || "").toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredRecords = useMemo(() =>
+    records.filter(
+      (record) =>
+        (record.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (record.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (record.teamCategory || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (record.recipient || "").toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [records, searchQuery]
   );
 
+  const {
+    items: displayRecords,
+    hasMore,
+    isLoading: scrollLoading,
+    observerRef
+  } = useInfiniteScroll(filteredRecords, {
+    initialPageSize: 100,
+    pageSize: 100
+  });
+
   const totalQuantity = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
-  const allSelected = filteredRecords.length > 0 && filteredRecords.every(r => selectedIds.has(r.id));
+  const allSelected = displayRecords.length > 0 && displayRecords.every(r => selectedIds.has(r.id));
 
   const toggleSelectAll = () => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredRecords.map(r => r.id)));
+      setSelectedIds(new Set(displayRecords.map(r => r.id)));
     }
   };
 
@@ -387,7 +402,8 @@ export default function OutgoingRecords() {
             )}
           </div>
           <div className="text-sm text-muted-foreground">
-            총 <span className="font-semibold text-foreground">{filteredRecords.length}</span>건 /
+            표시 <span className="font-semibold text-foreground">{displayRecords.length}</span> /
+            전체 <span className="font-semibold text-foreground">{filteredRecords.length}</span>건 ·
             수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
           </div>
         </div>
@@ -484,7 +500,7 @@ export default function OutgoingRecords() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRecords.map((record) => (
+              {displayRecords.map((record) => (
                 <TableRow key={record.id} className="h-6 [&_td]:py-0" data-testid={`row-outgoing-${record.id}`}>
                   <TableCell className="text-center align-middle">
                     {isTenantOwner ? (
@@ -662,7 +678,7 @@ export default function OutgoingRecords() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredRecords.length === 0 && (
+              {displayRecords.length === 0 && filteredRecords.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                     검색 결과가 없습니다
@@ -671,6 +687,14 @@ export default function OutgoingRecords() {
               )}
             </TableBody>
           </table>
+
+          <InfiniteScrollLoader
+            hasMore={hasMore}
+            isLoading={scrollLoading}
+            observerRef={observerRef}
+            itemCount={displayRecords.length}
+            totalCount={filteredRecords.length}
+          />
         </div>
       </div>
 

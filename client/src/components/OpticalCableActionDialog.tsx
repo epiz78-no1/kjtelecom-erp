@@ -40,9 +40,10 @@ interface OpticalCableActionDialogProps {
     teams: any[]; // Team type could be imported if strict typing needed
 }
 
-// 스키마를 클라이언트에서 일부 수정하거나 그대로 사용
-// teamId는 assign일 때 필수, 나머지는 optional
-const formSchema = apiInsertOpticalCableLogSchema;
+// 스키마 확장: wasteReason 필드 추가
+const formSchema = apiInsertOpticalCableLogSchema.extend({
+    wasteReason: z.string().default("")
+});
 type FormData = z.infer<typeof formSchema>;
 
 export function OpticalCableActionDialog({
@@ -81,8 +82,7 @@ export function OpticalCableActionDialog({
         maxSizeMB: 10
     });
 
-    // Waste-specific state
-    const [wasteReason, setWasteReason] = useState("");
+
 
     // 액션 타입에 따른 제목 및 설명
     const getTitle = () => {
@@ -100,10 +100,10 @@ export function OpticalCableActionDialog({
             logType: actionType,
             cableId: cable.id,
             teamId: cable.currentTeamId || undefined, // 기존 할당된 팀이 있다면 기본값
-            installLength: 0,
             wasteLength: 0,
             workerName: "",
-            usageDate: new Date().toISOString().split('T')[0]
+            usageDate: new Date().toISOString().split('T')[0],
+            wasteReason: ""
         }
     });
 
@@ -114,17 +114,17 @@ export function OpticalCableActionDialog({
                 logType: actionType,
                 cableId: cable.id,
                 teamId: actionType === 'assign' ? undefined : cable.currentTeamId || undefined,
-                installLength: 0,
                 wasteLength: 0,
                 workerName: "",
-                usageDate: new Date().toISOString().split('T')[0]
+                usageDate: new Date().toISOString().split('T')[0],
+                wasteReason: ""
             });
             // Reset waste-specific fields
-            setWasteReason("");
             clearWasteAttachments();
             clearUsageAttachments();
         }
-    }, [open, cable, actionType, form, clearWasteAttachments, clearUsageAttachments]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, cable.id, cable.currentTeamId, actionType]);
 
     const mutation = useMutation({
         mutationFn: async (data: FormData) => {
@@ -155,7 +155,8 @@ export function OpticalCableActionDialog({
     const onSubmit = (data: FormData) => {
         // For waste action, validate and encode wasteReason and wastePhotos into attributes
         if (actionType === 'waste') {
-            if (!wasteReason.trim()) {
+            const reason = data.wasteReason || "";
+            if (!reason.trim()) {
                 toast({
                     title: "폐기 사유 필수",
                     description: "폐기 사유를 입력해주세요.",
@@ -164,7 +165,7 @@ export function OpticalCableActionDialog({
                 return;
             }
             const attributes = {
-                wasteReason,
+                wasteReason: reason,
                 ...(wastePhotos.length > 0 && { wastePhotos })
             };
             data.attributes = JSON.stringify(attributes);
@@ -249,18 +250,28 @@ export function OpticalCableActionDialog({
                                 </div>
 
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                            폐기 사유 *
-                                        </label>
-                                        <Textarea
-                                            placeholder="폐기 사유를 입력하세요"
-                                            className="resize-none mt-2"
-                                            rows={3}
-                                            value={wasteReason}
-                                            onChange={(e) => setWasteReason(e.target.value)}
-                                        />
-                                    </div>
+                                    <FormField
+                                        control={form.control}
+                                        name="wasteReason"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>폐기 사유 *</FormLabel>
+                                                <FormControl>
+                                                    <Textarea
+                                                        placeholder="폐기 사유를 입력하세요"
+                                                        className="resize-none"
+                                                        rows={3}
+                                                        value={field.value ?? ""}
+                                                        onChange={field.onChange}
+                                                        onBlur={field.onBlur}
+                                                        name={field.name}
+                                                        ref={field.ref}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
 
                                     <div>

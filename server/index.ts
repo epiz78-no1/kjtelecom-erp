@@ -61,15 +61,16 @@ app.use(session({
   store: new PgStore({
     pool, // Uses existing db pool from ./db
     tableName: 'session',
-    createTableIfMissing: true // Although we ran SQL, this is safe
+    createTableIfMissing: true, // Although we ran SQL, this is safe
+    ttl: 3600 // 1 hour session duration (server-side)
   }),
   secret: process.env.SESSION_SECRET || 'pro-tracker-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    // maxAge 제거: 브라우저 종료 시 세션 만료 (Session Cookie)
+    // maxAge 미설정: 브라우저 종료 시 세션 만료 (Session Cookie)
     httpOnly: true,
-    secure: false, // FIXME: Revert to 'process.env.NODE_ENV === "production"' after diagnosing login issue
+    secure: process.env.NODE_ENV === "production",
     sameSite: 'lax'
   }
 }));

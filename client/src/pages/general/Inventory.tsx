@@ -47,10 +47,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAppContext } from "@/contexts/AppContext";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 
 export default function Inventory() {
   const { toast } = useToast();
@@ -204,13 +206,23 @@ export default function Inventory() {
     categoryField: "category"
   });
 
-  const allSelected = filteredInventory.length > 0 && filteredInventory.every(item => selectedIds.has(item.id));
+  const {
+    items: displayInventory,
+    hasMore,
+    isLoading: scrollLoading,
+    observerRef
+  } = useInfiniteScroll(filteredInventory, {
+    initialPageSize: 100,
+    pageSize: 100
+  });
+
+  const allSelected = displayInventory.length > 0 && displayInventory.every(item => selectedIds.has(item.id));
 
   const toggleSelectAll = () => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredInventory.map(item => item.id)));
+      setSelectedIds(new Set(displayInventory.map(item => item.id)));
     }
   };
 
@@ -363,7 +375,8 @@ export default function Inventory() {
             )}
           </div>
           <div className="text-sm text-muted-foreground">
-            총 <span className="font-semibold text-foreground">{filteredInventory.length}</span>개 품목
+            표시 <span className="font-semibold text-foreground">{displayInventory.length}</span> /
+            전체 <span className="font-semibold text-foreground">{filteredInventory.length}</span>개 품목
           </div>
         </div>
       </div>
@@ -442,7 +455,7 @@ export default function Inventory() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredInventory.map((item) => {
+              {displayInventory.map((item) => {
                 // Calculate values based on new logic
                 // remaining = Office Stock (DB value)
                 // outgoing = Sent to Team (DB value)
@@ -514,7 +527,7 @@ export default function Inventory() {
                   </TableRow>
                 );
               })}
-              {filteredInventory.length === 0 && (
+              {displayInventory.length === 0 && filteredInventory.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                     재고 데이터가 없습니다
@@ -523,6 +536,14 @@ export default function Inventory() {
               )}
             </TableBody>
           </table>
+
+          <InfiniteScrollLoader
+            hasMore={hasMore}
+            isLoading={scrollLoading}
+            observerRef={observerRef}
+            itemCount={displayInventory.length}
+            totalCount={filteredInventory.length}
+          />
         </div>
       </div>
 
