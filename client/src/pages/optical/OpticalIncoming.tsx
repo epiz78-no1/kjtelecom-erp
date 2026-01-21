@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Loader2, ArrowDownToLine, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
 import {
     Popover,
@@ -47,6 +47,8 @@ import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
 import { validateOpticalRow, transformOpticalRow, opticalColumns, downloadOpticalTemplate } from "@/lib/bulk-configs/optical";
 import { Upload } from "lucide-react";
 import { OPTICAL_LOG_COLUMNS } from "@/lib/optical-table-columns";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 
 export default function OpticalIncoming() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -93,13 +95,23 @@ export default function OpticalIncoming() {
         searchFields: ["drumNo", "spec"]
     });
 
-    const allSelected = filteredLogs.length > 0 && filteredLogs.every(log => selectedIds.has(log.id));
+    const {
+        items: displayLogs,
+        hasMore,
+        isLoading: scrollLoading,
+        observerRef
+    } = useInfiniteScroll(filteredLogs, {
+        initialPageSize: 100,
+        pageSize: 100
+    });
+
+    const allSelected = displayLogs.length > 0 && displayLogs.every(log => selectedIds.has(log.id));
 
     const toggleSelectAll = () => {
         if (allSelected) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(filteredLogs.map(log => log.id)));
+            setSelectedIds(new Set(displayLogs.map(log => log.id)));
         }
     };
 
@@ -196,7 +208,8 @@ export default function OpticalIncoming() {
                     )}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                    총 <span className="font-semibold text-foreground">{filteredLogs.length}</span>건
+                    표시 <span className="font-semibold text-foreground">{displayLogs.length}</span> /
+                    전체 <span className="font-semibold text-foreground">{filteredLogs.length}</span>건
                 </div>
             </div>
 
@@ -281,14 +294,14 @@ export default function OpticalIncoming() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredLogs.length === 0 ? (
+                            {displayLogs.length === 0 && filteredLogs.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
                                         입고 내역이 없습니다.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredLogs.map((log) => (
+                                displayLogs.map((log) => (
                                     <TableRow key={log.id} className="h-6 [&_td]:py-0">
                                         <TableCell className="text-center align-middle">
                                             {isTenantOwner ? (
@@ -451,6 +464,14 @@ export default function OpticalIncoming() {
                             )}
                         </TableBody>
                     </table>
+
+                    <InfiniteScrollLoader
+                        hasMore={hasMore}
+                        isLoading={scrollLoading}
+                        observerRef={observerRef}
+                        itemCount={displayLogs.length}
+                        totalCount={filteredLogs.length}
+                    />
                 </div>
             </div>
 

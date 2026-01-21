@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +59,8 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
 import { OPTICAL_CABLE_COLUMNS } from "@/lib/optical-table-columns";
 import { useOpticalFilters } from "@/hooks/useOpticalFilters";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 
 export default function OpticalCables() {
     const { toast } = useToast();
@@ -168,13 +170,23 @@ export default function OpticalCables() {
         XLSX.writeFile(wb, `광케이블_재고현황_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
-    const allSelected = rangeFilteredCables.length > 0 && rangeFilteredCables.every(cable => selectedIds.has(cable.id));
+    const {
+        items: displayCables,
+        hasMore,
+        isLoading: scrollLoading,
+        observerRef
+    } = useInfiniteScroll(rangeFilteredCables, {
+        initialPageSize: 100,
+        pageSize: 100
+    });
+
+    const allSelected = displayCables.length > 0 && displayCables.every(cable => selectedIds.has(cable.id));
 
     const toggleSelectAll = () => {
         if (allSelected) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(rangeFilteredCables.map(cable => cable.id)));
+            setSelectedIds(new Set(displayCables.map(cable => cable.id)));
         }
     };
 
@@ -365,7 +377,7 @@ export default function OpticalCables() {
                                     </span>
                                 </div>
                             )}
-                            <span>총 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목</span>
+                            <span>표시 <span className="font-semibold text-foreground">{displayCables.length}</span> / 전체 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목</span>
                         </div>
                     </div>
 
@@ -604,14 +616,14 @@ export default function OpticalCables() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {rangeFilteredCables.length === 0 ? (
+                            {displayCables.length === 0 && rangeFilteredCables.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
                                         등록된 광케이블 드럼이 없습니다.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                rangeFilteredCables.map((cable) => (
+                                displayCables.map((cable) => (
                                     <TableRow
                                         key={cable.id}
                                         className={`h-6 [&_td]:py-0 cursor-pointer hover:bg-muted/50 ${cable.returnRequestStatus === 'pending'
@@ -762,6 +774,14 @@ export default function OpticalCables() {
                             )}
                         </TableBody>
                     </table>
+
+                    <InfiniteScrollLoader
+                        hasMore={hasMore}
+                        isLoading={scrollLoading}
+                        observerRef={observerRef}
+                        itemCount={displayCables.length}
+                        totalCount={rangeFilteredCables.length}
+                    />
                 </div>
             </div>
 
