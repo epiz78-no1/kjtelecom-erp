@@ -158,7 +158,10 @@ const stock = await db.select()
 
 ### C. 권한 관리 (Context API)
 - 페이지/컴포넌트 레벨에서 `useAppContext`의 `checkPermission(resource, action)` 사용하여 접근 제어.
-- 예: `const canWrite = checkPermission("inventory", "write");`
+- **필수 구현 규칙**:
+  - **사이드바 숨김**: `AppSidebar.tsx`에서 권한에 따라 메뉴 진입점 숨김.
+  - **버튼 레벨 제어**: 페이지 내부의 **등록/수정/삭제 버튼**에도 반드시 `disabled={!canWrite}` 처리를 해야 함. (URL 직접 접근 방어 및 Readonly 권한 대응)
+  - 예: 광케이블, 안전관리 등 신규 모듈 추가 시에도 이 규칙을 엄격히 적용해야 함.
 
 ### D. 데이터 전송 최적화 (Data Transfer Optimization) ⭐ **NEW**
 ### D. 데이터 전송 최적화 (Data Transfer Optimization) ⭐ **NEW**

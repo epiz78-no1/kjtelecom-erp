@@ -2,7 +2,7 @@ import {
     type User, type InsertUser,
     type Invitation, type InsertInvitation,
     type UserTenant, type InsertUserTenant,
-    users, invitations, userTenants, tenants, divisions, teams
+    users, invitations, userTenants, tenants, divisions, teams, positions
 } from "../../shared/schema.js";
 import { db } from "../db.js";
 import { eq, and } from "drizzle-orm";
@@ -68,12 +68,15 @@ export class UserStorage {
                 id: users.id,
                 username: users.username,
                 name: users.name,
+                phoneNumber: users.phoneNumber,
                 role: userTenants.role,
                 permissions: userTenants.permissions,
+                status: userTenants.status,
                 lastLoginAt: users.lastLoginAt,
                 createdAt: userTenants.createdAt,
                 divisionId: userTenants.divisionId,
                 teamId: userTenants.teamId,
+                positionId: userTenants.positionId,
             })
             .from(userTenants)
             .innerJoin(users, eq(userTenants.userId, users.id))
@@ -82,19 +85,21 @@ export class UserStorage {
                 eq(userTenants.status, 'active')
             ));
 
-        // Fetch team and division names separately to avoid complex joins if possible, 
-        // but here we can join or just fetch all and map.
-        // Let's optimize by fetching divisions and teams.
+        // Fetch divisions, teams, and positions for mapping
         const allDivisions = await db.select().from(divisions).where(eq(divisions.tenantId, tenantId));
         const allTeams = await db.select().from(teams).where(eq(teams.tenantId, tenantId));
+        const allPositions = await db.select().from(positions).where(eq(positions.tenantId, tenantId));
 
         const divisionMap = new Map(allDivisions.map(d => [d.id, d.name]));
         const teamMap = new Map(allTeams.map(t => [t.id, t.name]));
+        const positionMap = new Map(allPositions.map(p => [p.id, p.name]));
 
         return members.map(m => ({
             ...m,
-            divisionName: m.divisionId ? divisionMap.get(m.divisionId) : undefined,
-            teamName: m.teamId ? teamMap.get(m.teamId) : undefined,
+            joinDate: m.createdAt,
+            divisionName: m.divisionId ? divisionMap.get(m.divisionId) : null,
+            teamName: m.teamId ? teamMap.get(m.teamId) : null,
+            positionName: m.positionId ? positionMap.get(m.positionId) : null,
         }));
     }
 
