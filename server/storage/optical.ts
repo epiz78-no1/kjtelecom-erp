@@ -25,7 +25,7 @@ export class OpticalStorage {
         });
     }
 
-    async createOpticalCable(cable: InsertOpticalCable, tenantId: string, options?: { isWaste?: boolean, wasteReason?: string }): Promise<OpticalCable> {
+    async createOpticalCable(cable: InsertOpticalCable, tenantId: string, options?: { isWaste?: boolean, wasteReason?: string, wasteLength?: number }): Promise<OpticalCable> {
         return await db.transaction(async (tx) => {
             // 중복 체크: 사업(division) + 제조년도(manufactureYear) + 제조번호(drumNo) 조합이 이미 존재하는지 확인
             const existing = await tx.select()
@@ -78,6 +78,7 @@ export class OpticalStorage {
                 const [wastedCable] = await tx.update(opticalCables)
                     .set({
                         status: 'waste',
+                        wasteLength: options.wasteLength || 0,
                         attributes: updatedAttrsStr,
                         updatedAt: new Date()
                     })
@@ -90,6 +91,7 @@ export class OpticalStorage {
                     logType: 'waste',
                     usageDate: newCable.receivedDate || new Date().toISOString().split('T')[0],
                     afterRemaining: newCable.remainingLength,
+                    wasteLength: options.wasteLength || 0,
                     attributes: updatedAttrsStr,
                     tenantId,
                     createdBy: cable.createdBy

@@ -1,32 +1,38 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
+import { Calendar as CalendarIcon, Upload, X, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { OpticalCable } from "@shared/schema";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Upload, Trash2, FileCheck } from "lucide-react";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
+import type { OpticalCable } from "@shared/schema";
 
 export interface OpticalCableFormData {
     managementNo: string;
@@ -48,6 +54,7 @@ export interface OpticalCableFormData {
     attributes?: string; // JSON string for attachments
     isWaste?: boolean;
     wasteReason?: string;
+    wasteLength?: number;
 }
 
 interface OpticalCableFormDialogProps {
@@ -106,6 +113,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     // Immediate waste option state
     const [isImmediateWaste, setIsImmediateWaste] = useState(false);
     const [wasteReason, setWasteReason] = useState("");
+    const [wasteLength, setWasteLength] = useState<number | "">("");
 
     // 리렌더링 시 초기화 방지를 위한 ID 트래킹
     const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
@@ -156,9 +164,10 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                     } else {
                         setAttachments([]);
                     }
-                    // Reset waste option for editing (usually distinct from creation, but good to reset)
+                    // Reset waste option for editing
                     setIsImmediateWaste(false);
                     setWasteReason("");
+                    setWasteLength("");
                 } else {
                     // Reset to clean state for new entry
                     setFormData({
@@ -184,6 +193,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                     // Reset waste option for new entry
                     setIsImmediateWaste(false);
                     setWasteReason("");
+                    setWasteLength("");
                 }
                 setCurrentEditingId(newItemId);
             }
@@ -209,18 +219,24 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         const currentIncoming = Number(incomingLength);
         const used = editingItem ? (editingItem.usedLength || 0) : 0;
         const waste = editingItem ? (editingItem.wasteLength || 0) : 0;
-        const finalRemaining = currentIncoming - used - waste;
+
+        // New immediate waste amount
+        const newWaste = isImmediateWaste ? Number(wasteLength) : 0;
+
+        // Final remaining = Incoming - Used - Existing Waste - New Waste
+        const finalRemaining = currentIncoming - used - waste - newWaste;
 
         const payload = {
             ...formData,
             coreCount: Number(formData.coreCount),
-            productName: String(formData.productName), // Ensure string
+            productName: String(formData.productName),
             unitPrice: Number(formData.unitPrice),
             division: formData.division || "SKT",
-            remainingLength: finalRemaining, // Send calculated remaining
-            attributes: JSON.stringify({ attachments }), // Serialize attachments
+            remainingLength: finalRemaining,
+            attributes: JSON.stringify({ attachments }),
             isWaste: isImmediateWaste,
-            wasteReason: isImmediateWaste ? wasteReason : undefined
+            wasteReason: isImmediateWaste ? wasteReason : undefined,
+            wasteLength: isImmediateWaste ? Number(wasteLength) : 0
         };
 
         if (onSubmit) {
@@ -242,7 +258,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         setFormData(prev => ({
             ...prev,
             unitPrice: price,
-            totalAmount: numPrice * length // Restore calculation with incomingLength
+            totalAmount: numPrice * length
         }));
     };
 
@@ -454,7 +470,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             </div>
                         </div>
 
-                        {/* 7. 비고 */}
+                        {/* 9. 비고 */}
                         <div className="grid grid-cols-1 gap-2">
                             <Label htmlFor="remark">비고</Label>
                             <Input
@@ -470,7 +486,15 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                 <Checkbox
                                     id="immediateWaste"
                                     checked={isImmediateWaste}
-                                    onCheckedChange={(checked) => setIsImmediateWaste(checked as boolean)}
+                                    onCheckedChange={(checked) => {
+                                        const isChecked = checked as boolean;
+                                        setIsImmediateWaste(isChecked);
+                                        if (isChecked && incomingLength) {
+                                            setWasteLength(Number(incomingLength));
+                                        } else if (!isChecked) {
+                                            setWasteLength("");
+                                        }
+                                    }}
                                 />
                                 <Label htmlFor="immediateWaste" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-destructive">
                                     입고 즉시 폐기 처리
@@ -478,48 +502,63 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             </div>
 
                             {isImmediateWaste && (
-                                <div className="mt-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <Label htmlFor="wasteReason">폐기 사유 <span className="text-red-500">*</span></Label>
-                                    <Textarea
-                                        id="wasteReason"
-                                        placeholder="폐기 사유를 입력하세요"
-                                        value={wasteReason}
-                                        onChange={(e) => setWasteReason(e.target.value)}
-                                        className="mt-1.5"
-                                        required={isImmediateWaste}
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        * 입고 이력 생성 후 즉시 폐기 상태로 변경됩니다.
-                                    </p>
+                                <div className="mt-2 animate-in slide-in-from-top-2 fade-in duration-200 grid grid-cols-2 gap-4 bg-red-50/50 p-4 rounded-lg border border-red-100">
+                                    <div className="col-span-1">
+                                        <Label htmlFor="wasteReason">폐기 사유 <span className="text-red-500">*</span></Label>
+                                        <Textarea
+                                            id="wasteReason"
+                                            placeholder="폐기 사유를 입력하세요"
+                                            value={wasteReason}
+                                            onChange={(e) => setWasteReason(e.target.value)}
+                                            className="h-[80px] resize-none mt-1.5"
+                                            required={isImmediateWaste}
+                                        />
+                                    </div>
+                                    <div className="col-span-1">
+                                        <Label htmlFor="wasteLength">폐기 수량 (m) <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            id="wasteLength"
+                                            type="number"
+                                            value={wasteLength}
+                                            onChange={(e) => setWasteLength(e.target.value === "" ? "" : Number(e.target.value))}
+                                            className="mt-1.5 border-red-200 focus-visible:ring-red-500"
+                                            required={isImmediateWaste}
+                                            min={0}
+                                            max={Number(incomingLength) || undefined}
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            * 입력한 수량만큼 잔량이 차감됩니다.
+                                        </p>
+                                    </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* 9. 첨부파일 */}
+                        {/* 10. 첨부파일 */}
                         <div className="grid grid-cols-4 items-start gap-4 border-t pt-4">
-                            <Label className="text-right pt-2">첨부파일 (최대 4개)</Label>
+                            <Label className="text-right pt-2 col-span-1">
+                                첨부파일
+                            </Label>
                             <div className="col-span-3">
                                 <div className="relative">
-                                    <Input
-                                        id={uniqueId}
+                                    <input
                                         type="file"
-                                        accept="image/*,application/pdf,.xlsx,.xls"
-                                        multiple
+                                        id={uniqueId}
                                         className="hidden"
+                                        multiple
+                                        accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                                         onChange={handleFileChange}
-                                        disabled={isUploading || attachments.length >= 4}
+                                        disabled={isUploading}
                                     />
+                                    {/* Standard UI from Guide */}
                                     {attachments.length < 4 && (
                                         <label
                                             htmlFor={uniqueId}
-                                            className={cn(
-                                                "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
-                                                isUploading && "opacity-50 cursor-wait"
-                                            )}
+                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                                         >
                                             <Upload className="h-5 w-5 text-primary" />
                                             <span className="text-sm font-medium text-primary">
-                                                {isUploading ? "업로드 중..." : `파일 선택 (${attachments.length}/4) - 이미지, PDF, 엑셀`}
+                                                파일 선택 ({attachments.length}/4) - 이미지, PDF, 엑셀
                                             </span>
                                         </label>
                                     )}
@@ -527,22 +566,20 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
 
                                 <div className="space-y-2 mt-2">
                                     {attachments.map((file, index) => (
-                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                                            <span className="text-sm text-muted-foreground truncate flex-1">
-                                                {file.storageUrl ? (
-                                                    <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
-                                                        📎 {file.name}
-                                                    </a>
-                                                ) : (
-                                                    <span className="flex items-center">📎 {file.name}</span>
-                                                )}
-                                            </span>
+                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md border">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                                                <span className="text-xs text-muted-foreground">({((file.originalSize || 0) / 1024).toFixed(1)} KB)</span>
+                                            </div>
                                             <Button
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                onClick={() => removeAttachment(index)}
+                                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    removeAttachment(index);
+                                                }}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -553,14 +590,21 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         </div>
 
                     </div>
-                    <DialogFooter>
+                    <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => normalizedOnOpenChange(false)}>
                             취소
                         </Button>
                         <Button type="submit" disabled={isUploading}>
-                            {isUploading ? "업로드 중..." : (editingItem ? "수정" : "등록")}
+                            {isUploading ? (
+                                <>
+                                    <Upload className="mr-2 h-4 w-4 animate-spin" />
+                                    업로드 중
+                                </>
+                            ) : (
+                                "등록"
+                            )}
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </form>
             </DialogContent>
         </Dialog>
