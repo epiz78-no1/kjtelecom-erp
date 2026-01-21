@@ -51,8 +51,9 @@ import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 export default function OpticalOutgoing() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const { toast } = useToast();
-    const { teams, tenants, currentTenant } = useAppContext();
+    const { teams, tenants, currentTenant, checkPermission } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
+    const canWrite = checkPermission('outgoing', 'write') || isTenantOwner;
     const { open: dialogOpen, editingItem: editingLog, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCableLog>();
     const { downloadFile } = useDownload();
     const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
@@ -178,13 +179,13 @@ export default function OpticalOutgoing() {
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button className="gap-2">
+                        <Button className="gap-2" disabled={!canWrite}>
                             <Plus className="h-4 w-4" />
                             출고 등록
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setAssignmentDialogOpen(true)}>
+                        <DropdownMenuItem onSelect={() => canWrite && setAssignmentDialogOpen(true)}>
                             <Plus className="h-4 w-4 mr-2" />
                             직접 등록
                         </DropdownMenuItem>
@@ -211,7 +212,7 @@ export default function OpticalOutgoing() {
                             variant="destructive"
                             size="sm"
                             onClick={handleBulkDelete}
-                            disabled={bulkDeleteMutation.isPending}
+                            disabled={bulkDeleteMutation.isPending || !canWrite}
                         >
                             {bulkDeleteMutation.isPending ? (
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -500,23 +501,27 @@ export default function OpticalOutgoing() {
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>출고 관리</DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            onClick={() => openDialog(log)}
-                                                        >
-                                                            <Pencil className="mr-2 h-4 w-4" />
-                                                            수정
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            className="text-destructive"
-                                                            onClick={() => {
-                                                                if (confirm('이 출고 내역을 삭제하시겠습니까?')) {
-                                                                    deleteMutation.mutate(log.id);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                            삭제
-                                                        </DropdownMenuItem>
+                                                        {canWrite && (
+                                                            <DropdownMenuItem
+                                                                onClick={() => openDialog(log)}
+                                                            >
+                                                                <Pencil className="mr-2 h-4 w-4" />
+                                                                수정
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {canWrite && (
+                                                            <DropdownMenuItem
+                                                                className="text-destructive"
+                                                                onClick={() => {
+                                                                    if (confirm('이 출고 내역을 삭제하시겠습니까?')) {
+                                                                        deleteMutation.mutate(log.id);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                삭제
+                                                            </DropdownMenuItem>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>

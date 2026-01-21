@@ -64,8 +64,9 @@ import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 
 export default function OpticalCables() {
     const { toast } = useToast();
-    const { user, tenants, currentTenant } = useAppContext();
+    const { user, tenants, currentTenant, checkPermission } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
+    const canWrite = checkPermission('inventory', 'write') || isTenantOwner;
 
     const { data: cables = [], isLoading } = useOpticalCables();
 
@@ -291,13 +292,13 @@ export default function OpticalCables() {
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button>
+                                <Button disabled={!canWrite}>
                                     <Plus className="h-4 w-4 mr-2" />
                                     케이블 등록
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openDialog()}>
+                                <DropdownMenuItem onClick={() => canWrite && openDialog()}>
                                     <Plus className="h-4 w-4 mr-2" />
                                     직접 등록
                                 </DropdownMenuItem>
@@ -516,7 +517,7 @@ export default function OpticalCables() {
                         variant="destructive"
                         size="sm"
                         onClick={handleBulkDelete}
-                        disabled={bulkDeleteMutation.isPending}
+                        disabled={bulkDeleteMutation.isPending || !canWrite}
                     >
                         {bulkDeleteMutation.isPending ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -688,8 +689,8 @@ export default function OpticalCables() {
                                                         이력 보기
                                                     </DropdownMenuItem>
 
-                                                    {/* 예약 기능 */}
-                                                    {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
+                                                    {/* 예약 기능 - canWrite */}
+                                                    {canWrite && cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
                                                         <DropdownMenuItem onClick={() => {
                                                             setSelectedReserveCable(cable);
                                                             setReserveDialogOpen(true);
@@ -699,7 +700,7 @@ export default function OpticalCables() {
                                                         </DropdownMenuItem>
                                                     )}
 
-                                                    {cable.reservationStatus === 'reserved' && (
+                                                    {canWrite && cable.reservationStatus === 'reserved' && (
                                                         <DropdownMenuItem
                                                             onClick={() => {
                                                                 setSelectedReserveCable(cable);
@@ -712,15 +713,15 @@ export default function OpticalCables() {
                                                         </DropdownMenuItem>
                                                     )}
 
-                                                    {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
+                                                    {canWrite && cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
                                                         <DropdownMenuItem onClick={() => handleAction(cable, 'assign')}>
                                                             <Send className="mr-2 h-4 w-4" />
                                                             불출 (Assign)
                                                         </DropdownMenuItem>
                                                     )}
 
-                                                    {/* 반납 대기 중인 경우 승인/반려 버튼 표시 */}
-                                                    {cable.returnRequestStatus === 'pending' && (
+                                                    {/* 반납 대기 중인 경우 승인/반려 버튼 표시 - canWrite */}
+                                                    {canWrite && cable.returnRequestStatus === 'pending' && (
                                                         <>
                                                             <DropdownMenuItem
                                                                 onClick={() => handleReturnApproval(cable.id, 'approve')}
@@ -739,18 +740,20 @@ export default function OpticalCables() {
                                                         </>
                                                     )}
 
-                                                    {/* Waste is available only when in stock or returned (not assigned to field) */}
-                                                    {['in_stock', 'returned'].includes(cable.status) && cable.reservationStatus !== 'reserved' && (
+                                                    {/* Waste is available only when in stock or returned (not assigned to field) - canWrite */}
+                                                    {canWrite && ['in_stock', 'returned'].includes(cable.status) && cable.reservationStatus !== 'reserved' && (
                                                         <DropdownMenuItem onClick={() => handleAction(cable, 'waste')} className="text-yellow-600 focus:text-yellow-600">
                                                             <AlertTriangle className="mr-2 h-4 w-4" />
                                                             폐기 (Waste)
                                                         </DropdownMenuItem>
                                                     )}
 
-                                                    <DropdownMenuItem onClick={() => openDialog(cable)}>
-                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                        수정
-                                                    </DropdownMenuItem>
+                                                    {canWrite && (
+                                                        <DropdownMenuItem onClick={() => openDialog(cable)}>
+                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                            수정
+                                                        </DropdownMenuItem>
+                                                    )}
                                                     {isTenantOwner && (
                                                         <DropdownMenuItem
                                                             className="text-red-600 focus:text-red-600"

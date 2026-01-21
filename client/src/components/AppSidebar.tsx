@@ -112,53 +112,68 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {/* 광케이블 자재 관리 - 현장팀에게는 숨김 + 기능 플래그 확인 */}
-            {!isFieldTeam && FEATURE_FLAGS.ENABLE_OPTICAL && (
+            {/* 광케이블 자재 관리 - 권한 확인 */}
+            {FEATURE_FLAGS.ENABLE_OPTICAL && (
               <Collapsible className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="광케이블 자재 관리">
-                      <span>광케이블 자재 관리</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={location === "/optical-dashboard"}>
-                          <Link href="/optical-dashboard">
-                            <LayoutDashboard className="h-4 w-4" />
-                            <span>대시보드</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={location === "/optical-cables"}>
-                          <Link href="/optical-cables">
-                            <Package className="h-4 w-4" />
-                            <span>자재현황</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={location === "/optical-incoming"}>
-                          <Link href="/optical-incoming">
-                            <ArrowDownToLine className="h-4 w-4" />
-                            <span>입고 내역</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={location === "/optical-outgoing"}>
-                          <Link href="/optical-outgoing">
-                            <ArrowUpFromLine className="h-4 w-4" />
-                            <span>출고 내역</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
+                {(checkPermission('inventory', 'read') || checkPermission('incoming', 'read') || checkPermission('outgoing', 'read')) && (
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="광케이블 자재 관리">
+                        <span>광케이블 자재 관리</span>
+                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {/* Dashboard - Visible if any read access */}
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={location === "/optical-dashboard"}>
+                            <Link href="/optical-dashboard">
+                              <LayoutDashboard className="h-4 w-4" />
+                              <span>대시보드</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+
+                        {/* Inventory */}
+                        {checkPermission('inventory', 'read') && (
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === "/optical-cables"}>
+                              <Link href="/optical-cables">
+                                <Package className="h-4 w-4" />
+                                <span>자재현황</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )}
+
+                        {/* Incoming */}
+                        {checkPermission('incoming', 'read') && (
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === "/optical-incoming"}>
+                              <Link href="/optical-incoming">
+                                <ArrowDownToLine className="h-4 w-4" />
+                                <span>입고 내역</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )}
+
+                        {/* Outgoing */}
+                        {checkPermission('outgoing', 'read') && (
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === "/optical-outgoing"}>
+                              <Link href="/optical-outgoing">
+                                <ArrowUpFromLine className="h-4 w-4" />
+                                <span>출고 내역</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                )}
               </Collapsible>
             )}
 

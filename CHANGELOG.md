@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.42] - 2026-01-21
+
+### Fixed
+- **멤버 관리:** 멤버 목록 및 수정 시 직급(Position)이 표시되지 않는 버그 수정
+- **코드 개선:** `AdminMembers` 페이지 리팩터링 (컴포넌트 분리 및 구조 개선)
+
 ## [v1.2.41] - 2026-01-21
 
 ### Added
