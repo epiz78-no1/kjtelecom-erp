@@ -25,7 +25,7 @@ export class OpticalStorage {
         });
     }
 
-    async createOpticalCable(cable: InsertOpticalCable, tenantId: string): Promise<OpticalCable> {
+    async createOpticalCable(cable: InsertOpticalCable, tenantId: string, options?: { isWaste?: boolean, wasteReason?: string }): Promise<OpticalCable> {
         return await db.transaction(async (tx) => {
             // 중복 체크: 사업(division) + 제조년도(manufactureYear) + 제조번호(drumNo) 조합이 이미 존재하는지 확인
             const existing = await tx.select()
@@ -59,6 +59,44 @@ export class OpticalStorage {
                 tenantId,
                 createdBy: cable.createdBy // ensure createdBy follows the cable creator
             });
+
+            // [NEW] Immediate Waste Logic
+            if (options?.isWaste) {
+                // Update specific waste attributes
+                let newAttributes: any = {};
+                try {
+                    newAttributes = newCable.attributes ? JSON.parse(newCable.attributes) : {};
+                } catch (e) { }
+
+                // Add waste reason to attributes
+                if (options.wasteReason) {
+                    newAttributes.wasteReason = options.wasteReason;
+                }
+
+                const updatedAttrsStr = JSON.stringify(newAttributes);
+
+                const [wastedCable] = await tx.update(opticalCables)
+                    .set({
+                        status: 'waste',
+                        attributes: updatedAttrsStr,
+                        updatedAt: new Date()
+                    })
+                    .where(eq(opticalCables.id, newCable.id))
+                    .returning();
+
+                // Create waste log
+                await tx.insert(opticalCableLogs).values({
+                    cableId: newCable.id,
+                    logType: 'waste',
+                    usageDate: newCable.receivedDate || new Date().toISOString().split('T')[0],
+                    afterRemaining: newCable.remainingLength,
+                    attributes: updatedAttrsStr,
+                    tenantId,
+                    createdBy: cable.createdBy
+                });
+
+                return wastedCable;
+            }
 
             return newCable;
         });

@@ -25,6 +25,8 @@ import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 
 export interface OpticalCableFormData {
     managementNo: string;
@@ -44,6 +46,8 @@ export interface OpticalCableFormData {
     projectCode: string;
     projectName: string;
     attributes?: string; // JSON string for attachments
+    isWaste?: boolean;
+    wasteReason?: string;
 }
 
 interface OpticalCableFormDialogProps {
@@ -99,6 +103,10 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
 
     const [incomingLength, setIncomingLength] = useState<number | "">("");
 
+    // Immediate waste option state
+    const [isImmediateWaste, setIsImmediateWaste] = useState(false);
+    const [wasteReason, setWasteReason] = useState("");
+
     // 리렌더링 시 초기화 방지를 위한 ID 트래킹
     const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
 
@@ -148,6 +156,9 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                     } else {
                         setAttachments([]);
                     }
+                    // Reset waste option for editing (usually distinct from creation, but good to reset)
+                    setIsImmediateWaste(false);
+                    setWasteReason("");
                 } else {
                     // Reset to clean state for new entry
                     setFormData({
@@ -170,6 +181,9 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                     });
                     setIncomingLength("");
                     setAttachments([]);
+                    // Reset waste option for new entry
+                    setIsImmediateWaste(false);
+                    setWasteReason("");
                 }
                 setCurrentEditingId(newItemId);
             }
@@ -205,6 +219,8 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
             division: formData.division || "SKT",
             remainingLength: finalRemaining, // Send calculated remaining
             attributes: JSON.stringify({ attachments }), // Serialize attachments
+            isWaste: isImmediateWaste,
+            wasteReason: isImmediateWaste ? wasteReason : undefined
         };
 
         if (onSubmit) {
@@ -448,7 +464,38 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             />
                         </div>
 
-                        {/* 8. 첨부파일 */}
+                        {/* 8. 즉시 폐기 옵션 */}
+                        <div className="grid gap-2 border-t pt-4">
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="immediateWaste"
+                                    checked={isImmediateWaste}
+                                    onCheckedChange={(checked) => setIsImmediateWaste(checked as boolean)}
+                                />
+                                <Label htmlFor="immediateWaste" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-destructive">
+                                    입고 즉시 폐기 처리
+                                </Label>
+                            </div>
+
+                            {isImmediateWaste && (
+                                <div className="mt-2 animate-in slide-in-from-top-2 fade-in duration-200">
+                                    <Label htmlFor="wasteReason">폐기 사유 <span className="text-red-500">*</span></Label>
+                                    <Textarea
+                                        id="wasteReason"
+                                        placeholder="폐기 사유를 입력하세요"
+                                        value={wasteReason}
+                                        onChange={(e) => setWasteReason(e.target.value)}
+                                        className="mt-1.5"
+                                        required={isImmediateWaste}
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        * 입고 이력 생성 후 즉시 폐기 상태로 변경됩니다.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 9. 첨부파일 */}
                         <div className="grid grid-cols-4 items-start gap-4 border-t pt-4">
                             <Label className="text-right pt-2">첨부파일 (최대 4개)</Label>
                             <div className="col-span-3">

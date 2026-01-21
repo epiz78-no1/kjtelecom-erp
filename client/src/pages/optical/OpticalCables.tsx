@@ -67,17 +67,12 @@ export default function OpticalCables() {
     const { user, tenants, currentTenant } = useAppContext();
     const isTenantOwner = tenants.find(t => t.id === currentTenant)?.role === 'owner';
 
-    const { data: allCables = [], isLoading } = useOpticalCables();
-    const cables = allCables.filter(c => c.status !== 'waste');
+    const { data: cables = [], isLoading } = useOpticalCables();
 
     const {
         searchQuery,
         setSearchQuery,
-        selectedCategory,
-        setSelectedCategory,
-        selectedDivision,
-        setSelectedDivision,
-        filteredItems: filteredCables,
+        filteredItems: searchedCables,
         categories
     } = useTableFilters(cables, {
         searchFields: ["drumNo", "spec", "productName", "manufacturer", "manufactureYear", "division"],
@@ -105,6 +100,8 @@ export default function OpticalCables() {
     const {
         minRemaining, setMinRemaining,
         maxRemaining, setMaxRemaining,
+        selectedDivision, setSelectedDivision,
+        selectedCategory, setSelectedCategory,
         selectedCoreCount, setSelectedCoreCount,
         selectedStatus, setSelectedStatus,
         filterOpen, setFilterOpen,
@@ -113,7 +110,7 @@ export default function OpticalCables() {
         getActiveFilters,
         removeFilter,
         resetFilters
-    } = useOpticalFilters(filteredCables);
+    } = useOpticalFilters(searchedCables);
 
     // Action Dialog State
     const [actionDialogOpen, setActionDialogOpen] = useState(false);
@@ -449,6 +446,7 @@ export default function OpticalCables() {
                                             <SelectItem value="예약">예약 중</SelectItem>
                                             <SelectItem value="불출">현장 불출</SelectItem>
                                             <SelectItem value="반납">반납신청</SelectItem>
+                                            <SelectItem value="폐기">폐기</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
