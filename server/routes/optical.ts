@@ -80,7 +80,7 @@ export function registerOpticalRoutes(app: Express) {
             }
         }
 
-        const { isWaste, wasteReason } = req.body;
+        const { isWaste, wasteReason, wasteLength } = req.body;
 
         try {
             const cable = await storage.createOpticalCable({
@@ -93,7 +93,7 @@ export function registerOpticalRoutes(app: Express) {
                 remainingLength: parseResult.data.remainingLength ?? 0,
                 tenantId,
                 createdBy: req.session!.userId!
-            }, tenantId, { isWaste, wasteReason });
+            }, tenantId, { isWaste, wasteReason, wasteLength });
             res.status(201).json(cable);
         } catch (error: any) {
             res.status(500).json({ error: error.message });

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.41] - 2026-01-21
+
+### Added
+- **광케이블:** 입고 즉시 폐기 시 '폐기 수량'을 직접 입력하여 부분/전체 폐기 처리 가능하도록 개선
+
 ## [v1.2.40] - 2026-01-21
 
 ### Added
