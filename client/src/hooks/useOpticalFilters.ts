@@ -12,6 +12,8 @@ export function useOpticalFilters(cables: OpticalCable[]) {
     const [maxRemaining, setMaxRemaining] = useState<string>('');
 
     // 카테고리 필터
+    const [selectedDivision, setSelectedDivision] = useState<string>('전체');
+    const [selectedCategory, setSelectedCategory] = useState<string>('전체');
     const [selectedCoreCount, setSelectedCoreCount] = useState<string>('전체');
     const [selectedStatus, setSelectedStatus] = useState<string>('전체');
 
@@ -25,6 +27,12 @@ export function useOpticalFilters(cables: OpticalCable[]) {
             // 잔량 범위 필터
             if (minRemaining && cable.remainingLength < Number(minRemaining)) return false;
             if (maxRemaining && cable.remainingLength > Number(maxRemaining)) return false;
+
+            // 사업 필터
+            if (selectedDivision !== '전체' && cable.division !== selectedDivision) return false;
+
+            // 구분 필터
+            if (selectedCategory !== '전체' && cable.category !== selectedCategory) return false;
 
             // 코어 수 필터
             if (selectedCoreCount !== '전체' && cable.coreCount !== Number(selectedCoreCount)) return false;
@@ -42,19 +50,24 @@ export function useOpticalFilters(cables: OpticalCable[]) {
                 } else if (selectedStatus === '반납') {
                     // 반납 신청 (대기): returnRequestStatus가 'pending'인 항목
                     if (cable.returnRequestStatus !== 'pending') return false;
+                } else if (selectedStatus === '폐기') {
+                    if (cable.status !== 'waste') return false;
                 }
             }
 
             // 폐기 케이블 숨김 처리
-            if (!showWaste && cable.status === 'waste') return false;
+            // 단, 상태 필터가 '폐기'인 경우는 무조건 표시
+            if (selectedStatus !== '폐기' && !showWaste && cable.status === 'waste') return false;
             return true;
         });
-    }, [cables, minRemaining, maxRemaining, selectedCoreCount, selectedStatus, showWaste]);
+    }, [cables, minRemaining, maxRemaining, selectedDivision, selectedCategory, selectedCoreCount, selectedStatus, showWaste]);
 
     // 활성 필터 목록 가져오기
     const getActiveFilters = (): ActiveFilter[] => {
         const filters: ActiveFilter[] = [];
 
+        if (selectedDivision !== '전체') filters.push({ key: 'division', label: `사업: ${selectedDivision}` });
+        if (selectedCategory !== '전체') filters.push({ key: 'category', label: `구분: ${selectedCategory}` });
         if (selectedCoreCount !== '전체') {
             filters.push({ key: 'core', label: `${selectedCoreCount}c` });
         }
@@ -67,12 +80,17 @@ export function useOpticalFilters(cables: OpticalCable[]) {
                 label: `${minRemaining || 0}~${maxRemaining || '∞'}m`
             });
         }
+        if (showWaste) {
+            filters.push({ key: 'showWaste', label: '폐기 포함' });
+        }
 
         return filters;
     };
 
     // 특정 필터 제거
     const removeFilter = (key: string) => {
+        if (key === 'division') setSelectedDivision('전체');
+        if (key === 'category') setSelectedCategory('전체');
         if (key === 'core') setSelectedCoreCount('전체');
         else if (key === 'status') setSelectedStatus('전체');
         else if (key === 'range') {
@@ -83,6 +101,8 @@ export function useOpticalFilters(cables: OpticalCable[]) {
 
     // 모든 필터 초기화
     const resetFilters = () => {
+        setSelectedDivision('전체');
+        setSelectedCategory('전체');
         setSelectedCoreCount('전체');
         setSelectedStatus('전체');
         setMinRemaining('');
@@ -92,10 +112,15 @@ export function useOpticalFilters(cables: OpticalCable[]) {
 
     return {
         // 상태
+        // 상태
         minRemaining,
         setMinRemaining,
         maxRemaining,
         setMaxRemaining,
+        selectedDivision,
+        setSelectedDivision,
+        selectedCategory,
+        setSelectedCategory,
         selectedCoreCount,
         setSelectedCoreCount,
         selectedStatus,

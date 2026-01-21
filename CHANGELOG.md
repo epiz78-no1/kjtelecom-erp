@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.40] - 2026-01-21
+
+### Added
+- **입고 즉시 폐기:** 광케이블 등록 시 [폐기 사유] 입력 후 즉시 폐기 처리하는 기능 추가 (Dialog Checkbox)
+
+### Fixed
+- **필터 버그:** 광케이블 목록에서 [사업] 및 [구분] 필터가 작동하지 않던 문제 수정 (Hook 로직 통합)
+
 ## [v1.2.39] - 2026-01-21
 
 ### Fixed
