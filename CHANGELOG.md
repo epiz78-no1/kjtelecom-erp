@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.39] - 2026-01-21
+
+### Fixed
+- **광케이블 폐기:** 폐기 사유 입력 시 폼이 초기화되어 입력할 수 없는 버그 수정
+  - 입력 필드 상태 관리 개선 (React Hook Form 통합)
+  - 불필요한 렌더링 최적화
+
 ## [v1.2.38] - 2026-01-21
 
 ### Added
