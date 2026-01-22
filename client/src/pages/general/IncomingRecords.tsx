@@ -428,7 +428,7 @@ export default function IncomingRecords() {
                 <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.product }}>품명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("product", e)} /></TableHead>
                 <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.spec }}>규격<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("spec", e)} /></TableHead>
                 <TableHead className="font-semibold text-emerald-600 text-center text-xs" style={{ width: widths.quantity }}>수량<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("quantity", e)} /></TableHead>
-                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.unit }}>단위<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("unit", e)} /></TableHead>
+
                 <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.remark }}>비고<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("remark", e)} /></TableHead>
                 <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.author }}>입력자<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("author", e)} /></TableHead>
                 <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.attachment }}>첨부<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("attachment", e)} /></TableHead>
@@ -438,12 +438,14 @@ export default function IncomingRecords() {
             <TableBody>
               {displayRecords.length === 0 && filteredRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="h-64 text-center text-muted-foreground flex flex-col items-center justify-center border-none">
-                    <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                      <Search className="h-6 w-6 text-slate-400" />
+                  <TableCell colSpan={12} className="h-64 border-none p-0">
+                    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                      <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                        <Search className="h-6 w-6 text-slate-400" />
+                      </div>
+                      <p className="font-medium text-slate-900">검색 결과가 없습니다</p>
+                      <p className="text-sm text-slate-500 mt-1">새로운 입고 내역을 등록해보세요</p>
                     </div>
-                    <p className="font-medium text-slate-900">검색 결과가 없습니다</p>
-                    <p className="text-sm text-slate-500 mt-1">새로운 입고 내역을 등록해보세요</p>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -470,34 +472,86 @@ export default function IncomingRecords() {
                         <TableCell className="text-center px-2 text-xs text-slate-700 p-0 border-r border-slate-100/50 truncate max-w-[200px]" title={record.productName}>{record.productName}</TableCell>
                         <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50 truncate max-w-[100px]" title={record.specification || ""}>{record.specification}</TableCell>
                         <TableCell className="text-center px-2 text-xs font-bold text-emerald-600 p-0 border-r border-slate-100/50 bg-emerald-50/30">{record.quantity.toLocaleString()}</TableCell>
-                        <TableCell className="text-center text-xs text-slate-500 p-0 border-r border-slate-100/50">EA</TableCell>
                         <TableCell className="text-left px-2 text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[150px]" title={record.remark || ""}>{record.remark}</TableCell>
                         <TableCell className="text-center text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[80px]">{(record as any).createdByName}</TableCell>
                         <TableCell className="text-center p-0 border-r border-slate-100/50">
-                          {hasAttachments ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const attrs = typeof record.attributes === 'string'
-                                  ? JSON.parse(record.attributes)
-                                  : record.attributes;
+                          {(() => {
+                            let hasAttachments = false;
+                            let attachments: any[] = [];
+                            try {
+                              const parsed = typeof record.attributes === 'string'
+                                ? JSON.parse(record.attributes)
+                                : record.attributes || {};
 
-                                if (attrs.attachments && attrs.attachments.length > 0) {
-                                  // Download first one or show modal (simplified to first for now)
-                                  downloadAttachment(attrs.attachments[0].storagePath, attrs.attachments[0].name);
-                                } else if (attrs.attachment) {
-                                  downloadAttachment(attrs.attachment.storagePath, attrs.attachment.name);
-                                }
-                              }}
-                            >
-                              <Paperclip className="h-3 w-3" />
-                            </Button>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
+                              if (parsed.attachments && parsed.attachments.length > 0) {
+                                attachments = parsed.attachments;
+                                hasAttachments = true;
+                              } else if (parsed.attachment) {
+                                attachments = [parsed.attachment];
+                                hasAttachments = true;
+                              } else if ((record as any).attachment) { // Legacy fallback
+                                attachments = [(record as any).attachment];
+                                hasAttachments = true;
+                              }
+                            } catch (e) {
+                              hasAttachments = false;
+                            }
+
+                            if (!hasAttachments) return <span className="text-slate-300">-</span>;
+
+                            if (attachments.length === 1) {
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadAttachment(attachments[0]);
+                                  }}
+                                  title={attachments[0].name}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </Button>
+                              );
+                            }
+
+                            return (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Paperclip className="h-3.5 w-3.5" />
+                                    <span className="text-[10px] font-medium">{attachments.length}</span>
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-2" align="end">
+                                  <div className="flex flex-col gap-1">
+                                    {attachments.map((file: any, idx: number) => (
+                                      <Button
+                                        key={idx}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="justify-start h-8 text-xs max-w-[200px]"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          downloadAttachment(file);
+                                        }}
+                                        title={file.name}
+                                      >
+                                        <Download className="h-3 w-3 mr-2 shrink-0" />
+                                        <span className="truncate">{file.name}</span>
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-center p-0">
                           {canWrite && (
@@ -528,17 +582,18 @@ export default function IncomingRecords() {
                       </TableRow>
                     );
                   })}
-                  <InfiniteScrollLoader
-                    observerRef={observerRef}
-                    isLoading={scrollLoading}
-                    hasMore={hasMore}
-                    itemCount={displayRecords.length}
-                    totalCount={filteredRecords.length}
-                  />
                 </>
               )}
             </TableBody>
           </Table>
+
+          <InfiniteScrollLoader
+            observerRef={observerRef}
+            isLoading={scrollLoading}
+            hasMore={hasMore}
+            itemCount={displayRecords.length}
+            totalCount={filteredRecords.length}
+          />
         </div>
       </div>
 

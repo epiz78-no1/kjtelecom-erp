@@ -18,14 +18,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 export default function Dashboard() {
   const { divisions, teams, checkPermission } = useAppContext();
   const [, setLocation] = useLocation();
@@ -37,7 +29,6 @@ export default function Dashboard() {
     }
   }, [checkPermission, setLocation]);
 
-  const [selectedDivision, setSelectedDivision] = useState("all");
   const [expandedDivisions, setExpandedDivisions] = useState<Record<string, boolean>>({});
 
   const toggleDivision = (divisionName: string) => {
@@ -87,16 +78,11 @@ export default function Dashboard() {
   // Convert to array and filter out zero/negative stock
   const allStockItems = Array.from(stockMap.values()).filter(item => item.quantity > 0);
 
-  const filteredInventory = selectedDivision === "all"
-    ? inventory
-    : inventory.filter((item) => item.division === selectedDivision);
+  // Default to showing all data since division selector is removed
+  const filteredInventory = inventory;
 
-  const filteredTeams = selectedDivision === "all"
-    ? teams
-    : teams.filter((t) => {
-      const division = divisions?.find(d => d.id === t.divisionId);
-      return division?.name === selectedDivision;
-    });
+  // Show all teams by default
+  const filteredTeams = teams;
 
   // Sort by lastActivity desc
   filteredTeams.sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
@@ -165,7 +151,8 @@ export default function Dashboard() {
     .sort((a, b) => b.amount - a.amount);
 
   return (
-    <div className="h-full overflow-auto space-y-6 pb-20">
+    <div className="flex flex-col gap-4 h-full overflow-y-auto p-2 bg-slate-50/50 dark:bg-zinc-950/50 custom-scrollbar">
+      {/* Ultra Compact Header Section */}
       <div className="flex flex-col gap-1 mb-1 px-1 pt-1">
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -178,18 +165,6 @@ export default function Dashboard() {
           <p className="text-xs text-slate-500 font-medium pb-0.5">
             자재 수급 현황과 재고 가치를 한눈에 모니터링합니다
           </p>
-          <div className="ml-auto flex items-center gap-2">
-            <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-              <SelectTrigger className="h-7 w-[120px] text-xs bg-white/50 border-slate-200">
-                <SelectValue placeholder="사업부 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체 사업부</SelectItem>
-                <SelectItem value="SKT">SKT</SelectItem>
-                <SelectItem value="SKB">SKB</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
 
@@ -266,18 +241,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-8 items-start">
         <Card className="lg:col-span-2 border-slate-200 shadow-sm rounded-3xl overflow-hidden bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 border-b border-slate-100 dark:border-zinc-800">
             <div>
               <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">항목별 재고 현황</CardTitle>
               <CardDescription>사업 구분별 상세 재고 내역입니다</CardDescription>
             </div>
-            {selectedDivision !== "all" && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
-                {selectedDivision}
-              </span>
-            )}
+
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -302,8 +273,11 @@ export default function Dashboard() {
                           className="cursor-pointer hover:bg-slate-50/80 transition-colors border-b border-slate-50 dark:border-zinc-800/50"
                           onClick={() => toggleDivision(div.name)}
                         >
-                          <TableCell className="pl-6 py-4 font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                            {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+                          <TableCell className="pl-6 py-4 font-medium text-slate-900 dark:text-slate-100 flex items-center gap-3">
+                            <div className={`flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${isExpanded ? "bg-white border-slate-200" : "bg-slate-100 border-transparent"
+                              }`}>
+                              {isExpanded ? <ChevronDown className="h-3 w-3 text-slate-500" /> : <ChevronRight className="h-3 w-3 text-slate-500" />}
+                            </div>
                             {div.name}
                           </TableCell>
                           <TableCell className="text-center py-4 text-slate-600">
@@ -311,10 +285,10 @@ export default function Dashboard() {
                               {productList.length}종
                             </span>
                           </TableCell>
-                          <TableCell className="text-right py-4 font-bold text-slate-700">
+                          <TableCell className="text-right py-4 font-medium text-slate-700">
                             {div.remaining.toLocaleString()}
                           </TableCell>
-                          <TableCell className="text-right py-4 pr-6 font-bold text-slate-900">
+                          <TableCell className="text-right py-4 pr-6 font-medium text-slate-900">
                             ₩{div.amount.toLocaleString()}
                           </TableCell>
                         </TableRow>
@@ -326,6 +300,7 @@ export default function Dashboard() {
                             </TableCell>
                             <TableCell className="text-left pl-6 py-3">
                               <div className="flex items-center relative">
+                                <div className="absolute left-0 top-1/2 -mt-px w-3 h-px bg-slate-300"></div>
                                 <CornerDownRight className="mr-2 h-3 w-3 text-slate-300" />
                                 <span className="font-medium text-sm text-slate-700">{prod.productName}</span>
                               </div>
@@ -363,7 +338,7 @@ export default function Dashboard() {
             </CardTitle>
             <CardDescription className="text-indigo-100/80">자재를 보유 중인 팀 목록입니다.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+          <CardContent className="h-[600px] overflow-y-auto pr-2 custom-scrollbar">
             <div className="space-y-3">
               {filteredTeams.map((team) => {
                 // Calculate simplistic material count for general materials 

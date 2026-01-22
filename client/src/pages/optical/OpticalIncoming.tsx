@@ -13,6 +13,16 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     TableHeader,
@@ -67,6 +77,11 @@ export default function OpticalIncoming() {
     const { open: dialogOpen, editingItem: editingCable, handleOpen: openDialog, handleClose: closeDialog } = useDialogState<OpticalCable>();
     const { downloadFile, downloadAttachment } = useDownload();
     const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+
+    // Delete Dialog State
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+    const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
     const bulkUploadMutation = useBulkUploadOpticalCables();
 
@@ -160,13 +175,7 @@ export default function OpticalIncoming() {
     };
 
     const handleBulkDelete = () => {
-        if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds), {
-                onSuccess: () => {
-                    setSelectedIds(new Set());
-                }
-            });
-        }
+        setBulkDeleteDialogOpen(true);
     };
 
     if (isLoading) {
@@ -447,9 +456,8 @@ export default function OpticalIncoming() {
                                                         <DropdownMenuItem
                                                             className="text-red-600 gap-2 focus:text-red-700 focus:bg-red-50"
                                                             onClick={() => {
-                                                                if (confirm('이 입고 내역을 삭제하시겠습니까?')) {
-                                                                    deleteMutation.mutate(log.id);
-                                                                }
+                                                                setItemToDelete(log.id);
+                                                                setDeleteDialogOpen(true);
                                                             }}
                                                         >
                                                             <Trash2 className="h-4 w-4" /> 삭제
@@ -503,6 +511,65 @@ export default function OpticalIncoming() {
                 onUpload={handleBulkUpload}
                 isLoading={bulkUploadMutation.isPending}
             />
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>입고 내역 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            선택한 입고 내역을 정말 삭제하시겠습니까?
+                            <br />
+                            이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (itemToDelete) {
+                                    deleteMutation.mutate(itemToDelete);
+                                    setDeleteDialogOpen(false);
+                                    setItemToDelete(null);
+                                }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>입고 내역 일괄 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            선택한 {selectedIds.size}개의 입고 내역을 정말 삭제하시겠습니까?
+                            <br />
+                            이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                                    onSuccess: () => {
+                                        setSelectedIds(new Set());
+                                        setBulkDeleteDialogOpen(false);
+                                    }
+                                });
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {bulkDeleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            일괄 삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

@@ -568,7 +568,7 @@ export default function TeamMaterialUsageDemolition() {
                                     </TableRow>
                                 ) : (
                                     displayedLogs.map((log: any) => {
-                                        const { attachments: files } = parseAttributes(log.attributes);
+
                                         const rowColor = log.logType === 'dispose' ? 'bg-red-50/50 hover:bg-red-100/50' : 'hover:bg-slate-50/80';
 
                                         return (
@@ -592,37 +592,68 @@ export default function TeamMaterialUsageDemolition() {
                                                 <TableCell className="text-left px-2 text-slate-400 italic truncate" title={log.remark || ''}>{log.remark || ''}</TableCell>
                                                 <TableCell className="text-center px-1 text-slate-400">{(log as any).createdByName || (log as any).creatorName || "-"}</TableCell>
                                                 <TableCell className="text-center px-1">
-                                                    {files.length > 0 && (
-                                                        files.length === 1 ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0 hover:bg-slate-100"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    downloadAttachment(files[0]);
-                                                                }}
-                                                            >
-                                                                <Download className="h-3 w-3 text-slate-500" />
-                                                            </Button>
-                                                        ) : (
+                                                    {(() => {
+                                                        let hasAttachments = false;
+                                                        let attachments: any[] = [];
+                                                        try {
+                                                            const parsed = typeof log.attributes === 'string'
+                                                                ? JSON.parse(log.attributes)
+                                                                : log.attributes || {};
+
+                                                            if (parsed.attachments && parsed.attachments.length > 0) {
+                                                                attachments = parsed.attachments;
+                                                                hasAttachments = true;
+                                                            } else if (parsed.attachment) {
+                                                                attachments = [parsed.attachment];
+                                                                hasAttachments = true;
+                                                            } else if ((log as any).attachment) { // Legacy fallback
+                                                                attachments = [(log as any).attachment];
+                                                                hasAttachments = true;
+                                                            }
+                                                        } catch (e) {
+                                                            hasAttachments = false;
+                                                        }
+
+                                                        if (!hasAttachments) return <span className="text-slate-300">-</span>;
+
+                                                        if (attachments.length === 1) {
+                                                            return (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0 hover:bg-slate-100"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        downloadAttachment(attachments[0]);
+                                                                    }}
+                                                                    title={attachments[0].name}
+                                                                >
+                                                                    <Download className="h-3 w-3 text-slate-500" />
+                                                                </Button>
+                                                            );
+                                                        }
+
+                                                        return (
                                                             <Popover>
                                                                 <PopoverTrigger asChild>
                                                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-100 gap-0.5" onClick={(e) => e.stopPropagation()}>
                                                                         <Paperclip className="h-3 w-3 text-slate-500" />
-                                                                        <span className="text-[9px] font-medium text-slate-600">{files.length}</span>
+                                                                        <span className="text-[9px] font-medium text-slate-600">{attachments.length}</span>
                                                                     </Button>
                                                                 </PopoverTrigger>
                                                                 <PopoverContent className="w-auto p-2" align="center">
                                                                     <div className="flex flex-col gap-1">
-                                                                        <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">첨부파일 {files.length}개</div>
-                                                                        {files.map((file: any, index: number) => (
+                                                                        <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">첨부파일 {attachments.length}개</div>
+                                                                        {attachments.map((file: any, index: number) => (
                                                                             <Button
                                                                                 key={index}
                                                                                 variant="ghost"
                                                                                 size="sm"
                                                                                 className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
-                                                                                onClick={() => downloadAttachment(file)}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    downloadAttachment(file);
+                                                                                }}
                                                                                 title={file.name}
                                                                             >
                                                                                 <Download className="h-3 w-3 mr-2 shrink-0" />
@@ -632,8 +663,8 @@ export default function TeamMaterialUsageDemolition() {
                                                                     </div>
                                                                 </PopoverContent>
                                                             </Popover>
-                                                        )
-                                                    )}
+                                                        );
+                                                    })()}
                                                 </TableCell>
                                                 <TableCell className="text-center px-1">
                                                     <DropdownMenu>

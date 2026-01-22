@@ -52,20 +52,42 @@
 - **Hover**: 행(Row)에 마우스 오버 시 `hover:bg-muted/50` 효과 적용.
 - **Sticky**: 헤더는 `sticky top-0`와 `z-10`을 적용하여 스크롤 시에도 고정.
 
+### D. 아이콘 및 버튼 표준 (Icons & Buttons in Table)
+- **첨부파일 (Attachment)**:
+  - **단일 파일**: `<Download />` 아이콘 사용. 클릭 시 바로 다운로드.
+  - **다중 파일**: `<Paperclip />` 아이콘 + 파일 개수 표시(예: `2`). 클릭 시 팝오버(Popover) 메뉴 노출.
+  - **공통 스타일**: `Button variant="ghost" size="icon"` 또는 `size="sm"` 사용.
+
 ---
 
 ## 3. 다이얼로그 표준 (Dialog Patterns)
 
-모든 등록/수정 다이얼로그는 다음 'Pro Max' 스타일을 따릅니다.
+모든 데이터 등록/수정 다이얼로그는 첨부된 표준 이미지(입고 등록 예시)의 'Pro Max' 스타일을 엄격히 따릅니다.
 
-### A. 레이아웃 및 테마
-- **배경**: `bg-background/80 backdrop-blur-xl`
-- **헤더**: 상단에 얇은 그라데이션 인디케이터 라인 추가 (`bg-gradient-to-r from-primary to-blue-400 h-1`).
-- **입력 필드**: `bg-slate-50/50` 배경색과 `h-9` 높이를 사용하며, 라벨은 `text-slate-500 font-semibold`로 가독성을 높입니다.
+### A. 컨테이너 및 헤더 (Container & Header)
+- **DialogContent**: `max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl`
+- **Top Gradient**: 최상단에 얇은 그라데이션 라인 배치 (`h-1.5 w-full bg-gradient-to-r ...`). 색상은 모듈별 테마를 따릅니다.
+  - *입고(Green/Teal)*, *출고(Orange/Amber)*, *광케이블(Blue/Indigo)*, *철거(Red)*
+- **Title**: `text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent`
+- **Description**: `text-xs text-slate-500`
 
-### B. 첨부파일 영역
-- 점선 테두리(`border-dashed`)의 업로드 영역을 구성합니다.
-- 파일 선택 후 리스트는 회색 박스(`bg-muted/50`) 형태의 카드 레이아웃을 사용합니다.
+### B. 폼 레이아웃 (Form Layout)
+- **Section Headers**: 좌측에 컬러 바(`h-4 w-1 rounded-full`)와 함께 섹션 제목(`font-bold text-[13px]`) 배치.
+- **Input Fields**:
+  - **Height**: `h-9` (Compact)
+  - **Style**: `bg-slate-50/50 border-slate-200/60 focus:bg-white`
+  - **Label**: `text-[12px] font-semibold text-slate-500`
+- **Date/Select**: `Popover`나 `Select` 사용 시에도 동일한 높이와 스타일 적용.
+
+### C. 첨부파일 영역 (Attachments)
+- **Container**: 점선 테두리 (`border-2 border-dashed border-slate-200 rounded-xl`).
+- **Placeholder**: 아이콘 + "클릭하여 파일 업로드" 텍스트.
+- **File List card**: `bg-white border border-slate-100 shadow-sm` 스타일의 카드형 리스트.
+
+### D. Footer (Action Area)
+- **Style**: `bg-slate-50/50 border-t border-slate-100 p-4`
+- **Submit Button**: `bg-gradient-to-r ... text-white shadow-md` (테마색 적용).
+- **Cancel Button**: `variant="ghost" text-slate-500`.
 
 ---
 
@@ -87,4 +109,47 @@
 
 ---
 
-이 지침은 **광케이블 모듈**을 시작으로 전 시스템에 순차적으로 적용됩니다. 새로운 기능 개발 시 이 문서의 패턴을 최우선으로 참고하십시오.
+## 6. 삭제 및 확인 패턴 (Delete & Confirmation Patterns)
+
+데이터 영구 삭제와 같이 되돌릴 수 없는 작업에는 브라우저 기본 알림(`window.confirm`) 사용을 **금지**하며, 시스템 표준 `AlertDialog` 컴포넌트를 사용합니다.
+
+### A. 삭제 확인 다이얼로그 표준
+- **Trigger**: 붉은색 텍스트 또는 아이콘(`text-red-600`) 사용.
+- **Title**: "OOO 삭제" (예: "출고 내역 삭제")
+- **Description**:
+  - 1줄: "선택한 항목을 정말 삭제하시겠습니까?"
+  - 2줄: "이 작업은 되돌릴 수 없습니다." (경고 문구)
+- **Buttons**:
+  - **Cancel**: `variant="outline"` (텍스트: "취소")
+  - **Action**: `variant="destructive"` (텍스트: "삭제"), 로딩 상태(`Loader2`) 표시 필수.
+
+---
+
+## 7. 참조 구현: 광통신 모듈 표준 (Optical Module Reference)
+
+> [!TIP]
+> **Reference Implementation**: `OpticalCables.tsx`, `OpticalCableHistoryDialog.tsx`, `OpticalLogEditDialog.tsx`는 아래 표준의 실제 구현체입니다.
+
+### A. 확장된 다이얼로그 규격 (Wide Layout)
+많은 컬럼을 표시해야 하는 이력/로그 조회 화면에 적용합니다.
+- **참조**: `OpticalCableHistoryDialog.tsx`
+- **Max Width**: `max-w-[1100px]`
+- **특징**: 액션 버튼을 헤더 영역(`DialogHeader`)에 통합하여 공간 효율성 극대화.
+
+### B. 상태 기반 행 스타일 (Status Row Colors)
+테이블에서 상태(Status)를 명확히 구분하기 위해 **행 전체 배경색**을 사용합니다.
+- **참조**: `OpticalCables.tsx` (List), `OpticalCableHistoryDialog.tsx` (History)
+- **Color Mapping**:
+  - **예약 (Reserved)**: `bg-orange-50/50 hover:bg-orange-100/50`
+  - **출고 (Assigned)**: `bg-blue-50/30 hover:bg-blue-50/60`
+  - **반납 대기**: `bg-amber-50/50 hover:bg-amber-100/50`
+  - **폐기**: `bg-red-50/30`
+  - **기본**: `hover:bg-slate-50/50`
+
+### C. 파스텔 톤 액션 버튼 (Pastel Action Buttons)
+행의 배경색과 시각적으로 연결되는 **연한 배경(Pastel)** 버튼을 사용합니다. 진한 색상은 피합니다.
+- **Style Pattern**: `bg-{color}-50 text-{color}-700 border border-{color}-200 hover:bg-{color}-100`
+- **구현 예시**:
+  - **예약**: `bg-orange-50 text-orange-700 border-orange-200`
+  - **출고**: `bg-blue-50 text-blue-700 border-blue-200`
+  - **폐기**: `bg-red-50 text-red-700 border-red-200`

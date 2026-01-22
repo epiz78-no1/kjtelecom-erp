@@ -874,71 +874,82 @@ export default function TeamMaterialUsage() {
                     <TableCell className="text-center px-1 text-slate-400">{(record as any).createdByName || "-"}</TableCell>
                     <TableCell className="text-center px-1">
                       {(() => {
+                        let hasAttachments = false;
+                        let attachments: any[] = [];
                         try {
-                          if (!record.attributes) return null;
-                          let attrs: any = {};
-                          if (typeof record.attributes === 'string') {
-                            attrs = JSON.parse(record.attributes);
-                          } else if (typeof record.attributes === 'object') {
-                            attrs = record.attributes;
-                          }
-                          const attachments = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
-                          if (attachments.length === 0) return null;
+                          const parsed = typeof record.attributes === 'string'
+                            ? JSON.parse(record.attributes)
+                            : record.attributes || {};
 
-                          if (attachments.length === 1) {
-                            return (
+                          if (parsed.attachments && parsed.attachments.length > 0) {
+                            attachments = parsed.attachments;
+                            hasAttachments = true;
+                          } else if (parsed.attachment) {
+                            attachments = [parsed.attachment];
+                            hasAttachments = true;
+                          } else if ((record as any).attachment) { // Legacy fallback
+                            attachments = [(record as any).attachment];
+                            hasAttachments = true;
+                          }
+                        } catch (e) {
+                          hasAttachments = false;
+                        }
+
+                        if (!hasAttachments) return <span className="text-slate-300">-</span>;
+
+                        if (attachments.length === 1) {
+                          return (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const file = attachments[0];
+                                downloadAttachment(file.storagePath || file.storageUrl, file.name);
+                              }}
+                              title={attachments[0].name}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                          );
+                        }
+
+                        return (
+                          <Popover>
+                            <PopoverTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 hover:bg-slate-100"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  downloadAttachment(attachments[0]);
-                                }}
-                                title={attachments[0].name}
+                                className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <Download className="h-3 w-3 text-slate-500" />
+                                <Paperclip className="h-3.5 w-3.5" />
+                                <span className="text-[10px] font-medium">{attachments.length}</span>
                               </Button>
-                            );
-                          }
-
-                          return (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 hover:bg-slate-100 gap-0.5"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Paperclip className="h-3 w-3 text-slate-500" />
-                                  <span className="text-[9px] font-medium text-slate-600">{attachments.length}</span>
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-2" align="end">
-                                <div className="flex flex-col gap-1">
-                                  {attachments.map((file: any, idx: number) => (
-                                    <Button
-                                      key={idx}
-                                      variant="ghost"
-                                      size="sm"
-                                      className="justify-start h-8 text-xs max-w-[200px]"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        downloadAttachment(file);
-                                      }}
-                                      title={file.name}
-                                    >
-                                      <Download className="h-3 w-3 mr-2 shrink-0" />
-                                      <span className="truncate">{file.name}</span>
-                                    </Button>
-                                  ))}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          );
-                        } catch (e) { }
-                        return null;
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-2" align="end">
+                              <div className="flex flex-col gap-1">
+                                {attachments.map((file: any, idx: number) => (
+                                  <Button
+                                    key={idx}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start h-8 text-xs max-w-[200px]"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadAttachment(file.storagePath || file.storageUrl, file.name);
+                                    }}
+                                    title={file.name}
+                                  >
+                                    <Download className="h-3 w-3 mr-2 shrink-0" />
+                                    <span className="truncate">{file.name}</span>
+                                  </Button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        );
                       })()}
                     </TableCell>
                     <TableCell className="text-center px-1">

@@ -508,82 +508,89 @@ export default function FieldOpticalUsage() {
                                             </TableCell>
                                             <TableCell className="text-center px-1">
                                                 {(() => {
+                                                    let hasAttachments = false;
+                                                    let attachments: any[] = [];
                                                     try {
-                                                        const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
-                                                        if (!attr) return '';
+                                                        const parsed = typeof (log as any).attributes === 'string'
+                                                            ? JSON.parse((log as any).attributes)
+                                                            : (log as any).attributes || {};
 
-                                                        const attachments: { name: string; storageUrl?: string; data?: string }[] = [];
-                                                        if (attr.attachments && Array.isArray(attr.attachments)) {
-                                                            attachments.push(...attr.attachments);
-                                                        } else if (attr.attachment && typeof attr.attachment === 'object') {
-                                                            attachments.push(attr.attachment);
+                                                        if (parsed.attachments && parsed.attachments.length > 0) {
+                                                            attachments = parsed.attachments;
+                                                            hasAttachments = true;
+                                                        } else if (parsed.attachment) {
+                                                            attachments = [parsed.attachment];
+                                                            hasAttachments = true;
+                                                        } else if ((log as any).attachment) { // Legacy fallback
+                                                            attachments = [(log as any).attachment];
+                                                            hasAttachments = true;
                                                         }
+                                                    } catch (e) {
+                                                        hasAttachments = false;
+                                                    }
 
-                                                        if (attachments.length === 0) return "";
+                                                    if (!hasAttachments) return "";
 
-                                                        if (attachments.length === 1) {
-                                                            return (
+                                                    if (attachments.length === 1) {
+                                                        return (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (attachments[0].storagePath || attachments[0].storageUrl) {
+                                                                        downloadAttachment(attachments[0]);
+                                                                    } else {
+                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    }
+                                                                }}
+                                                                title={attachments[0].name}
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-6 w-6 p-0 hover:bg-slate-100 rounded-full"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (attachments[0].storageUrl) {
-                                                                            downloadAttachment(attachments[0]);
-                                                                        } else {
-                                                                            downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
-                                                                        }
-                                                                    }}
-                                                                    title={attachments[0].name}
+                                                                    className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
+                                                                    onClick={(e) => e.stopPropagation()}
                                                                 >
-                                                                    <Download className="h-3.5 w-3.5 text-slate-500" />
+                                                                    <Paperclip className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-medium">{attachments.length}</span>
                                                                 </Button>
-                                                            );
-                                                        }
-
-                                                        return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-6 w-auto gap-1 px-1.5 hover:bg-slate-100 rounded-full"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        <Paperclip className="h-3.5 w-3.5 text-slate-500" />
-                                                                        <span className="text-[10px] font-medium text-slate-600">{attachments.length}</span>
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-1" align="end">
-                                                                    <div className="flex flex-col gap-0.5">
-                                                                        {attachments.map((file: any, idx: number) => (
-                                                                            <Button
-                                                                                key={idx}
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="justify-start h-8 text-xs max-w-[200px]"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    if (file.storageUrl) {
-                                                                                        downloadAttachment(file);
-                                                                                    } else {
-                                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
-                                                                                    }
-                                                                                }}
-                                                                                title={file.name}
-                                                                            >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                            </Button>
-                                                                        ))}
-                                                                    </div>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        );
-                                                    } catch (e) {
-                                                        return '';
-                                                    }
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="end">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {attachments.map((file: any, idx: number) => (
+                                                                        <Button
+                                                                            key={idx}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-8 text-xs max-w-[200px]"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (file.storagePath || file.storageUrl) {
+                                                                                    downloadAttachment(file);
+                                                                                } else {
+                                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                }
+                                                                            }}
+                                                                            title={file.name}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
                                                 })()}
                                             </TableCell>
                                             <TableCell className="text-center px-1 truncate max-w-[80px]" title={(log as any).workerName || ''}>
@@ -730,73 +737,89 @@ export default function FieldOpticalUsage() {
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                 <span>{(log as any).workerName || '-'}</span>
                                                 {(() => {
+                                                    let hasAttachments = false;
+                                                    let attachments: any[] = [];
                                                     try {
-                                                        const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
-                                                        if (!attr) return null;
+                                                        const parsed = typeof (log as any).attributes === 'string'
+                                                            ? JSON.parse((log as any).attributes)
+                                                            : (log as any).attributes || {};
 
-                                                        const attachments: { name: string }[] = [];
-                                                        if (attr.attachments && Array.isArray(attr.attachments)) {
-                                                            attachments.push(...attr.attachments);
-                                                        } else if (attr.attachment && typeof attr.attachment === 'object') {
-                                                            attachments.push(attr.attachment);
+                                                        if (parsed.attachments && parsed.attachments.length > 0) {
+                                                            attachments = parsed.attachments;
+                                                            hasAttachments = true;
+                                                        } else if (parsed.attachment) {
+                                                            attachments = [parsed.attachment];
+                                                            hasAttachments = true;
+                                                        } else if ((log as any).attachment) { // Legacy fallback
+                                                            attachments = [(log as any).attachment];
+                                                            hasAttachments = true;
                                                         }
+                                                    } catch (e) {
+                                                        hasAttachments = false;
+                                                    }
 
-                                                        if (attachments.length === 0) return null;
+                                                    if (!hasAttachments) return null;
 
-                                                        if (attachments.length === 1) {
-                                                            return (
+                                                    if (attachments.length === 1) {
+                                                        return (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-5 w-5 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (attachments[0].storagePath || attachments[0].storageUrl) {
+                                                                        downloadAttachment(attachments[0]);
+                                                                    } else {
+                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    }
+                                                                }}
+                                                                title={attachments[0].name}
+                                                            >
+                                                                <Download className="h-3 w-3" />
+                                                            </Button>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-5 px-1"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
-                                                                    }}
+                                                                    className="h-5 gap-1 px-1 hover:bg-blue-50 hover:text-blue-600"
+                                                                    onClick={(e) => e.stopPropagation()}
                                                                 >
-                                                                    <Download className="h-3 w-3" />
+                                                                    <Paperclip className="h-3 w-3" />
+                                                                    <span className="text-[10px] font-medium">{attachments.length}</span>
                                                                 </Button>
-                                                            );
-                                                        }
-
-                                                        return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-5 gap-1 px-1"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        <Paperclip className="h-3 w-3" />
-                                                                        <span className="text-[10px] font-medium">{attachments.length}</span>
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2" align="end">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        {attachments.map((file: any, idx: number) => (
-                                                                            <Button
-                                                                                key={idx}
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="justify-start h-8 text-xs max-w-[200px]"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="end">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {attachments.map((file: any, idx: number) => (
+                                                                        <Button
+                                                                            key={idx}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-8 text-xs max-w-[200px]"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (file.storagePath || file.storageUrl) {
+                                                                                    downloadAttachment(file);
+                                                                                } else {
                                                                                     downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
-                                                                                }}
-                                                                                title={file.name}
-                                                                            >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                            </Button>
-                                                                        ))}
-                                                                    </div>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        );
-                                                    } catch (e) {
-                                                        return null;
-                                                    }
+                                                                                }
+                                                                            }}
+                                                                            title={file.name}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
                                                 })()}
                                             </div>
                                             <div className="flex items-baseline gap-1">

@@ -6,6 +6,16 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +109,15 @@ export default function OpticalCables() {
     const [historyItem, setHistoryItem] = useState<OpticalCable | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+    // Delete & Confirmation Dialog States
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+    const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+
+    // Return Approval Dialog State
+    const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+    const [returnAction, setReturnAction] = useState<{ id: string, action: 'approve' | 'reject' } | null>(null);
 
     // Reservation Dialog State
     const [reserveDialogOpen, setReserveDialogOpen] = useState(false);
@@ -206,20 +225,12 @@ export default function OpticalCables() {
     };
 
     const handleBulkDelete = () => {
-        if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds), {
-                onSuccess: () => {
-                    setSelectedIds(new Set());
-                }
-            });
-        }
+        setBulkDeleteDialogOpen(true);
     };
 
     const handleReturnApproval = (id: string, action: 'approve' | 'reject') => {
-        const actionText = action === 'approve' ? '승인' : '반려';
-        if (confirm(`반납을 ${actionText}하시겠습니까?`)) {
-            returnApprovalMutation.mutate({ id, action });
-        }
+        setReturnAction({ id, action });
+        setReturnDialogOpen(true);
     };
 
     const getAllActiveFilters = () => {
@@ -581,7 +592,10 @@ export default function OpticalCables() {
                                                         <>
                                                             <div className="h-px bg-slate-100 my-1" />
                                                             <DropdownMenuItem className="text-red-600 gap-2 focus:text-red-700 focus:bg-red-50"
-                                                                onClick={() => { if (confirm("정말 삭제하시겠습니까?")) deleteMutation.mutate(cable.id); }}>
+                                                                onClick={() => {
+                                                                    setItemToDelete(cable.id);
+                                                                    setDeleteDialogOpen(true);
+                                                                }}>
                                                                 <Trash2 className="h-4 w-4" /> 완전 삭제
                                                             </DropdownMenuItem>
                                                         </>
@@ -660,6 +674,98 @@ export default function OpticalCables() {
                 onOpenChange={setReserveDialogOpen}
                 cable={selectedReserveCable}
             />
+
+            {/* Delete Confirmation */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>자재 영구 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            이 자재를 시스템에서 영구적으로 삭제하시겠습니까?
+                            <br />
+                            관련된 모든 입출고 내역도 함께 삭제될 수 있으며, 이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (itemToDelete) {
+                                    deleteMutation.mutate(itemToDelete);
+                                    setDeleteDialogOpen(false);
+                                    setItemToDelete(null);
+                                }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Bulk Delete Confirmation */}
+            <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>자재 일괄 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            선택한 {selectedIds.size}개의 자재를 영구적으로 삭제하시겠습니까?
+                            <br />
+                            이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                                    onSuccess: () => {
+                                        setSelectedIds(new Set());
+                                        setBulkDeleteDialogOpen(false);
+                                    }
+                                });
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {bulkDeleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            일괄 삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Return Approval/Rejection Confirmation */}
+            <AlertDialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>반납 {returnAction?.action === 'approve' ? '승인' : '반려'}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {returnAction?.action === 'approve'
+                                ? '이 반납 요청을 승인하여 자재를 "창고(보관)" 상태로 변경하시겠습니까?'
+                                : '이 반납 요청을 반려하시겠습니까?'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (returnAction) {
+                                    returnApprovalMutation.mutate({ id: returnAction.id, action: returnAction.action });
+                                    setReturnDialogOpen(false);
+                                    setReturnAction(null);
+                                }
+                            }}
+                            className={returnAction?.action === 'approve' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}
+                        >
+                            {returnApprovalMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {returnAction?.action === 'approve' ? '승인' : '반려'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </div >
     );
 };

@@ -5,6 +5,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import {
     Popover,
     PopoverContent,
@@ -150,91 +151,110 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[1100px] max-h-[85vh]">
-                <DialogHeader className="flex flex-row items-center justify-between">
-                    <DialogTitle className="text-xl">이력 조회 - 제조번호 {drumNo}</DialogTitle>
-                    <div className="mr-8 flex gap-2">
-                        {cable?.status === 'in_stock' && (
-                            <>
-                                <Button
-                                    size="sm"
-                                    variant={cable?.reservationStatus === 'reserved' ? 'outline' : 'default'}
-                                    onClick={() => setReserveDialogOpen(true)}
-                                >
-                                    {cable?.reservationStatus === 'reserved' ? '예약 해제' : '예약'}
-                                </Button>
-                                {/* Show assignment button only when NOT reserved */}
-                                {cable?.reservationStatus !== 'reserved' && (
-                                    <OpticalAssignmentDialog
-                                        initialCableId={cableId}
-                                        trigger={<Button size="sm">출고 등록</Button>}
-                                    />
-                                )}
-                            </>
-                        )}
-                        {/* 반납 요청 대기 중인 경우 승인/반려 버튼 표시 */}
-                        {cable?.returnRequestStatus === 'pending' && (
-                            <>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs border-green-300 text-green-700 hover:bg-green-50"
-                                    onClick={() => {
-                                        if (confirm('반납을 승인하시겠습니까?')) {
-                                            handleReturnApproval('approve');
-                                        }
-                                    }}
-                                >
-                                    반납 승인
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                                    onClick={() => {
-                                        if (confirm('반납을 반려하시겠습니까?')) {
-                                            handleReturnApproval('reject');
-                                        }
-                                    }}
-                                >
-                                    반납 반려
-                                </Button>
-                            </>
-                        )}
-                        {/* Tenant Owner-only Waste Button - hide when reserved or not in stock/returned */}
-                        {isTenantOwner && cable && ['in_stock', 'returned'].includes(cable.status) && cable?.reservationStatus !== 'reserved' && (
-                            <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => setWasteDialogOpen(true)}
-                            >
-                                폐기
-                            </Button>
-                        )}
-                    </div>
-                </DialogHeader>
+            <DialogContent className="max-w-[1100px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]">
+                {/* Top Gradient Indicator */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shrink-0" />
 
-                {isLoading ? (
-                    <div className="flex items-center justify-center p-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                ) : (
-                    <div className="flex-1 overflow-visible">
-                        <div className="rounded-md border">
+                <div className="px-6 pt-6 pb-2 shrink-0">
+                    <DialogHeader className="flex flex-row items-center justify-between mb-2">
+                        <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent flex items-center gap-2">
+                            <span className="flex h-2 w-2 rounded-full bg-blue-500" />
+                            이력 조회 - 제조번호 {drumNo}
+                        </DialogTitle>
+
+                        {/* Action Buttons in Header */}
+                        <div className="flex gap-2">
+                            {cable?.status === 'in_stock' && (
+                                <>
+                                    <Button
+                                        size="sm"
+                                        variant={cable?.reservationStatus === 'reserved' ? 'outline' : 'default'}
+                                        onClick={() => setReserveDialogOpen(true)}
+                                        className={cn(
+                                            "h-8 text-xs shadow-sm font-medium border",
+                                            cable?.reservationStatus === 'reserved'
+                                                ? "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800"
+                                                : "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800"
+                                        )}
+                                    >
+                                        {cable?.reservationStatus === 'reserved' ? '예약 해제' : '예약'}
+                                    </Button>
+                                    {/* Show assignment button only when NOT reserved */}
+                                    {cable?.reservationStatus !== 'reserved' && (
+                                        <OpticalAssignmentDialog
+                                            initialCableId={cableId}
+                                            trigger={<Button size="sm" variant="outline" className="h-8 text-xs border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 shadow-sm shadow-blue-50 font-medium">출고 등록</Button>}
+                                        />
+                                    )}
+                                </>
+                            )}
+                            {/* 반납 요청 대기 중인 경우 승인/반려 버튼 표시 */}
+                            {cable?.returnRequestStatus === 'pending' && (
+                                <>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 text-xs border-green-300 text-green-700 hover:bg-green-50 shadow-sm"
+                                        onClick={() => {
+                                            if (confirm('반납을 승인하시겠습니까?')) {
+                                                handleReturnApproval('approve');
+                                            }
+                                        }}
+                                    >
+                                        반납 승인
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 text-xs border-orange-300 text-orange-700 hover:bg-orange-50 shadow-sm"
+                                        onClick={() => {
+                                            if (confirm('반납을 반려하시겠습니까?')) {
+                                                handleReturnApproval('reject');
+                                            }
+                                        }}
+                                    >
+                                        반납 반려
+                                    </Button>
+                                </>
+                            )}
+                            {/* Tenant Owner-only Waste Button - hide when reserved or not in stock/returned */}
+                            {isTenantOwner && cable && ['in_stock', 'returned'].includes(cable.status) && cable?.reservationStatus !== 'reserved' && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setWasteDialogOpen(true)}
+                                    className="h-8 text-xs border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 shadow-sm shadow-red-50 font-medium"
+                                >
+                                    폐기
+                                </Button>
+                            )}
+                        </div>
+                    </DialogHeader>
+                </div>
+
+
+
+                <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex-1">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center p-8 h-full">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-muted/50">
-                                        <TableHead className="w-[110px] text-center">일자</TableHead>
-                                        <TableHead className="w-[90px] text-center">구분</TableHead>
-                                        <TableHead className="w-[130px] text-center">공사번호</TableHead>
-                                        <TableHead className="w-[200px] text-center">공사명</TableHead>
-                                        <TableHead className="w-[100px] text-center">사용(m)</TableHead>
-                                        <TableHead className="w-[80px] text-center">폐기(m)</TableHead>
-                                        <TableHead className="w-[100px] text-center">잔량(m)</TableHead>
-                                        <TableHead className="w-[90px] text-center">수령자</TableHead>
-                                        <TableHead className="w-[90px] text-center">입력자</TableHead>
-                                        <TableHead className="w-[60px] text-center">첨부</TableHead>
-                                        <TableHead className="w-[60px] text-center">취소</TableHead>
+                                    <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200">
+                                        <TableHead className="w-[110px] text-center h-8 text-xs font-bold text-slate-600">일자</TableHead>
+                                        <TableHead className="w-[80px] text-center h-8 text-xs font-bold text-slate-600">구분</TableHead>
+                                        <TableHead className="w-[120px] text-center h-8 text-xs font-bold text-slate-600">공사번호</TableHead>
+                                        <TableHead className="w-[200px] text-center h-8 text-xs font-bold text-slate-600">공사명</TableHead>
+                                        <TableHead className="w-[80px] text-center h-8 text-xs font-bold text-slate-600">사용(m)</TableHead>
+                                        <TableHead className="w-[80px] text-center h-8 text-xs font-bold text-slate-600">폐기(m)</TableHead>
+                                        <TableHead className="w-[90px] text-center h-8 text-xs font-bold text-slate-600">잔량(m)</TableHead>
+                                        <TableHead className="w-[80px] text-center h-8 text-xs font-bold text-slate-600">수령자</TableHead>
+                                        <TableHead className="w-[80px] text-center h-8 text-xs font-bold text-slate-600">입력자</TableHead>
+                                        <TableHead className="w-[50px] text-center h-8 text-xs font-bold text-slate-600">첨부</TableHead>
+                                        <TableHead className="w-[50px] text-center h-8 text-xs font-bold text-slate-600">취소</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -246,10 +266,24 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                                         </TableRow>
                                     ) : (
                                         logs.map((log, index) => (
-                                            <TableRow key={log.id} className="h-10">
-                                                <TableCell className="text-center">{log.usageDate ? format(new Date(log.usageDate), 'yyyy-MM-dd') : format(new Date(log.createdAt), 'yyyy-MM-dd')}</TableCell>
-                                                <TableCell className="text-center font-medium">{getLogTypeLabel(log.logType)}</TableCell>
-                                                <TableCell className="text-center">{log.projectCode || ''}</TableCell>
+                                            <TableRow
+                                                key={log.id}
+                                                className={cn(
+                                                    "h-8 transition-colors",
+                                                    log.logType === 'reserve' ? "bg-orange-50/50 hover:bg-orange-100/50" :
+                                                        log.logType === 'assign' ? "bg-blue-50/30 hover:bg-blue-50/60" :
+                                                            log.logType === 'return' ? "bg-amber-50/50 hover:bg-amber-100/50" :
+                                                                log.logType === 'waste' ? "bg-red-50/30 hover:bg-red-50/50" :
+                                                                    "hover:bg-slate-50/50"
+                                                )}
+                                            >
+                                                <TableCell className="text-center text-xs text-slate-600">{log.usageDate ? format(new Date(log.usageDate), 'yyyy-MM-dd') : format(new Date(log.createdAt), 'yyyy-MM-dd')}</TableCell>
+                                                <TableCell className="text-center">
+                                                    <span className="text-xs font-medium text-slate-700">
+                                                        {getLogTypeLabel(log.logType)}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-center text-xs">{log.projectCode || '-'}</TableCell>
                                                 <TableCell className="text-left" title={log.logType === 'waste' && log.attributes ? (() => {
                                                     try {
                                                         const attr = JSON.parse(log.attributes);
@@ -258,7 +292,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                                                         return log.projectNameUsage || '';
                                                     }
                                                 })() : log.projectNameUsage || ''}>
-                                                    <div className="truncate max-w-[200px]">
+                                                    <div className="truncate max-w-[200px] text-xs font-medium text-slate-700">
                                                         {log.logType === 'waste' && log.attributes ? (() => {
                                                             try {
                                                                 const attr = JSON.parse(log.attributes);
@@ -269,17 +303,17 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                                                         })() : log.projectNameUsage || ''}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-center">
-                                                    {(log.installLength || 0) > 0 ? (log.installLength || 0).toLocaleString() : (log.usedLength && log.usedLength > (log.wasteLength || 0) ? (log.usedLength - (log.wasteLength || 0)).toLocaleString() : '')}
+                                                <TableCell className="text-center text-xs font-mono text-slate-600">
+                                                    {(log.installLength || 0) > 0 ? (log.installLength || 0).toLocaleString() : (log.usedLength && log.usedLength > (log.wasteLength || 0) ? (log.usedLength - (log.wasteLength || 0)).toLocaleString() : '-')}
                                                 </TableCell>
-                                                <TableCell className="text-center text-red-600">
-                                                    {(log.wasteLength || 0) > 0 ? (log.wasteLength || 0).toLocaleString() : ''}
+                                                <TableCell className="text-center text-xs font-mono text-red-500 font-medium">
+                                                    {(log.wasteLength || 0) > 0 ? (log.wasteLength || 0).toLocaleString() : '-'}
                                                 </TableCell>
-                                                <TableCell className="text-center font-bold">
+                                                <TableCell className="text-center text-xs font-mono font-bold text-slate-800 bg-slate-50/50">
                                                     {(log.afterRemaining || 0).toLocaleString()}
                                                 </TableCell>
-                                                <TableCell className="text-center">{log.workerName || ''}</TableCell>
-                                                <TableCell className="text-center text-muted-foreground">{(log as any).createdByName || ''}</TableCell>
+                                                <TableCell className="text-center text-xs">{log.workerName || '-'}</TableCell>
+                                                <TableCell className="text-center text-xs text-muted-foreground">{(log as any).createdByName || '-'}</TableCell>
                                                 {/* Attachment Icon */}
                                                 <TableCell className="text-center">
                                                     {(() => {
@@ -393,8 +427,14 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                                 </TableBody>
                             </Table>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
+
+                <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
+                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="h-9 text-slate-500 hover:text-slate-900">
+                        닫기
+                    </Button>
+                </div>
             </DialogContent>
 
             {/* Reserve Dialog */}

@@ -481,23 +481,83 @@ export default function DemolitionIncoming() {
                                             <TableCell className="text-left px-2 text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[150px]" title={material.remark || ""}>{material.remark}</TableCell>
                                             <TableCell className="text-center text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[80px]">{material.workerName}</TableCell>
                                             <TableCell className="text-center p-0 border-r border-slate-100/50">
-                                                {hasAttachments ? (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (attachment) {
-                                                                downloadAttachment(attachment.storagePath, attachment.name);
-                                                            }
-                                                        }}
-                                                    >
-                                                        <Paperclip className="h-3 w-3" />
-                                                    </Button>
-                                                ) : (
-                                                    <span className="text-slate-300">-</span>
-                                                )}
+                                                {(() => {
+                                                    let hasAttachments = false;
+                                                    let attachments: any[] = [];
+                                                    try {
+                                                        const parsed = typeof material.attributes === 'string'
+                                                            ? JSON.parse(material.attributes)
+                                                            : material.attributes || {};
+
+                                                        if (parsed.attachments && parsed.attachments.length > 0) {
+                                                            attachments = parsed.attachments;
+                                                            hasAttachments = true;
+                                                        } else if (parsed.attachment) {
+                                                            attachments = [parsed.attachment];
+                                                            hasAttachments = true;
+                                                        } else if ((material as any).attachment) { // Legacy fallback
+                                                            attachments = [(material as any).attachment];
+                                                            hasAttachments = true;
+                                                        }
+                                                    } catch (e) {
+                                                        hasAttachments = false;
+                                                    }
+
+                                                    if (!hasAttachments) return <span className="text-slate-300">-</span>;
+
+                                                    if (attachments.length === 1) {
+                                                        return (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    downloadAttachment(attachments[0]);
+                                                                }}
+                                                                title={attachments[0].name}
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <Paperclip className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-medium">{attachments.length}</span>
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="end">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {attachments.map((file: any, idx: number) => (
+                                                                        <Button
+                                                                            key={idx}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-8 text-xs max-w-[200px]"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                downloadAttachment(file);
+                                                                            }}
+                                                                            title={file.name}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
+                                                })()}
                                             </TableCell>
                                             <TableCell className="text-center p-0">
                                                 <DropdownMenu>

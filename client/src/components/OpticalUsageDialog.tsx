@@ -308,259 +308,334 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>{editingLog ? "사용 내역 수정" : "사용 내역 입력"}</DialogTitle>
-                    <DialogDescription>
-                        광케이블 포설 및 접속 작업 실적을 {editingLog ? "수정" : "등록"}합니다.
-                    </DialogDescription>
-                </DialogHeader>
+            <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl">
+                {/* Top Gradient Indicator */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
 
-                {isLoading ? (
-                    <div className="flex flex-col justify-center items-center py-10 space-y-4">
-                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                        <p className="text-muted-foreground">데이터를 불러오는 중입니다...</p>
-                    </div>
-                ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* 첫 번째 행: 날짜, 사용팀, 사용자 */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label>사용일 <span className="text-red-500">*</span></Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !formData.usageDate && "text-muted-foreground"
-                                            )}
+                <div className="px-6 pt-6 pb-2">
+                    <DialogHeader className="mb-4">
+                        <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+                            {editingLog ? "사용 내역 수정" : "사용 내역 등록"}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            광케이블 포설 및 접속 작업 실적을 {editingLog ? "수정하여 데이터를 갱신합니다." : "새로 등록합니다."}
+                        </DialogDescription>
+                    </DialogHeader>
+                </div>
+
+                <div className="px-6 pb-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    {isLoading ? (
+                        <div className="flex flex-col justify-center items-center py-20 space-y-4">
+                            <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+                            <p className="text-sm font-medium text-slate-500">데이터를 불러오는 중입니다...</p>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSubmit} className="grid gap-6">
+
+                            {/* 기본 정보 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-violet-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">작업 기본 정보</h4>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">사용일 <span className="text-red-500">*</span></Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal h-9 bg-slate-50/50 border-slate-200/60 hover:bg-white hover:border-violet-500/50 transition-all text-xs",
+                                                        !formData.usageDate && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4 text-violet-600" />
+                                                    {formData.usageDate ? format(new Date(formData.usageDate), "yyyy-MM-dd") : <span>날짜 선택</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0 border-violet-100 shadow-xl" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={formData.usageDate ? new Date(formData.usageDate) : undefined}
+                                                    onSelect={(date) => setFormData({ ...formData, usageDate: date ? format(date, "yyyy-MM-dd") : "" })}
+                                                    initialFocus
+                                                    className="p-3"
+                                                    classNames={{
+                                                        day_selected: "bg-violet-500 text-white hover:bg-violet-600 focus:bg-violet-600",
+                                                        day_today: "bg-violet-50 text-violet-600",
+                                                    }}
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">사용팀 <span className="text-red-500">*</span></Label>
+                                        {isFieldTeam ? (
+                                            <Input
+                                                value={teams.find(t => t.id === myTeamId)?.name || ''}
+                                                disabled
+                                                className="h-9 bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed"
+                                            />
+                                        ) : (
+                                            <Select
+                                                value={formData.teamId}
+                                                onValueChange={(val) => setFormData({ ...formData, teamId: val, cableId: "" })}
+                                                disabled={!!editingLog}
+                                            >
+                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-violet-500/20 text-xs">
+                                                    <SelectValue placeholder="팀 선택" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {teams.map((team) => (
+                                                        <SelectItem key={team.id} value={team.id} className="text-xs">
+                                                            {team.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">사용자</Label>
+                                        {isFieldTeam ? (
+                                            <Input
+                                                value={formData.workerName}
+                                                disabled
+                                                className="h-9 bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed"
+                                            />
+                                        ) : (
+                                            <Select
+                                                value={formData.workerName}
+                                                onValueChange={(val) => setFormData({ ...formData, workerName: val })}
+                                                disabled={!formData.teamId}
+                                            >
+                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-violet-500/20 text-xs">
+                                                    <SelectValue placeholder="사용자 선택" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {members.filter((m: any) => m.teamId === formData.teamId).map((member: any) => (
+                                                        <SelectItem key={member.id} value={member.name} className="text-xs">
+                                                            {member.name} ({member.username})
+                                                        </SelectItem>
+                                                    ))}
+                                                    {members.filter((m: any) => m.teamId === formData.teamId).length === 0 && (
+                                                        <SelectItem value="none" disabled className="text-xs">팀원 없음</SelectItem>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-slate-100" />
+
+                            {/* 사용 정보 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-purple-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">케이블 사용 정보</h4>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">사용 드럼 선택 <span className="text-red-500">*</span></Label>
+                                        <Select
+                                            key={formData.cableId}
+                                            value={formData.cableId || undefined}
+                                            onValueChange={(val) => setFormData({ ...formData, cableId: val })}
+                                            disabled={(!isFieldTeam && !formData.teamId) || !!editingLog}
                                         >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {formData.usageDate ? format(new Date(formData.usageDate), "yyyy-MM-dd") : <span>날짜 선택</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={formData.usageDate ? new Date(formData.usageDate) : undefined}
-                                            onSelect={(date) => setFormData({ ...formData, usageDate: date ? format(date, "yyyy-MM-dd") : "" })}
-                                            initialFocus
+                                            <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-violet-500/20 text-xs">
+                                                <SelectValue placeholder={
+                                                    !isFieldTeam && !formData.teamId
+                                                        ? "먼저 팀을 선택하세요"
+                                                        : availableCables.length === 0
+                                                            ? "사용 가능한 드럼이 없습니다"
+                                                            : "드럼번호 선택"
+                                                } />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableCables.map((cable) => (
+                                                    <SelectItem key={cable.id} value={cable.id.toString()} className="text-xs">
+                                                        {cable.division ? `[${cable.division}] ` : ""}{cable.drumNo} ({cable.productName} / 잔량: {cable.remainingLength.toLocaleString()}m)
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* 선택된 드럼 정보 카드 */}
+                                    {selectedCable && (
+                                        <div className="text-xs text-purple-700 font-medium p-3 bg-purple-50/50 rounded-lg border border-purple-100 flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+                                            선택됨: {selectedCable.drumNo} ({selectedCable.productName} / 잔량 {selectedCable.remainingLength.toLocaleString()}m)
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[12px] font-semibold text-slate-500 ml-1">설치 길이 (m) <span className="text-red-500">*</span></Label>
+                                            <Input
+                                                type="number"
+                                                value={formData.installLength || ''}
+                                                onChange={(e) => setFormData({ ...formData, installLength: Number(e.target.value) })}
+                                                min={0}
+                                                placeholder="0"
+                                                className="h-9 font-mono bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-purple-500/50 transition-all text-right"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[12px] font-semibold text-slate-500 ml-1">자투리 (m)</Label>
+                                            <Input
+                                                type="number"
+                                                value={formData.wasteLength || ''}
+                                                onChange={(e) => setFormData({ ...formData, wasteLength: Number(e.target.value) })}
+                                                min={0}
+                                                placeholder="0"
+                                                className="h-9 font-mono bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-purple-500/50 transition-all text-right"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-slate-100" />
+
+                            {/* 공사 정보 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-fuchsia-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">공사 정보</h4>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">공사번호</Label>
+                                        <Input
+                                            value={formData.projectCode || ''}
+                                            onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-fuchsia-500/50 transition-all"
+                                            placeholder="공사번호 입력"
                                         />
-                                    </PopoverContent>
-                                </Popover>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">공사명</Label>
+                                        <Input
+                                            value={formData.projectNameUsage}
+                                            onChange={(e) => setFormData({ ...formData, projectNameUsage: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-fuchsia-500/50 transition-all"
+                                            placeholder="공사명 입력"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label>사용팀 <span className="text-red-500">*</span></Label>
-                                {isFieldTeam ? (
-                                    <Input
-                                        value={teams.find(t => t.id === myTeamId)?.name || ''}
-                                        disabled
-                                        className="bg-muted"
-                                    />
-                                ) : (
-                                    <Select
-                                        value={formData.teamId}
-                                        onValueChange={(val) => setFormData({ ...formData, teamId: val, cableId: "" })}
-                                        disabled={!!editingLog}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="팀 선택" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {teams.map((team) => (
-                                                <SelectItem key={team.id} value={team.id}>
-                                                    {team.name}
-                                                </SelectItem>
+
+                            <div className="h-px bg-slate-100" />
+
+                            {/* 첨부파일 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-slate-400 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">첨부파일</h4>
+                                    <span className="text-[11px] text-slate-400 font-normal ml-auto">최대 4개 / 이미지, PDF, 엑셀 지원</span>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="relative">
+                                        <Input
+                                            id="optical-usage-file-upload"
+                                            type="file"
+                                            accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                                            multiple
+                                            className="hidden"
+                                            onChange={handleFileChange}
+                                            disabled={isUploading || attachments.length >= 4}
+                                        />
+                                        {attachments.length < 4 && (
+                                            <label
+                                                htmlFor="optical-usage-file-upload"
+                                                className={cn(
+                                                    "group flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-all duration-200",
+                                                    isUploading && "opacity-50 cursor-wait"
+                                                )}
+                                            >
+                                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
+                                                    <Upload className="h-4 w-4 text-slate-400 group-hover:text-violet-600" />
+                                                </div>
+                                                <span className="text-xs font-medium text-slate-500 group-hover:text-violet-600">
+                                                    {isUploading ? "업로드 중..." : "클릭하여 파일 업로드 또는 드래그 앤 드롭"}
+                                                </span>
+                                            </label>
+                                        )}
+                                    </div>
+
+                                    {attachments.length > 0 && (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {attachments.map((file, index) => (
+                                                <div key={index} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 rounded-lg shadow-sm hover:shadow-md transition-all">
+                                                    <div className="flex items-center gap-2.5 overflow-hidden">
+                                                        <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 text-lg">
+                                                            {file.name.endsWith('.pdf') ? '📄' :
+                                                                file.name.endsWith('.xls') || file.name.endsWith('.xlsx') ? '📊' : '🖼️'}
+                                                        </div>
+                                                        <div className="flex flex-col min-w-0">
+                                                            {file.storageUrl ? (
+                                                                <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-slate-700 truncate block max-w-[120px] hover:text-violet-600 hover:underline">
+                                                                    {file.name}
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-xs font-medium text-slate-700 truncate block max-w-[120px]">
+                                                                    {file.name}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[10px] text-violet-600">업로드 완료</span>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full"
+                                                        onClick={() => removeAttachment(index)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
                                             ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label>사용자</Label>
-                                {isFieldTeam ? (
-                                    <Input
-                                        value={formData.workerName}
-                                        disabled
-                                        className="bg-muted"
-                                    />
-                                ) : (
-                                    <Select
-                                        value={formData.workerName}
-                                        onValueChange={(val) => setFormData({ ...formData, workerName: val })}
-                                        disabled={!formData.teamId}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="사용자 선택" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {members.filter((m: any) => m.teamId === formData.teamId).map((member: any) => (
-                                                <SelectItem key={member.id} value={member.name}>
-                                                    {member.name} ({member.username})
-                                                </SelectItem>
-                                            ))}
-                                            {members.filter((m: any) => m.teamId === formData.teamId).length === 0 && (
-                                                <SelectItem value="none" disabled>팀원 없음</SelectItem>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 두 번째 행: 사용 드럼 선택, 설치 길이, 자투리 */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label>사용 드럼 선택 <span className="text-red-500">*</span></Label>
-                                <Select
-                                    key={formData.cableId} // 강제 리렌더링 유도
-                                    value={formData.cableId || undefined}
-                                    onValueChange={(val) => setFormData({ ...formData, cableId: val })}
-                                    disabled={(!isFieldTeam && !formData.teamId) || !!editingLog}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={
-                                            !isFieldTeam && !formData.teamId
-                                                ? "먼저 팀을 선택하세요"
-                                                : availableCables.length === 0
-                                                    ? "사용 가능한 드럼이 없습니다"
-                                                    : "드럼번호 선택"
-                                        } />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {availableCables.map((cable) => (
-                                            <SelectItem key={cable.id} value={cable.id.toString()}>
-                                                {cable.division ? `[${cable.division}] ` : ""}{cable.drumNo} ({cable.productName} / 잔량: {cable.remainingLength.toLocaleString()}m)
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>설치 길이 (m) <span className="text-red-500">*</span></Label>
-                                <Input
-                                    type="number"
-                                    value={formData.installLength || ''}
-                                    onChange={(e) => setFormData({ ...formData, installLength: Number(e.target.value) })}
-                                    min={0}
-                                    placeholder="0"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>자투리 (m)</Label>
-                                <Input
-                                    type="number"
-                                    value={formData.wasteLength || ''}
-                                    onChange={(e) => setFormData({ ...formData, wasteLength: Number(e.target.value) })}
-                                    min={0}
-                                    placeholder="0"
-                                />
-                            </div>
-                        </div>
-
-                        {/* 선택된 드럼 정보 */}
-                        {selectedCable && (
-                            <div className="text-sm text-blue-600 font-medium p-2 bg-blue-50 rounded">
-                                선택된 드럼: {selectedCable.drumNo} ({selectedCable.productName} / 잔량 {selectedCable.remainingLength.toLocaleString()}m)
-                            </div>
-                        )}
-
-                        {/* 세 번째 행: 공사번호, 공사명 */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>공사번호</Label>
-                                <Input
-                                    value={formData.projectCode || ''}
-                                    onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>공사명</Label>
-                                <Input
-                                    value={formData.projectNameUsage}
-                                    onChange={(e) => setFormData({ ...formData, projectNameUsage: e.target.value })}
-                                />
-                            </div>
-                        </div>
-
-                        {/* 첨부파일 */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
-                            <Label className="md:text-right pt-2">첨부파일</Label>
-                            <div className="col-span-1 md:col-span-3">
-                                <div className="relative">
-                                    <Input
-                                        id="optical-usage-file-upload"
-                                        type="file"
-                                        accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                                        multiple
-                                        className="hidden"
-                                        onChange={handleFileChange}
-                                        disabled={isUploading || attachments.length >= 4}
-                                    />
-                                    {attachments.length < 4 && (
-                                        <label
-                                            htmlFor="optical-usage-file-upload"
-                                            className={cn(
-                                                "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
-                                                isUploading && "opacity-50 cursor-wait"
-                                            )}
-                                        >
-                                            <Upload className="h-5 w-5 text-primary" />
-                                            <span className="text-sm font-medium text-primary">
-                                                {isUploading ? "업로드 중..." : `파일 선택 (${attachments.length}/4) - 이미지, PDF, 엑셀`}
-                                            </span>
-                                        </label>
+                                        </div>
                                     )}
                                 </div>
-
-                                <div className="space-y-2 mt-2">
-                                    {attachments.map((file, index) => (
-                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                                            <span className="text-sm text-muted-foreground truncate flex-1">
-                                                {file.storageUrl ? (
-                                                    <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
-                                                        📎 {file.name}
-                                                    </a>
-                                                ) : (
-                                                    <span className="flex items-center">📎 {file.name}</span>
-                                                )}
-                                            </span>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                onClick={() => removeAttachment(index)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
-                        </div>
+                        </form>
+                    )}
+                </div>
 
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                                취소
-                            </Button>
-                            <Button type="submit" disabled={usageMutation.isPending || isUploading}>
-                                {usageMutation.isPending || isUploading ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        {isUploading ? "업로드 중..." : "처리중..."}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="h-4 w-4 mr-2" />
-                                        {editingLog ? "수정" : "등록"}
-                                    </>
-                                )}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                )}
+                <DialogFooter className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <Button type="button" variant="ghost" className="h-9 text-slate-500 hover:text-slate-900" onClick={() => onOpenChange(false)}>
+                        취소
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={usageMutation.isPending || isUploading}
+                        onClick={handleSubmit} // Using onClick instead of type=submit here because form is wrapped differently or just to be safe with placement
+                        className="h-9 px-6 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white shadow-md shadow-violet-200"
+                    >
+                        {usageMutation.isPending || isUploading ? (
+                            <>
+                                <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                {isUploading ? "업로드 중..." : "처리중..."}
+                            </>
+                        ) : (
+                            <>
+                                <Save className="h-3.5 w-3.5 mr-2" />
+                                {editingLog ? "수정 완료" : "등록 완료"}
+                            </>
+                        )}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

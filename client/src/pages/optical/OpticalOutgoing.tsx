@@ -14,6 +14,16 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     TableHeader,
     TableRow,
     TableHead,
@@ -66,6 +76,11 @@ export default function OpticalOutgoing() {
     const { downloadFile } = useDownload();
     const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
     const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+
+    // Delete Dialog State
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+    const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
     const { widths, startResizing } = useColumnResize(OPTICAL_OUTGOING_COLUMNS);
 
@@ -163,13 +178,7 @@ export default function OpticalOutgoing() {
     };
 
     const handleBulkDelete = () => {
-        if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds), {
-                onSuccess: () => {
-                    setSelectedIds(new Set());
-                }
-            });
-        }
+        setBulkDeleteDialogOpen(true);
     };
 
     if (isLoading) {
@@ -366,72 +375,81 @@ export default function OpticalOutgoing() {
                                             <TableCell className="text-center px-1 text-slate-500">{(log as any).createdByName || "-"}</TableCell>
                                             <TableCell className="text-center p-0">
                                                 {(() => {
+                                                    let hasAttachments = false;
+                                                    let attachments: any[] = [];
                                                     try {
-                                                        let attrs: any = {};
-                                                        if (typeof (log as any).attributes === 'string') {
-                                                            attrs = JSON.parse((log as any).attributes);
-                                                        } else if (typeof (log as any).attributes === 'object' && (log as any).attributes !== null) {
-                                                            attrs = (log as any).attributes;
+                                                        const parsed = typeof (log as any).attributes === 'string'
+                                                            ? JSON.parse((log as any).attributes)
+                                                            : (log as any).attributes || {};
+
+                                                        if (parsed.attachments && parsed.attachments.length > 0) {
+                                                            attachments = parsed.attachments;
+                                                            hasAttachments = true;
+                                                        } else if (parsed.attachment) {
+                                                            attachments = [parsed.attachment];
+                                                            hasAttachments = true;
+                                                        } else if ((log as any).attachment) { // Legacy fallback
+                                                            attachments = [(log as any).attachment];
+                                                            hasAttachments = true;
                                                         }
-                                                        const attachments = attrs.attachments || (attrs.attachment ? [attrs.attachment] : []);
+                                                    } catch (e) {
+                                                        hasAttachments = false;
+                                                    }
 
-                                                        if (attachments.length === 0) return "-";
+                                                    if (!hasAttachments) return "-";
 
-                                                        if (attachments.length === 1) {
-                                                            return (
+                                                    if (attachments.length === 1) {
+                                                        return (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                }}
+                                                                title={attachments[0].name}
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
-                                                                    }}
-                                                                    title={attachments[0].name}
+                                                                    className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
+                                                                    onClick={(e) => e.stopPropagation()}
                                                                 >
-                                                                    <Download className="h-3.5 w-3.5" />
+                                                                    <Paperclip className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-medium">{attachments.length}</span>
                                                                 </Button>
-                                                            );
-                                                        }
-
-                                                        return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        <Paperclip className="h-3.5 w-3.5" />
-                                                                        <span className="text-[10px] font-medium">{attachments.length}</span>
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2" align="end">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        {attachments.map((file: any, idx: number) => (
-                                                                            <Button
-                                                                                key={idx}
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="justify-start h-8 text-xs max-w-[200px]"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
-                                                                                }}
-                                                                                title={file.name}
-                                                                            >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                            </Button>
-                                                                        ))}
-                                                                    </div>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        );
-                                                    } catch {
-                                                        return "-";
-                                                    }
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="end">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {attachments.map((file: any, idx: number) => (
+                                                                        <Button
+                                                                            key={idx}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-8 text-xs max-w-[200px]"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                            }}
+                                                                            title={file.name}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
                                                 })()}
                                             </TableCell>
                                             <TableCell className="text-center p-0">
@@ -453,9 +471,8 @@ export default function OpticalOutgoing() {
                                                             <DropdownMenuItem
                                                                 className="text-red-600 gap-2 focus:text-red-700 focus:bg-red-50"
                                                                 onClick={() => {
-                                                                    if (confirm('이 출고 내역을 삭제하시겠습니까?')) {
-                                                                        deleteMutation.mutate(log.id);
-                                                                    }
+                                                                    setItemToDelete(log.id);
+                                                                    setDeleteDialogOpen(true);
                                                                 }}
                                                             >
                                                                 <Trash2 className="h-4 w-4" /> 삭제
@@ -481,6 +498,9 @@ export default function OpticalOutgoing() {
                     />
                 </div>
             </div>
+
+            {/* Dialogs */}
+
 
             <OpticalLogEditDialog
                 open={!!editingLog}
@@ -509,6 +529,65 @@ export default function OpticalOutgoing() {
                 onUpload={handleBulkUpload}
                 isLoading={bulkAssignMutation.isPending}
             />
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>출고 내역 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            선택한 출고 내역을 정말 삭제하시겠습니까?
+                            <br />
+                            이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (itemToDelete) {
+                                    deleteMutation.mutate(itemToDelete);
+                                    setDeleteDialogOpen(false);
+                                    setItemToDelete(null);
+                                }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>출고 내역 일괄 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            선택한 {selectedIds.size}개의 출고 내역을 정말 삭제하시겠습니까?
+                            <br />
+                            이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                                    onSuccess: () => {
+                                        setSelectedIds(new Set());
+                                        setBulkDeleteDialogOpen(false);
+                                    }
+                                });
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {bulkDeleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            일괄 삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
     );
 }

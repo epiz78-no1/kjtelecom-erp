@@ -230,7 +230,7 @@ export default function OpticalDashboard() {
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-8 items-start">
                 {/* Inventory Table Section */}
                 <Card className="lg:col-span-2 border-slate-200 shadow-sm rounded-3xl overflow-hidden bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 border-b border-slate-100 dark:border-zinc-800">
