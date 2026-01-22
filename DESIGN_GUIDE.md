@@ -1,232 +1,90 @@
-# Design Guide & UI Patterns (Current)
+# KJ Telecom ERP Design Guide: UI/UX Pro Max Scale
 
-이 문서는 현재 구축된 시스템(`client/src/pages/general/Inventory.tsx` 등)을 기준으로 한 **표준 UI 가이드라이**입니다. 일관된 사용자 경험을 위해 아래 패턴을 준수해야 합니다.
-
-> **[중요] 디자인 재사용 원칙**
-> 새로운 페이지나 컴포넌트를 생성할 때, 반드시 기존에 구현된 유사한 화면(예: 입/출고 관리, 자재 사용 등록)의 디자인과 레이아웃을 확인하고 이를 그대로 따르십시오. 임의의 새로운 스타일보다 일관성을 최우선으로 합니다.
-
-## 1. 표준 페이지 레이아웃 (Standard Page Layout)
-
-모든 데이터 관리 페이지는 다음 구조를 따릅니다.
-
-### A. 헤더 영역 (Header Area)
-- **Title**: `text-2xl font-bold` (e.g., "일반자재 재고현황")
-- **Subtitle**: `text-muted-foreground` (e.g., "자재별 재고 수량과 상태를 확인합니다")
-- **Action Buttons (우측 상단)**:
-  1. **Excel Export**: `variant="outline"` + Green point color
-  2. **Add Item**: Primary Button (`Button` component) or Dropdown for multiple actions.
-     - `data-testid` 속성 필수 (e.g., `data-testid="button-add-item"`)
-
-### B. 검색 및 필터 영역 (Search & Filter Bar)
-- **Search Input**:
-  - `relative max-w-sm` Container
-  - `<Search />` icon absolute positioned left
-  - `pl-10` padding for input
-- **Filters**: `<Select>` component with fixed width (`w-[180px]`)
-- **Total Count**: Right-aligned text (`text-sm text-muted-foreground`)
-
-### C. 데이터 테이블 (Data Table)
-- **Table Container**: `flex-1 rounded-md border overflow-hidden`
-- **Table Header**:
-  - `sticky top-0 bg-background z-10 shadow-sm`
-  - **배경색 규칙**: 모든 테이블 헤더 셀(`TableHead`)에 `bg-background` 클래스를 적용하여 배경색을 흰색으로 통일합니다. 이는 `sticky` 속성과 함께 사용될 때 헤더 뒤로 콘텐츠가 비치는 것을 방지하고 리스트 배경색과 일치시키기 위함입니다.
-  - **Resizable Columns**: `useColumnResize` 훅 사용 필수.
-    ```tsx
-    const { widths, startResizing } = useColumnResize({ productName: 200, ... });
-    // ...
-    <TableHead style={{ width: widths.productName }}>
-      품명 <div onMouseDown={(e) => startResizing("productName", e)} className="..." />
-    </TableHead>
-    ```
-- **Table Body**:
-  - Row Height: `h-8` (Compact)
-  - Cell Padding: `[&_td]:py-1`
-  - Alignment:
-    - **TableHead (헤더)**: 모든 헤더는 가운데 정렬 (`text-center`)
-    - **TableCell (데이터)**:
-      - 공사명 컬럼: 왼쪽 정렬 (`text-left`)
-      - 숫자 컬럼: 오른쪽 정렬 (`text-right`)
-      - 나머지 모든 텍스트 컬럼: 가운데 정렬 (`text-center`)
-    - Enum/Badge: 가운데 정렬
-  - **입력자 컬럼 (CreatedBy)**:
-    - 필수 표시: 입/출고/사용 내역 테이블
-    - 포맷: 값이 없으면 공란으로 표시
-  - **빈 값 표시 규칙**:
-    - 모든 테이블 셀에서 값이 없을 경우 `-` 대신 **공란(빈 문자열)**으로 표시
-    - 예: `{value || '-'}` 대신 `{value || ''}` 사용
-  - **대시보드 요약 테이블 (Dashboard Summary Table)**:
-    - Row Height: `h-10` (Comfortable)
-    - Cell Padding: 기본 패딩 유지 (`py-0` 제거)
-    - 이는 대시보드에서 가독성을 높이기 위함입니다.
-  - **텍스트 오버플로우 처리**:
-    - 긴 텍스트가 셀을 넘어갈 경우 `truncate` 클래스를 사용하여 말줄임표(...) 표시
-    - 예: `<TableCell className="truncate" title={item.productName}>{item.productName}</TableCell>`
-    - 전체 내용 확인이 필요한 경우 `title` 속성 추가 권장
+> [!IMPORTANT]
+> **표준 UI 지침**: 앞으로 모든 페이지와 기능 개발에는 'UI/UX Pro Max Scale' 컨셉(Glassmorphism, Bento Grid)을 필수적으로 적용해야 합니다. 이 지침은 시스템 전반의 일관성과 프리미엄한 사용자 경험을 유지하기 위한 핵심 원칙입니다.
 
 ---
 
-## 2. 컴포넌트 사용 가이드 (Components)
+## 1. 핵심 디자인 원칙 (Core Principles)
 
-### A. 모달/다이얼로그 (Dialogs)
-- **Create/Edit**: `<Dialog>` 컴포넌트 사용.
-- **Delete Warning**: `<AlertDialog>` 사용 (Red `variant="destructive"` button).
-- **Date Picker**: `<Popover>` + `<Calendar mode="single" locale={ko} />` 조합 사용.
+### A. Glassmorphism (글래스모피즘)
+- **적용 대상**: 다이얼로그(Dialog), 카드(Card), 플로팅 패널.
+- **스타일**: 배경 반투명 처리와 강력한 블러 효과를 조합합니다.
+- **CSS 클래스**: `bg-background/80 backdrop-blur-xl border-white/20 shadow-2xl`
 
-### B. 입력 폼 (Forms)
-- **Label**: `text-sm font-medium`
-- **Input**: `shadcn/ui`의 `<Input />`
-- **Validation**: 클라이언트 측 검증 후 `toast`로 피드백.
-- **File Upload (Standard Pattern)**: 
-  - **Layout**: `grid-cols-4` (Label 1, Input 3)
-  - **Style**: Dashed border box (`border-2 border-dashed border-primary/30`)
-  - **Interaction**:
-    - `hover:bg-primary/5` effect
-    - Click to select files
-    - Hide upload button when max limit reached
-  - **Features**:
-    - Multiple file selection
-    - Client-side image compression (`compressImage`)
-    - File size limit (10MB) & count limit (4)
-    - File list with delete button (`Trash2`)
-  ```tsx
-  {/* Grid Layout */}
-  <div className="grid grid-cols-4 items-start gap-4">
-      <Label className="text-right pt-2">첨부파일</Label>
-      <div className="col-span-3">
-          {/* File Input */}
-          <div className="relative">
-              <Input type="file" className="hidden" multiple onChange={...} />
-              {/* Dashed Upload Button */}
-              {count < 4 && (
-                  <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
-                      <Upload className="h-5 w-5 text-primary" />
-                      <span className="text-sm font-medium text-primary">
-                          파일 선택 ({count}/4) - 이미지, PDF, 엑셀
-                      </span>
-                  </label>
-              )}
-          </div>
-          {/* File List */}
-          <div className="space-y-2 mt-2">
-              {files.map(file => (
-                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                      <span className="truncate">📎 {file.name}</span>
-                      <Button variant="ghost" size="sm" onClick={remove}>
-                          <Trash2 className="h-4 w-4" />
-                      </Button>
-                  </div>
-              ))}
-          </div>
-      </div>
-  </div>
-  ```
+### B. Bento Grid Layout
+- **적용 대상**: 대시보드, 필터 패널, 통계 요약 영역.
+- **스타일**: 각 요소를 독립된 카드 형태로 구성하고, 명확한 그리드 시스템(`grid-cols-*`)을 사용하여 정보를 구획합니다.
 
-### C. 피드백 (Toast)
-- **Success**: `toast({ title: "성공 메시지" })`
-- **Error**: `toast({ title: "실패", variant: "destructive", description: error.message })`
-- **Loading**: 버튼 내 `<Loader2 className="animate-spin" />` 사용.
+### C. Compact & Dense UI
+- **목표**: 한 화면에 더 많은 정보를 시각적 피로도 없이 제공합니다.
+- **표준 높이**:
+  - **Top Navigation / Sidebar**: `h-12` (기존 `h-16`에서 축소)
+  - **Inputs / Buttons**: `h-9` (기존 `h-10`에서 축소)
+  - **Table Rows**: `h-8` (Header), `h-6~7` (Body)
 
 ---
 
-## 3. 아이콘 시스템 (Icons)
+## 2. 테이블 표준 (Table Standards)
+
+### A. 정렬 규칙 (Alignment Rules)
+사용자 가독성을 위해 데이터 타입별로 정렬을 엄격히 구분합니다.
+- **Header (TableHead)**: 모든 헤더는 **가운데 정렬(`text-center`)**
+- **Body (TableCell)**:
+  - **왼쪽 정렬 (`text-left`)**:
+    - **공사명 (`projectName`)**: 긴 텍스트 가독성 확보
+    - **비고 (`remark`)**: 긴 텍스트 가독성 확보
+  - **오른쪽 정렬 (`text-right`)**:
+    - **단가/금액 (`unitPrice`, `amount`)**: 숫자 데이터 비교 용이성 확보
+  - **가운데 정렬 (`text-center`)**:
+    - **나머지 모든 컬럼**: 품명(`productName`), 규격(`spec`), 수량(`quantity`), 번호, 날짜, 구분, 카테고리 등
+
+### B. 컬럼 너비 표준화
+- `src/lib/optical-table-columns.ts`에 정의된 상수를 사용하여 입/출고 등 연관된 화면 간 너비를 통일합니다.
+- 중요 컬럼 예시:
+  - `projectName`: 250
+  - `projectCode`: 120
+  - `drumNo`: 70
+  - `spec`: 50
+  - `receivedDate`: 95
+
+### C. 인터랙션
+- **Hover**: 행(Row)에 마우스 오버 시 `hover:bg-muted/50` 효과 적용.
+- **Sticky**: 헤더는 `sticky top-0`와 `z-10`을 적용하여 스크롤 시에도 고정.
+
+---
+
+## 3. 다이얼로그 표준 (Dialog Patterns)
+
+모든 등록/수정 다이얼로그는 다음 'Pro Max' 스타일을 따릅니다.
+
+### A. 레이아웃 및 테마
+- **배경**: `bg-background/80 backdrop-blur-xl`
+- **헤더**: 상단에 얇은 그라데이션 인디케이터 라인 추가 (`bg-gradient-to-r from-primary to-blue-400 h-1`).
+- **입력 필드**: `bg-slate-50/50` 배경색과 `h-9` 높이를 사용하며, 라벨은 `text-slate-500 font-semibold`로 가독성을 높입니다.
+
+### B. 첨부파일 영역
+- 점선 테두리(`border-dashed`)의 업로드 영역을 구성합니다.
+- 파일 선택 후 리스트는 회색 박스(`bg-muted/50`) 형태의 카드 레이아웃을 사용합니다.
+
+---
+
+## 4. 버튼 및 액션 (Buttons & Actions)
+
+### A. 아이콘 버튼
+- 가로 공간 절약을 위해 헤더의 보조 액션(Excel 다운로드, 필터 등)은 아이콘 버튼(`Button variant="ghost" size="icon"`)을 사용합니다.
+- 반드시 `Tooltip`을 감싸서 해당 기능을 설명해야 합니다.
+
+### B. 대표 액션
+- 등록/추가와 같은 주된 액션은 `Primary` 색상의 버튼을 사용하되, `h-9` 높이로 콤팩트하게 유지합니다.
+
+---
+
+## 5. 아이콘 가이드
 - 라이브러리: `lucide-react`
-- 주요 아이콘:
-  - Add: `Plus`
-  - Edit: `Pencil`
-  - Delete: `Trash2`
-  - Search: `Search`
-  - Menu: `MoreHorizontal`
-  - Export: `Download`
-  - Import: `Upload`
+- 크기: 기본 `h-4 w-4` 또는 `h-5 w-5` (버튼 내부)
+- 스타일: 얇은 선 두께(`stroke-width={1.5}`)를 권장하여 모던한 느낌을 줍니다.
 
 ---
 
-## 4. 참조 구현 (Reference)
-- **표준 테이블 구현**: `client/src/pages/general/Inventory.tsx`
-- **Resizable Hook**: `client/src/hooks/useColumnResize.ts`
-- **API 호출**: `client/src/lib/queryClient.ts`
-
----
-
-## 5. 사이드바 메뉴 스타일 (Sidebar Navigation)
-- **아이콘 간격**: 사이드바 메뉴(`SidebarMenuSubButton`) 내의 아이콘은 별도의 `margin-right` 클래스를 사용하지 않습니다. (`mr-2` 제거)
-  - 텍스트와 아이콘 사이의 간격은 최소화하여 통일감을 줍니다.
-- **일관성**: 일반 자재 관리와 광케이블 자재 관리 메뉴의 스타일은 동일해야 합니다.
-
-## 6. 광케이블 액션 UI 패턴 (Optical Cable Actions)
-- **액션 다이얼로그**: 불출(Assign), 사용(Usage), 반납(Return), 폐기(Waste)는 단일 통합 다이얼로그(`OpticalCableActionDialog`)를 통해 처리합니다.
-- **메뉴 진입**: 테이블 Row의 `DropdownMenu` ("더보기" 아이콘)를 통해 액션에 접근합니다.
-- **상태별 필터링**: 현재 상태(`status`)에 따라 가능한 액션만 메뉴에 노출합니다.
-
----
-
-## 7. 테이블 컬럼 너비 표준 (Table Column Width Standards)
-모든 페이지(일반 자재, 광케이블)에서 동일한 의미의 컬럼은 **통일된 너비**를 사용해야 합니다.
-
-### 표준 컬럼 너비 (`useColumnResize` 초기값)
-- **checkbox**: `40` - 체크박스 컬럼
-- **사업 (division)**: `60` - 사업 주체 구분 (예: SKT, SKB, KT)
-- **구분 (category)**: `50` - 자재/업무 유형 (예: 광케이블, 구매, 철거, 이설)
-- **날짜 (date, receivedDate)**: `90~100` - 입고일자, 출고일자 등
-- **제조사 (manufacturer)**: `80` - 제조사명
-- **제조연도 (manufactureYear)**: `70` - 제조연도
-- **규격 (spec)**: `100` - 자재 규격
-- **코어 (coreCount)**: `50` - 광케이블 코어 수
-- **제조번호 (drumNo)**: `120` - 광케이블 드럼/제조번호
-- **위치 (location)**: `60` - 보관 위치
-- **비고 (remark)**: `60` - 비고란
-
-### 행 높이 표준 (Row Height)
-- **테이블 스타일 (Table Style)**: `table-fixed` 클래스 필수 적용.
-  - 열 너비를 고정하고 렌더링 성능을 최적화합니다.
-- **테이블 헤더 (Header)**: 높이 **`32px`** (`h-8`)
-  - 컴팩트하고 일관된 헤더 높이를 유지합니다.
-- **테이블 리스트 (Body)**: 높이 **`24px`** (`h-6`)
-  - 더욱 컴팩트한 데이터 표시를 위해 24px을 사용합니다.
-- **셀 스타일 (Cell Style)**: 
-  - 패딩 없음: `[&_td]:py-0`
-  - 폰트 크기: 헤더와 본문 모두 `text-sm` 혹은 `text-xs` (상황에 따라)
-
-
-**중요**: 새로운 페이지를 추가하거나 기존 페이지를 수정할 때, 위 표준 너비와 높이를 준수하여 일관된 UI를 유지합니다.
-
----
-
-## 8. 첨부파일 UI 표준 (Attachment UI)
-- **업로드 UI**:
-  - `Input[type="file"]`을 직접 노출하지 않고, 점선 테두리(`border-dashed`) 박스를 사용합니다.
-  - 파일 선택 전: "파일 선택 또는 드래그" 문구와 업로드 아이콘(`Upload`, lucide-react) 표시.
-  - 파일 선택 후: 회색 박스(`bg-muted/50`) 내에 파일명(`📎 filename`)과 삭제 버튼(`Trash2` red color)을 표시합니다.
-  - **다중 업로드**: 최대 4개 제한, 개별 삭제 가능.
-
-- **다운로드 UI (테이블 내)**:
-  - **단일 파일**: 아이콘(`Download`) 클릭 시 즉시 다운로드.
-  - **다중 파일**: 
-    - 표시: `📎 {count}` 텍스트가 포함된 `Button` (variant="ghost", size="sm").
-    - 상호작용: 클릭 시 `Popover`로 파일 목록 표시.
-    - 파일 목록 아이템: `Download` 아이콘 + 파일명, 클릭 시 다운로드.
-    - 구현 참조: `client/src/pages/optical/OpticalOutgoing.tsx`
-    ```tsx
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <Paperclip className="h-4 w-4 mr-1" />
-          <span>({count})</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent>
-         {/* File List */}
-      </PopoverContent>
-    </Popover>
-    ```
-
----
-
-## 9. 일괄 등록 다이얼로그 표준 (Bulk Upload Dialog)
-- **너비 자동 조절 (Auto Width)**:
-  - 다이얼로그의 `maxWidth`를 고정값(예: `max-w-5xl`) 대신 **`w-fit max-w-[95vw]`**로 설정합니다.
-  - 이를 통해 템플릿의 컬럼 수에 따라 다이얼로그가 자동으로 넓어지며, 화면 너비를 넘지 않도록 합니다.
-- **컴팩트 드래그 영역 (Compact Drop Zone)**:
-  - 파일 첨부 영역의 패딩을 `p-2`로 줄여 수직 공간을 절약합니다.
-  - 레이아웃을 `flex-row` (가로 배치)로 구성하여 아이콘, 안내 문구, 파일 선택 버튼을 한 줄에 배치합니다.
-  - 이는 데이터 테이블 미리보기를 위한 공간을 최대화하기 위함입니다.
+이 지침은 **광케이블 모듈**을 시작으로 전 시스템에 순차적으로 적용됩니다. 새로운 기능 개발 시 이 문서의 패턴을 최우선으로 참고하십시오.

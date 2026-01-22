@@ -1,5 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Loader2, ArrowDownToLine, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Loader2, ArrowDownToLine, Plus, MoreHorizontal, Pencil, Download, Paperclip, FileText, Search } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
     Popover,
     PopoverContent,
@@ -68,6 +76,31 @@ export default function OpticalIncoming() {
                 setBulkUploadOpen(false);
             }
         });
+    };
+
+    const handleExcelDownload = () => {
+        const data = filteredLogs.map((item: any) => ({
+            "사업": item.cable?.division || "SKT",
+            "구분": item.cable?.category || "-",
+            "입고일자": item.receivedDate || item.usageDate || item.createdAt,
+            "공사번호": item.projectCode || "-",
+            "공사명": item.projectName || item.cable?.projectName || "-",
+            "제조사": item.cable?.manufacturer || "-",
+            "제조연도": item.cable?.manufactureYear || "-",
+            "규격": item.cable?.spec || "-",
+            "코어": item.cable?.coreCount || "-",
+            "제조번호": item.drumNo || item.cable?.drumNo || "-",
+            "위치": item.cable?.location || "-",
+            "품명": item.cable?.productName || "-",
+            "입고량": (item.cable?.remainingLength || 0) + (item.cable?.usedLength || 0) + (item.cable?.wasteLength || 0),
+            "비고": item.cable?.remark || item.remark || "-",
+            "입력자": item.createdByName || "-",
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "광케이블 입고내역");
+        XLSX.writeFile(wb, `광케이블_입고내역_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     const { widths, startResizing } = useColumnResize(OPTICAL_LOG_COLUMNS);
@@ -146,208 +179,178 @@ export default function OpticalIncoming() {
     }
 
     return (
-        <div className="flex flex-col h-full space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        입고 내역
-                    </h1>
-                    <p className="text-muted-foreground">광케이블 드럼의 입고 이력을 조회합니다.</p>
-                </div>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button className="gap-2" disabled={!canWrite}>
-                            <Plus className="h-4 w-4" />
-                            입고 등록
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => canWrite && openDialog()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            직접 등록
-                        </DropdownMenuItem>
-                        {isTenantOwner && (
-                            <DropdownMenuItem onSelect={() => setBulkUploadOpen(true)}>
-                                <Upload className="h-4 w-4 mr-2" />
-                                일괄 등록
-                            </DropdownMenuItem>
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+            {/* Header Section */}
+            {/* Ultra Compact Header Section */}
+            <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
+                <div className="flex items-center justify-between gap-2 px-1">
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            광케이블 입고
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 animate-pulse"></span>
+                        </h1>
+                        <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+                        <span className="text-xs font-medium text-slate-500">{filteredLogs.length} Records</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                        {selectedIds.size > 0 && isTenantOwner && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            onClick={handleBulkDelete}
+                                            disabled={bulkDeleteMutation.isPending || !canWrite}
+                                            className="h-7 w-7 rounded-md shadow-sm"
+                                        >
+                                            {bulkDeleteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">선택 삭제 ({selectedIds.size})</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
 
-                <OpticalCableFormDialog
-                    open={dialogOpen}
-                    onOpenChange={(open) => {
-                        if (!open) closeDialog();
-                    }}
-                    onSubmit={(data) => createMutation.mutate(data)}
-                />
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="검색..."
+                            className="w-32 focus:w-48 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
+                        />
+
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50"
+                                        onClick={handleExcelDownload}
+                                    >
+                                        <Download className="h-3.5 w-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        <DropdownMenu>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button disabled={!canWrite} size="icon" className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm">
+                                                <Plus className="h-3.5 w-3.5 text-white" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">입고 등록</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenuContent align="end" className="w-32 p-1">
+                                <DropdownMenuItem onSelect={() => canWrite && openDialog()} className="text-xs py-1.5 cursor-pointer rounded-md">
+                                    <Plus className="h-3 w-3 mr-2 text-primary" />
+                                    직접 등록
+                                </DropdownMenuItem>
+                                {isTenantOwner && (
+                                    <DropdownMenuItem onSelect={() => setBulkUploadOpen(true)} className="text-xs py-1.5 cursor-pointer rounded-md">
+                                        <Upload className="h-3 w-3 mr-2 text-blue-600" />
+                                        일괄 등록
+                                    </DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <SearchInput
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                        placeholder="드럼번호, 규격 검색..."
-                        className="max-w-sm"
-                    />
-                    {selectedIds.size > 0 && isTenantOwner && (
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleBulkDelete}
-                            disabled={bulkDeleteMutation.isPending || !canWrite}
-                        >
-                            {bulkDeleteMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                                <Trash2 className="h-4 w-4 mr-2" />
-                            )}
-                            선택 삭제 ({selectedIds.size})
-                        </Button>
-                    )}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                    표시 <span className="font-semibold text-foreground">{displayLogs.length}</span> /
-                    전체 <span className="font-semibold text-foreground">{filteredLogs.length}</span>건
-                </div>
-            </div>
-
-            <div className="flex-1 rounded-md border overflow-hidden">
-                <div className="h-full overflow-auto relative pb-20">
-                    <table className="w-full caption-bottom text-sm table-fixed">
-                        <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-8">
-                                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
-                                    {isTenantOwner ? (
-                                        <Checkbox
-                                            checked={allSelected}
-                                            onCheckedChange={toggleSelectAll}
-                                        />
-                                    ) : null}
+            {/* Main Table Area */}
+            <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
+                <div className="flex-1 overflow-auto custom-scrollbar relative">
+                    <table className="w-full text-sm border-collapse table-fixed">
+                        <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+                            <TableRow className="h-10 border-b border-slate-200">
+                                <TableHead className="w-[40px] text-center p-0">
+                                    {isTenantOwner && <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} className="translate-y-[2px]" />}
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
-                                    사업
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("division", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
-                                    구분
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("category", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.receivedDate }}>
-                                    입고일자
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("receivedDate", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectCode }}>
-                                    공사번호
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectCode", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
-                                    공사명
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectName", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.manufacturer }}>
-                                    제조사
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufacturer", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.manufactureYear }}>
-                                    제조연도
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufactureYear", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
-                                    규격
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("spec", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.coreCount }}>
-                                    코어
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("coreCount", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
-                                    제조번호
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("drumNo", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.location }}>
-                                    위치
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("location", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.totalLength }}>
-                                    품명
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("totalLength", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: 90 }}>
-                                    입고량
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
-                                    비고
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remark", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.createdBy }}>
-                                    입력자
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("createdBy", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.attachment }}>
-                                    첨부
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("attachment", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
-
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.division }}>사업<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("division", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.category }}>구분<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("category", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.receivedDate }}>입고일자<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("receivedDate", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.projectCode }}>공사번호<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectCode", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.projectName }}>공사명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectName", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.manufacturer }}>제조사<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufacturer", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.manufactureYear }}>연도<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufactureYear", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.spec }}>규격<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("spec", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.coreCount }}>코어<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("coreCount", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.drumNo }}>제조번호<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("drumNo", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.location }}>위치<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("location", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.totalLength }}>품명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("totalLength", e)} /></TableHead>
+                                <TableHead className="font-semibold text-primary text-center" style={{ width: 90 }}>입고량</TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.remark }}>비고<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remark", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.createdBy }}>입력자<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("createdBy", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.attachment }}>첨부<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("attachment", e)} /></TableHead>
+                                <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {displayLogs.length === 0 && filteredLogs.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
-                                        입고 내역이 없습니다.
+                                    <TableCell colSpan={18} className="h-64 text-center text-muted-foreground flex flex-col items-center justify-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <Search className="h-6 w-6 text-slate-400 opacity-50" />
+                                            </div>
+                                            <p className="font-medium">입고 내역이 없습니다.</p>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 displayLogs.map((log) => (
-                                    <TableRow key={log.id} className="h-6 [&_td]:py-0">
-                                        <TableCell className="text-center align-middle">
-                                            {isTenantOwner ? (
+                                    <TableRow
+                                        key={log.id}
+                                        className="group h-10 border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50/80 transition-colors cursor-default text-xs"
+                                    >
+                                        <TableCell className="text-center p-0">
+                                            {isTenantOwner && (
                                                 <Checkbox
                                                     checked={selectedIds.has(log.id)}
                                                     onCheckedChange={() => toggleSelect(log.id)}
+                                                    className="translate-y-[2px] opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity"
                                                 />
-                                            ) : null}
+                                            )}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.division || 'SKT'}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.category || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">
+                                        <TableCell className="text-center px-1 font-medium text-slate-700">{log.cable?.division || 'SKT'}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{log.cable?.category || '-'}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500 font-mono">
                                             {log.usageDate
                                                 ? format(new Date(log.usageDate), 'yyyy-MM-dd')
                                                 : format(new Date(log.createdAt), 'yyyy-MM-dd')}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{(log as any).projectCode || ''}</TableCell>
-                                        <TableCell className="align-middle p-0 text-left">
-                                            <div className="w-full truncate px-2" title={(log as any).projectNameUsage || log.cable?.projectName || ''}>
+                                        <TableCell className="text-center px-1 text-slate-500 font-mono">{(log as any).projectCode || '-'}</TableCell>
+                                        <TableCell className="px-2">
+                                            <div className="w-full truncate text-slate-600 text-left" title={(log as any).projectNameUsage || log.cable?.projectName || ''}>
                                                 {(log as any).projectNameUsage || log.cable?.projectName || ''}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufacturer || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.manufactureYear || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.spec || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.coreCount || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{log.cable?.drumNo || ''}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{log.cable?.location || ''}</TableCell>
-                                        <TableCell className="align-middle p-0">
-                                            <div className="w-full truncate text-center font-medium px-2" title={String(log.cable?.productName || '')}>
+                                        <TableCell className="text-center px-1 text-slate-500 truncate" title={log.cable?.manufacturer || ''}>{log.cable?.manufacturer || ''}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{log.cable?.manufactureYear || ''}</TableCell>
+                                        <TableCell className="text-center px-1 font-medium text-slate-700">{log.cable?.spec || ''}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{log.cable?.coreCount || '-'}C</TableCell>
+                                        <TableCell className="text-center px-1 font-mono text-slate-700">{log.cable?.drumNo || ''}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{log.cable?.location || ''}</TableCell>
+                                        <TableCell className="px-2 text-center">
+                                            <div className="w-full truncate font-medium text-slate-700 text-center" title={String(log.cable?.productName || '')}>
                                                 {String(log.cable?.productName || '')}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center align-middle font-bold">
+                                        <TableCell className="text-center px-1 font-bold text-emerald-600 font-mono">
                                             {((log.cable?.remainingLength || 0) + (log.cable?.usedLength || 0) + (log.cable?.wasteLength || 0)).toLocaleString()}
                                         </TableCell>
-                                        <TableCell className="align-middle p-0">
-                                            <div className="w-full truncate text-center px-2" title={log.cable?.remark || ''}>
-                                                {log.cable?.remark || ''}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle">
-                                            {(log as any).createdByName || "-"}
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="px-2 text-slate-400 truncate max-w-[100px] text-center" title={log.cable?.remark || ''}>{log.cable?.remark || ''}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{(log as any).createdByName || "-"}</TableCell>
+                                        <TableCell className="text-center p-0">
                                             {(() => {
                                                 try {
                                                     let attrs: any = {};
@@ -365,7 +368,7 @@ export default function OpticalIncoming() {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-8 w-8 p-0"
+                                                                className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     if (attachments[0].storageUrl) {
@@ -376,7 +379,7 @@ export default function OpticalIncoming() {
                                                                 }}
                                                                 title={attachments[0].name}
                                                             >
-                                                                <Download className="h-4 w-4" />
+                                                                <Download className="h-3.5 w-3.5" />
                                                             </Button>
                                                         );
                                                     }
@@ -387,11 +390,11 @@ export default function OpticalIncoming() {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-8 gap-1 px-2"
+                                                                    className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
                                                                     onClick={(e) => e.stopPropagation()}
                                                                 >
-                                                                    <Paperclip className="h-4 w-4" />
-                                                                    <span className="text-xs font-medium">{attachments.length}</span>
+                                                                    <Paperclip className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-medium">{attachments.length}</span>
                                                                 </Button>
                                                             </PopoverTrigger>
                                                             <PopoverContent className="w-auto p-2" align="end">
@@ -425,39 +428,31 @@ export default function OpticalIncoming() {
                                                 }
                                             })()}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="text-center p-0">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-6 w-6 p-0">
-                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <MoreHorizontal className="h-4 w-4 text-slate-400" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuLabel>입고 관리</DropdownMenuLabel>
+                                                <DropdownMenuContent align="end" className="rounded-xl shadow-xl w-40">
+                                                    <DropdownMenuLabel className="text-xs text-muted-foreground p-2">입고 관리</DropdownMenuLabel>
                                                     <DropdownMenuSeparator />
                                                     {canWrite && (
-                                                        <DropdownMenuItem
-                                                            onClick={() => {
-                                                                if (log.cable) {
-                                                                    openDialog(log.cable);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Pencil className="mr-2 h-4 w-4" />
-                                                            수정
+                                                        <DropdownMenuItem onClick={() => { if (log.cable) openDialog(log.cable); }} className="gap-2">
+                                                            <Pencil className="h-4 w-4" /> 수정
                                                         </DropdownMenuItem>
                                                     )}
                                                     {canWrite && (
                                                         <DropdownMenuItem
-                                                            className="text-destructive"
+                                                            className="text-red-600 gap-2 focus:text-red-700 focus:bg-red-50"
                                                             onClick={() => {
                                                                 if (confirm('이 입고 내역을 삭제하시겠습니까?')) {
                                                                     deleteMutation.mutate(log.id);
                                                                 }
                                                             }}
                                                         >
-                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                            삭제
+                                                            <Trash2 className="h-4 w-4" /> 삭제
                                                         </DropdownMenuItem>
                                                     )}
                                                 </DropdownMenuContent>

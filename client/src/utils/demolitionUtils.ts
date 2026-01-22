@@ -7,7 +7,7 @@ import { DemolitionMaterial } from "@/types/demolition";
  */
 export const parseAttributes = (attributes: any) => {
     try {
-        if (!attributes) return {};
+        if (!attributes) return { attachments: [] };
         const attrs = typeof attributes === 'string' ? JSON.parse(attributes) : attributes;
 
         // Normalize attachments to array
@@ -24,7 +24,7 @@ export const parseAttributes = (attributes: any) => {
         };
     } catch (e) {
         console.error('Failed to parse attributes:', e);
-        return {};
+        return { attachments: [] };
     }
 };
 

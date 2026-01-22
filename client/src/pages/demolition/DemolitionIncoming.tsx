@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2, MoreHorizontal, Upload, Download, X, Paperclip, Pencil } from "lucide-react";
+import { Plus, Trash2, Loader2, MoreHorizontal, Upload, Download, X, Paperclip, Pencil, Search } from "lucide-react";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { useDownload } from "@/hooks/useDownload";
@@ -12,6 +13,7 @@ import {
     TableHead,
     TableBody,
     TableCell,
+    Table
 } from "@/components/ui/table";
 import {
     Select,
@@ -32,6 +34,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
     Popover,
@@ -44,6 +47,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "@/contexts/AppContext";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { DemolitionMaterial } from "@/types/demolition";
 import { parseAttributes } from "@/utils/demolitionUtils";
@@ -305,12 +314,20 @@ export default function DemolitionIncoming() {
         setSelectedIds(newSet);
     };
 
-    const toggleSelectAll = (checked: boolean) => {
-        if (checked) {
-            setSelectedIds(new Set(filteredMaterials.map(m => m.id)));
-        } else {
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredMaterials.length) {
             setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredMaterials.map(m => m.id)));
         }
+    };
+
+    const handleBulkDelete = () => {
+        if (!confirm("선택한 항목을 삭제하시겠습니까?")) return;
+        // Implement bulk delete logic here
+        // For now, sequentially delete (can be improved with bulk API)
+        selectedIds.forEach(id => deleteMutation.mutate(id));
+        setSelectedIds(new Set());
     };
 
     if (isLoading) {
@@ -322,564 +339,463 @@ export default function DemolitionIncoming() {
     }
 
     return (
-        <div className="flex flex-col h-full space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">철거자재 입고 내역</h1>
-                    <p className="text-muted-foreground">철거 현장에서 회수한 자재를 등록합니다</p>
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+            {/* Header Section */}
+            {/* Ultra Compact Header Section */}
+            <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
+                <div className="flex items-center justify-between gap-2 px-1">
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            철거 자재 입고
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50 animate-pulse"></span>
+                        </h1>
+                        <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+                        <span className="text-xs font-medium text-slate-500">{filteredMaterials.length} Records</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                        {selectedIds.size > 0 && isTenantOwner && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            onClick={handleBulkDelete}
+                                            className="h-7 w-7 rounded-md shadow-sm"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">선택 삭제 ({selectedIds.size})</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="검색..."
+                            className="w-32 focus:w-48 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
+                        />
+
+                        <DropdownMenu>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button size="icon" className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm">
+                                                <Plus className="h-3.5 w-3.5 text-white" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">입고 등록</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
+                                    resetForm();
+                                    setDialogOpen(true);
+                                }}>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    직접 등록
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
-                <Button onClick={() => {
-                    resetForm();
-                    clearAttachments();
-                    setDialogOpen(true);
-                }}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    {isEditing ? "수정" : "입고 등록"}
-                </Button>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-                <SearchInput
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    placeholder="품명, 공사명 검색..."
-                    className="max-w-sm"
-                />
-                <div className="text-sm text-muted-foreground">
-                    총 <span className="font-semibold text-foreground">{filteredMaterials.length}</span>건
-                </div>
-            </div>
-
-            <div className="flex-1 rounded-md border overflow-hidden">
-                <div className="h-full overflow-auto">
-                    <table className="w-full caption-bottom text-sm table-fixed">
-                        <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-8">
-                                <TableHead className="text-center align-middle bg-background" style={{ width: '40px' }}>
+            {/* Main Table Area */}
+            <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
+                <div className="flex-1 overflow-auto custom-scrollbar relative">
+                    <Table className="w-full text-sm border-collapse table-fixed">
+                        <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+                            <TableRow className="h-10 border-b border-slate-200">
+                                <TableHead className="w-[40px] text-center p-0">
                                     <Checkbox
-                                        checked={materials.length > 0 && selectedIds.size === materials.length}
+                                        checked={selectedIds.size === filteredMaterials.length && filteredMaterials.length > 0}
                                         onCheckedChange={toggleSelectAll}
+                                        className="translate-y-[2px]"
                                     />
                                 </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.division }}>
-                                    사업
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('division')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.demolitionDate }}>
-                                    철거일자
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('demolitionDate')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.projectCode }}>
-                                    공사번호
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('projectCode')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.projectName }}>
-                                    공사명
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('projectName')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.productName }}>
-                                    품목
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('productName')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.specification }}>
-                                    규격
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('specification')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.originalQuantity }}>
-                                    수량
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('originalQuantity')} />
-                                </TableHead>
-
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.workerName }}>
-                                    작업자
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('workerName')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.creator }}>
-                                    입력자
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('creator')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.attachment }}>
-                                    첨부
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('attachment')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative" style={{ width: widths.remark }}>
-                                    비고
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize('remark')} />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background" style={{ width: '50px' }}></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.demolitionDate }}>철거일<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("demolitionDate")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.division }}>사업<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("division")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.projectCode }}>공사번호<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("projectCode")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.projectName }}>공사명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("projectName")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.productName }}>품명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("productName")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.specification }}>규격<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("specification")} /></TableHead>
+                                <TableHead className="font-semibold text-indigo-600 text-center text-xs" style={{ width: widths.originalQuantity }}>입고량<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("originalQuantity")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.status }}>상태<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("status")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.remark }}>비고<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("remark")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.workerName }}>작업자<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={handleResize("workerName")} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.attachment }}>첨부<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={handleResize("attachment")} /></TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {materials.length === 0 ? (
+                            {filteredMaterials.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={12} className="h-24 text-center">
-                                        데이터가 없습니다.
+                                    <TableCell colSpan={13} className="h-64 text-center text-muted-foreground flex flex-col items-center justify-center border-none">
+                                        <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                                            <Search className="h-6 w-6 text-slate-400" />
+                                        </div>
+                                        <p className="font-medium text-slate-900">검색 결과가 없습니다</p>
+                                        <p className="text-sm text-slate-500 mt-1">새로운 철거 자재를 등록해보세요</p>
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredMaterials.map((material) => (
-                                    <TableRow key={material.id} className="h-6 [&_td]:py-0">
-                                        <TableCell className="text-center align-middle">
-                                            {isTenantOwner && (
+                                filteredMaterials.map((material) => {
+                                    const { hasAttachments, attachment } = parseAttributes(material.attributes);
+
+                                    return (
+                                        <TableRow key={material.id} className="h-[40px] border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+                                            <TableCell className="text-center p-0">
                                                 <Checkbox
                                                     checked={selectedIds.has(material.id)}
                                                     onCheckedChange={() => toggleSelect(material.id)}
                                                 />
-                                            )}
-                                        </TableCell>
-
-                                        <TableCell className="text-center align-middle max-w-[60px]" style={{ width: widths.division }}>
-                                            <div className="truncate" title={material.division}>{material.division}</div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap" style={{ width: widths.demolitionDate }}>{material.demolitionDate}</TableCell>
-                                        <TableCell className="text-center align-middle max-w-[100px]" style={{ width: widths.projectCode }}>
-                                            <div className="truncate" title={material.projectCode || ''}>{material.projectCode || ''}</div>
-                                        </TableCell>
-                                        <TableCell className="text-left align-middle max-w-[220px]" style={{ width: widths.projectName }}>
-                                            <div className="truncate" title={material.projectName || ''}>{material.projectName || ''}</div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle max-w-[160px]" style={{ width: widths.productName }}>
-                                            <div className="truncate" title={material.productName}>{material.productName}</div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle max-w-[200px]" style={{ width: widths.specification }}>
-                                            <div className="truncate" title={material.specification}>{material.specification}</div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle font-medium whitespace-nowrap" style={{ width: widths.originalQuantity }}>{material.originalQuantity.toLocaleString()}</TableCell>
-
-                                        <TableCell className="text-center align-middle max-w-[100px]" style={{ width: widths.workerName }}>
-                                            <div className="truncate" title={material.workerName || ''}>{material.workerName || ''}</div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle" style={{ width: widths.creator }}>
-                                            {material.creator?.name || ''}
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle" style={{ width: widths.attachment }}>
-                                            {(() => {
-                                                const { attachments: files } = parseAttributes(material.attributes);
-                                                if (!files || files.length === 0) return null;
-
-                                                if (files.length === 1) {
-                                                    return (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 w-6 p-0"
-                                                            onClick={() => downloadAttachment(files[0])}
-                                                            title={files[0].name}
-                                                        >
-                                                            <Download className="h-4 w-4" />
-                                                        </Button>
-                                                    );
-                                                } else if (files.length > 1) {
-                                                    return (
-                                                        <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <Button variant="ghost" size="sm" className="h-6 gap-1 px-2">
-                                                                    <Paperclip className="h-4 w-4" />
-                                                                    <span className="text-xs font-medium">{files.length}</span>
-                                                                </Button>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-2" align="center">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">
-                                                                        첨부파일 ({files.length})
-                                                                    </div>
-                                                                    {files.map((file: any, idx: number) => (
-                                                                        <Button
-                                                                            key={idx}
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
-                                                                            onClick={() => downloadAttachment(file)}
-                                                                            title={file.name}
-                                                                        >
-                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                            <span className="truncate">{file.name}</span>
-                                                                        </Button>
-                                                                    ))}
-                                                                </div>
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                    );
-                                                }
-                                                return null;
-                                            })()}
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle max-w-[150px]">
-                                            <div className="truncate" title={material.remark || ''}>{material.remark || ''}</div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-6 w-6 p-0">
-                                                        <MoreHorizontal className="h-4 w-4" />
+                                            </TableCell>
+                                            <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50">{material.demolitionDate}</TableCell>
+                                            <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50">{material.division}</TableCell>
+                                            <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50 truncate max-w-[100px]" title={material.projectCode}>{material.projectCode}</TableCell>
+                                            <TableCell className="text-left px-2 text-xs text-slate-700 font-medium border-r border-slate-100/50 truncate max-w-[200px]" title={material.projectName}>{material.projectName}</TableCell>
+                                            <TableCell className="text-center px-2 text-xs text-slate-700 p-0 border-r border-slate-100/50 truncate max-w-[150px]" title={material.productName}>{material.productName}</TableCell>
+                                            <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50 truncate max-w-[100px]" title={material.specification}>{material.specification}</TableCell>
+                                            <TableCell className="text-center px-2 text-xs font-bold text-indigo-600 p-0 border-r border-slate-100/50 bg-indigo-50/30">{material.originalQuantity.toLocaleString()}</TableCell>
+                                            <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50">
+                                                {material.remainingQuantity === 0 ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                        출고완료
+                                                    </span>
+                                                ) : material.remainingQuantity < material.originalQuantity ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                        부분출고
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                                        입고
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-left px-2 text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[150px]" title={material.remark || ""}>{material.remark}</TableCell>
+                                            <TableCell className="text-center text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[80px]">{material.workerName}</TableCell>
+                                            <TableCell className="text-center p-0 border-r border-slate-100/50">
+                                                {hasAttachments ? (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (attachment) {
+                                                                downloadAttachment(attachment.storagePath, attachment.name);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Paperclip className="h-3 w-3" />
                                                     </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    {isTenantOwner && (
-                                                        <>
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleEdit(material)}
-                                                            >
-                                                                <Pencil className="mr-2 h-4 w-4" />
-                                                                수정
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem
-                                                                className="text-destructive"
-                                                                onClick={() => {
-                                                                    if (confirm('삭제하시겠습니까?')) {
-                                                                        deleteMutation.mutate(material.id);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                                삭제
-                                                            </DropdownMenuItem>
-                                                        </>
-                                                    )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                                ) : (
+                                                    <span className="text-slate-300">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-center p-0">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600">
+                                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => handleEdit(material)} className="text-xs">
+                                                            <Pencil className="h-3 w-3 mr-2" />
+                                                            수정
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => {
+                                                            if (confirm("삭제하시겠습니까?")) {
+                                                                deleteMutation.mutate(material.id);
+                                                            }
+                                                        }} className="text-xs text-red-600 focus:text-red-600">
+                                                            <Trash2 className="h-3 w-3 mr-2" />
+                                                            삭제
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
-                    </table>
+                    </Table>
                 </div>
             </div>
 
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-xl">
+                <DialogContent className="max-w-[800px] bg-white sm:max-w-[800px]">
                     <DialogHeader>
-                        <DialogTitle>{isEditing ? "철거자재 입고 수정" : "철거자재 입고 등록"}</DialogTitle>
+                        <DialogTitle>{isEditing ? "철거자재 수정" : "철거자재 등록"}</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Row 1: Date, Team, Worker */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <Label htmlFor="demolitionDate">철거일자 *</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>공사번호</Label>
                                 <Input
-                                    id="demolitionDate"
+                                    value={formData.projectCode}
+                                    onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>공사명</Label>
+                                <Input
+                                    value={formData.projectName}
+                                    onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>철거일</Label>
+                                <Input
                                     type="date"
                                     value={formData.demolitionDate}
                                     onChange={(e) => setFormData({ ...formData, demolitionDate: e.target.value })}
-                                    required
                                 />
                             </div>
-                            <div>
-                                <Label htmlFor="teamId">작업팀</Label>
+                            <div className="space-y-2">
+                                <Label>사업구분</Label>
                                 <Select
-                                    value={formData.currentTeamId}
-                                    onValueChange={(val) => setFormData({ ...formData, currentTeamId: val })}
+                                    value={formData.division}
+                                    onValueChange={(value) => setFormData({ ...formData, division: value })}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="팀 선택" />
+                                        <SelectValue placeholder="선택" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {teamsList.map((team: any) => (
-                                            <SelectItem key={team.id} value={team.id}>
-                                                {team.name}
-                                            </SelectItem>
-                                        ))}
+                                        <SelectItem value="SKT">SKT</SelectItem>
+                                        <SelectItem value="SKB">SKB</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-
-                            <div>
-                                <Label htmlFor="workerName">작업자</Label>
-                                <Select
-                                    value={formData.workerName}
-                                    onValueChange={(val) => setFormData({ ...formData, workerName: val })}
-                                    disabled={!formData.currentTeamId}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={formData.currentTeamId ? "작업자 선택" : "팀을 먼저 선택하세요"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {membersList
-                                            .filter((m: any) => m.teamId === formData.currentTeamId)
-                                            .map((m: any) => (
-                                                <SelectItem key={m.id} value={m.name}>
-                                                    {m.name}
-                                                </SelectItem>
-                                            ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        {/* Row 2: Project Code, Project Name */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <Label htmlFor="projectCode">공사번호 *</Label>
-                                <Input
-                                    id="projectCode"
-                                    value={formData.projectCode}
-                                    onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="md:col-span-2">
-                                <Label htmlFor="projectName">공사명 *</Label>
-                                <Input
-                                    id="projectName"
-                                    value={formData.projectName}
-                                    onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* Row 3: Category, ProductName, Specification */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <Label htmlFor="category">품목1</Label>
+                            <div className="space-y-2">
+                                <Label>구분</Label>
                                 {inputMode.category ? (
                                     <div className="flex gap-2">
                                         <Input
-                                            id="category"
                                             value={formData.category}
                                             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                            placeholder="직접 입력"
+                                            className="flex-1"
                                         />
                                         <Button
                                             type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => {
-                                                setInputMode(prev => ({ ...prev, category: false }));
-                                                setFormData(prev => ({ ...prev, category: "", productName: "", specification: "" }));
-                                            }}
+                                            variant="outline"
+                                            onClick={() => setInputMode({ ...inputMode, category: false })}
                                         >
-                                            <X className="h-4 w-4" />
+                                            선택
                                         </Button>
                                     </div>
                                 ) : (
                                     <Select
                                         value={formData.category}
-                                        onValueChange={(val) => {
-                                            if (val === "DIRECT_INPUT") {
-                                                setInputMode(prev => ({ ...prev, category: true }));
-                                                setFormData(prev => ({ ...prev, category: "", productName: "", specification: "" }));
+                                        onValueChange={(value) => {
+                                            if (value === "direct") {
+                                                setInputMode({ ...inputMode, category: true });
+                                                setFormData({ ...formData, category: "" });
                                             } else {
-                                                setFormData(prev => ({ ...prev, category: val, productName: "", specification: "" }));
+                                                setFormData({ ...formData, category: value, productName: "", specification: "" });
                                             }
                                         }}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="품목1 선택" />
+                                            <SelectValue placeholder="선택" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {Object.keys(DEMOLITION_ITEMS).map((item) => (
-                                                <SelectItem key={item} value={item}>{item}</SelectItem>
+                                            {Object.keys(DEMOLITION_ITEMS).map((key) => (
+                                                <SelectItem key={key} value={key}>{key}</SelectItem>
                                             ))}
-                                            <SelectItem value="DIRECT_INPUT" className="text-muted-foreground font-medium">직접 입력 (기타)</SelectItem>
+                                            <SelectItem value="direct">직접입력</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 )}
                             </div>
-                            <div>
-                                <Label htmlFor="productName">품목2</Label>
-                                {inputMode.productName || inputMode.category ? (
+                            <div className="space-y-2">
+                                <Label>품명</Label>
+                                {inputMode.productName ? (
                                     <div className="flex gap-2">
                                         <Input
-                                            id="productName"
                                             value={formData.productName}
                                             onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                                            placeholder="직접 입력"
+                                            className="flex-1"
                                         />
-                                        {!inputMode.category && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => {
-                                                    setInputMode(prev => ({ ...prev, productName: false }));
-                                                    setFormData(prev => ({ ...prev, productName: "", specification: "" }));
-                                                }}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setInputMode({ ...inputMode, productName: false })}
+                                        >
+                                            선택
+                                        </Button>
                                     </div>
                                 ) : (
                                     <Select
                                         value={formData.productName}
-                                        onValueChange={(val) => {
-                                            if (val === "DIRECT_INPUT") {
-                                                setInputMode(prev => ({ ...prev, productName: true }));
-                                                setFormData(prev => ({ ...prev, productName: "", specification: "" }));
+                                        onValueChange={(value) => {
+                                            if (value === "direct") {
+                                                setInputMode({ ...inputMode, productName: true });
+                                                setFormData({ ...formData, productName: "" });
                                             } else {
-                                                setFormData(prev => ({ ...prev, productName: val }));
+                                                setFormData({ ...formData, productName: value, specification: "" });
                                             }
                                         }}
-                                        disabled={!formData.category}
+                                        disabled={!formData.category || inputMode.category}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="품목2 선택" />
+                                            <SelectValue placeholder="선택" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {formData.category && DEMOLITION_ITEMS[formData.category] ? (
-                                                Object.keys(DEMOLITION_ITEMS[formData.category]).map((item) => (
-                                                    <SelectItem key={item} value={item}>{item}</SelectItem>
+                                            {formData.category && DEMOLITION_ITEMS[formData.category] &&
+                                                Object.keys(DEMOLITION_ITEMS[formData.category]).map((key) => (
+                                                    <SelectItem key={key} value={key}>{key}</SelectItem>
                                                 ))
-                                            ) : null}
-                                            <SelectItem value="DIRECT_INPUT" className="text-muted-foreground font-medium">직접 입력 (기타)</SelectItem>
+                                            }
+                                            <SelectItem value="direct">직접입력</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 )}
                             </div>
-                            <div>
-                                <Label htmlFor="specification">규격 *</Label>
-                                {inputMode.specification || inputMode.productName || inputMode.category ? (
+                            <div className="space-y-2">
+                                <Label>규격</Label>
+                                {inputMode.specification ? (
                                     <div className="flex gap-2">
                                         <Input
-                                            id="specification"
                                             value={formData.specification}
                                             onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                                            placeholder="직접 입력"
-                                            required
+                                            className="flex-1"
                                         />
-                                        {!inputMode.productName && !inputMode.category && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => {
-                                                    setInputMode(prev => ({ ...prev, specification: false }));
-                                                    setFormData(prev => ({ ...prev, specification: "" }));
-                                                }}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setInputMode({ ...inputMode, specification: false })}
+                                        >
+                                            선택
+                                        </Button>
                                     </div>
                                 ) : (
                                     <Select
                                         value={formData.specification}
-                                        onValueChange={(val) => {
-                                            if (val === "DIRECT_INPUT") {
-                                                setInputMode(prev => ({ ...prev, specification: true }));
-                                                setFormData(prev => ({ ...prev, specification: "" }));
+                                        onValueChange={(value) => {
+                                            if (value === "direct") {
+                                                setInputMode({ ...inputMode, specification: true });
+                                                setFormData({ ...formData, specification: "" });
                                             } else {
-                                                setFormData(prev => ({ ...prev, specification: val }));
+                                                setFormData({ ...formData, specification: value });
                                             }
                                         }}
-                                        disabled={!formData.category}
+                                        disabled={!formData.productName || inputMode.productName}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="규격 선택" />
+                                            <SelectValue placeholder="선택" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {/* Show all specifications for the selected category, regardless of product name */}
-                                            {formData.category && DEMOLITION_ITEMS[formData.category] ? (
-                                                (() => {
-                                                    // Aggregate all specs from all products in the category, preserving order
-                                                    const allSpecs = new Set<string>();
-                                                    // Use keys to ensure we iterate in the order defined in DEMOLITION_ITEMS
-                                                    // (though object key order isn't strictly guaranteed, most JS engines respect insertion order for string keys)
-                                                    Object.keys(DEMOLITION_ITEMS[formData.category]).forEach((productName) => {
-                                                        const specs = DEMOLITION_ITEMS[formData.category][productName];
-                                                        if (Array.isArray(specs)) {
-                                                            specs.forEach(s => allSpecs.add(String(s)));
-                                                        }
-                                                    });
-
-                                                    // Convert Set to Array directly to preserve insertion order (no sort)
-                                                    const sortedSpecs = Array.from(allSpecs);
-
-                                                    return sortedSpecs.map((item) => (
-                                                        <SelectItem key={item} value={item}>{item}</SelectItem>
-                                                    ));
-                                                })()
-                                            ) : null}
-                                            <SelectItem value="DIRECT_INPUT" className="text-muted-foreground font-medium">직접 입력 (기타)</SelectItem>
+                                            {formData.category && formData.productName &&
+                                                DEMOLITION_ITEMS[formData.category] &&
+                                                DEMOLITION_ITEMS[formData.category][formData.productName] &&
+                                                DEMOLITION_ITEMS[formData.category][formData.productName].map((spec: string) => (
+                                                    <SelectItem key={spec} value={spec}>{spec}</SelectItem>
+                                                ))
+                                            }
+                                            <SelectItem value="direct">직접입력</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 )}
                             </div>
-                        </div>
-
-                        {/* Row 4: Quantity, Remark */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <Label htmlFor="originalQuantity">수량 *</Label>
+                            <div className="space-y-2">
+                                <Label>수량</Label>
                                 <Input
-                                    id="originalQuantity"
                                     type="number"
                                     value={formData.originalQuantity}
                                     onChange={(e) => setFormData({ ...formData, originalQuantity: parseInt(e.target.value) || 0 })}
-                                    required
                                 />
                             </div>
-                            <div className="md:col-span-2">
-                                <Label htmlFor="remark">비고</Label>
-                                <Input
-                                    id="remark"
-                                    value={formData.remark}
-                                    onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                                    placeholder="비고 입력"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-4 items-start gap-4">
-                            <Label className="text-right pt-2">첨부파일 (최대 4개)</Label>
-                            <div className="col-span-3">
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        id="file-upload"
-                                        className="hidden"
-                                        multiple
-                                        onChange={handleFileChange}
-                                        accept="image/*,.pdf,.xlsx,.xls"
-                                    />
-                                    {attachments.length < 4 && (
-                                        <Label
-                                            htmlFor="file-upload"
-                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                            <div className="space-y-2">
+                                <Label>작업자</Label>
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <Select
+                                            value={formData.currentTeamId}
+                                            onValueChange={(val) => {
+                                                setFormData({ ...formData, currentTeamId: val, workerName: "" });
+                                            }}
                                         >
-                                            <Upload className="h-5 w-5 text-primary" />
-                                            <span className="text-sm font-medium text-primary">
-                                                {isUploading ? "업로드 중..." : `파일 선택 (${attachments.length}/4) - 이미지, PDF, 엑셀`}
-                                            </span>
-                                        </Label>
+                                            <SelectTrigger><SelectValue placeholder="팀 선택" /></SelectTrigger>
+                                            <SelectContent>
+                                                {teamsList.map((team: any) => (
+                                                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex-1">
+                                        <Select
+                                            value={formData.workerName}
+                                            onValueChange={(val) => setFormData({ ...formData, workerName: val })}
+                                            disabled={!formData.currentTeamId}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="작업자 선택" /></SelectTrigger>
+                                            <SelectContent>
+                                                {membersList
+                                                    .filter((m: any) => m.teamId === formData.currentTeamId)
+                                                    .map((m: any) => (
+                                                        <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                                                    ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="col-span-2 space-y-2">
+                                <Label>첨부파일</Label>
+                                <div className="space-y-2">
+                                    <Input
+                                        type="file"
+                                        onChange={handleFileChange}
+                                        multiple
+                                        className="cursor-pointer"
+                                    />
+                                    {attachments.length > 0 && (
+                                        <div className="space-y-1">
+                                            {attachments.map((file, index) => (
+                                                <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
+                                                    <span className="text-sm truncate">{file.name}</span>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => removeAttachment(index)}
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
-
-                                <div className="space-y-2 mt-2">
-                                    {attachments.map((file, index) => (
-                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                                            <span className="text-sm text-muted-foreground truncate flex-1">
-                                                📎 {file.name}
-                                            </span>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                onClick={() => removeAttachment(index)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
+                            </div>
+                            <div className="col-span-2 space-y-2">
+                                <Label>비고</Label>
+                                <Textarea
+                                    value={formData.remark}
+                                    onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                                />
                             </div>
                         </div>
-
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                                취소
-                            </Button>
-                            <Button type="submit" disabled={createMutation.isPending}>
-                                {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                등록
+                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
+                            <Button type="submit" disabled={isUploading || createMutation.isPending || updateMutation.isPending}>
+                                {isUploading ? "파일 업로드 중..." : (isEditing ? "수정" : "등록")}
                             </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
-        </div >
+        </div>
     );
 }

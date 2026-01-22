@@ -199,22 +199,25 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                     {trigger}
                 </DialogTrigger>
             )}
-            <DialogContent className="sm:max-w-[700px] sm:max-h-[85vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>신규 출고 등록 (팀 할당)</DialogTitle>
+            <DialogContent className="sm:max-w-[700px] sm:max-h-[85vh] flex flex-col border-none bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl shadow-2xl p-0 gap-0">
+                <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-zinc-800 space-y-1">
+                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <div className="h-8 w-1 rounded-full bg-orange-500" />
+                        <span>신규 출고 등록 (팀 할당)</span>
+                    </DialogTitle>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto pr-2 space-y-4 py-1">
+                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
                     {/* Row 1: 출고일자, 수령팀, 수령자 */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">출고 일자</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">출고 일자</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-full justify-start text-left font-normal h-10",
+                                            "w-full justify-start text-left font-normal h-9 bg-slate-50/50 border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all",
                                             !formData.usageDate && "text-muted-foreground"
                                         )}
                                     >
@@ -237,13 +240,13 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                             </Popover>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">수령 팀</Label>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">수령 팀</Label>
                             <Select
                                 value={formData.teamId}
                                 onValueChange={(value) => setFormData({ ...formData, teamId: value, recipient: "" })}
                             >
-                                <SelectTrigger className="h-10">
+                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all">
                                     <SelectValue placeholder="팀 선택" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -256,14 +259,14 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                             </Select>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">수령자</Label>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">수령자</Label>
                             <Select
                                 value={formData.recipient}
                                 onValueChange={(value) => setFormData({ ...formData, recipient: value })}
                                 disabled={!formData.teamId}
                             >
-                                <SelectTrigger className="h-10">
+                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all">
                                     <SelectValue placeholder="수령자 선택" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -281,9 +284,9 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                     </div>
 
                     {/* Row 2: 제조번호, 공사번호 */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">제조번호</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">제조번호</Label>
                             <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                                 <PopoverTrigger asChild>
                                     <Button
@@ -292,7 +295,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                                         aria-expanded={openCombobox}
                                         disabled={!!initialCableId}
                                         className={cn(
-                                            "w-full justify-between h-10",
+                                            "w-full justify-between h-9 bg-slate-50/50 border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all",
                                             !formData.cableId && "text-muted-foreground",
                                             "disabled:opacity-80 disabled:cursor-not-allowed"
                                         )}
@@ -338,12 +341,12 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                             </Popover>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">공사번호</Label>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">공사번호</Label>
                             <Input
                                 value={formData.projectCode}
                                 onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                className="h-10"
+                                className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 placeholder="공사번호 입력"
                             />
                         </div>
@@ -351,36 +354,37 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
 
                     {/* 선택된 드럼 정보 */}
                     {selectedCable && (
-                        <div className="text-sm text-blue-600 font-medium p-2 bg-blue-50 rounded">
+                        <div className="text-xs text-blue-600 font-medium p-3 bg-blue-50/50 rounded-lg border border-blue-100 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                             선택된 드럼: {selectedCable.drumNo} ({selectedCable.productName} / 잔량 {selectedCable.remainingLength.toLocaleString()}m)
                         </div>
                     )}
 
                     {/* Row 3: 공사명 */}
-                    <div className="space-y-2">
-                        <Label className="text-sm font-medium">공사명</Label>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">공사명</Label>
                         <Input
                             value={formData.projectNameUsage}
                             onChange={(e) => setFormData({ ...formData, projectNameUsage: e.target.value })}
-                            className="h-10"
+                            className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                             placeholder="공사명 입력"
                         />
                     </div>
 
                     {/* Row 4: 비고 */}
-                    <div className="space-y-2">
-                        <Label className="text-sm font-medium">비고 (선택)</Label>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">비고 (선택)</Label>
                         <Input
                             value={formData.remark}
                             onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                            className="h-10"
+                            className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                             placeholder="비고 입력"
                         />
                     </div>
 
                     {/* Row 5: 첨부파일 */}
-                    <div className="space-y-2">
-                        <Label className="text-sm font-medium">첨부파일 (선택, 최대 4개)</Label>
+                    <div className="space-y-1.5 pb-2">
+                        <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">첨부파일 (선택, 최대 4개)</Label>
                         <div className="relative">
                             <input
                                 type="file"
@@ -393,7 +397,7 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                             <label
                                 htmlFor="optical-file-upload"
                                 className={cn(
-                                    "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                                    "flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors",
                                     isUploading && "opacity-50 cursor-wait"
                                 )}
                             >
@@ -431,11 +435,11 @@ export default function OpticalAssignmentDialog({ trigger, initialCableId, isOpe
                     </div>
                 </div>
 
-                <DialogFooter className="gap-2 sm:gap-0 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                <DialogFooter className="gap-2 sm:gap-0 p-6 pt-0 border-t-0">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)} className="h-9">
                         취소
                     </Button>
-                    <Button onClick={handleSubmit} disabled={mutation.isPending || isUploading}>
+                    <Button onClick={handleSubmit} disabled={mutation.isPending || isUploading} className="h-9 bg-primary/90 hover:bg-primary">
                         {mutation.isPending && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}

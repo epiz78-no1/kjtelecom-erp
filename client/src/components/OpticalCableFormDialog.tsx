@@ -285,26 +285,37 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>{editingItem ? "광케이블 드럼 수정" : "광케이블 드럼 등록"}</DialogTitle>
-                    <DialogDescription>
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto border-none bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl shadow-2xl p-0 gap-0">
+                <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-zinc-800 space-y-1">
+                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        {editingItem ? (
+                            <>
+                                <div className="h-8 w-1 rounded-full bg-indigo-500" />
+                                <span>광케이블 드럼 수정</span>
+                            </>
+                        ) : (
+                            <>
+                                <div className="h-8 w-1 rounded-full bg-emerald-500" />
+                                <span>광케이블 드럼 등록</span>
+                            </>
+                        )}
+                    </DialogTitle>
+                    <DialogDescription className="text-sm font-medium text-slate-500 pl-3">
                         {editingItem ? "드럼 정보를 수정합니다." : "새로운 광케이블 드럼을 등록합니다."}
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
                     <div className="grid gap-4 py-4">
 
-                        {/* 1. 입고일자 & 사업 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="receivedDate">입고일자 <span className="text-red-500">*</span></Label>
+                        <div className="grid grid-cols-2 gap-4 px-6">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="receivedDate" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">입고일자 <span className="text-red-500">*</span></Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant={"outline"}
                                             className={cn(
-                                                "w-full justify-start text-left font-normal",
+                                                "w-full justify-start text-left font-normal h-9 bg-slate-50/50 border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all",
                                                 !formData.receivedDate && "text-muted-foreground"
                                             )}
                                         >
@@ -326,14 +337,14 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     </PopoverContent>
                                 </Popover>
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="division">사업 <span className="text-red-500">*</span></Label>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="division" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">사업 <span className="text-red-500">*</span></Label>
                                 <Select
                                     value={formData.division}
                                     onValueChange={(value) => setFormData({ ...formData, division: value })}
                                     required
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all">
                                         <SelectValue placeholder="사업 선택" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -344,73 +355,79 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="projectCode">공사번호</Label>
+                        <div className="grid grid-cols-2 gap-4 px-6">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="projectCode" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">공사번호</Label>
                                 <Input
                                     id="projectCode"
                                     value={formData.projectCode}
                                     onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="projectName">공사명</Label>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="projectName" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">공사명</Label>
                                 <Input
                                     id="projectName"
                                     value={formData.projectName}
                                     onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
                         </div>
 
                         {/* 3. 구분 & 제조사 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="category">구분 <span className="text-red-500">*</span></Label>
+                        <div className="grid grid-cols-2 gap-4 px-6">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="category" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">구분 <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="category"
                                     value={formData.category}
                                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                     required
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="manufacturer">제조사 <span className="text-red-500">*</span></Label>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="manufacturer" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">제조사 <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="manufacturer"
                                     value={formData.manufacturer}
                                     onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
                                     required
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
                         </div>
 
                         {/* 4. 제조년도 & 규격 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="manufactureYear">제조년도 <span className="text-red-500">*</span></Label>
+                        <div className="grid grid-cols-2 gap-4 px-6">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="manufactureYear" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">제조년도 <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="manufactureYear"
                                     value={formData.manufactureYear}
                                     onChange={(e) => setFormData({ ...formData, manufactureYear: e.target.value })}
                                     required
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="spec">규격 <span className="text-red-500">*</span></Label>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="spec" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">규격 <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="spec"
                                     value={formData.spec}
                                     onChange={(e) => handleSpecChange(e.target.value)}
                                     required
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
                         </div>
 
                         {/* 5. 코어 수 & 제조번호 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="coreCount">코어 수 <span className="text-red-500">*</span></Label>
+                        <div className="grid grid-cols-2 gap-4 px-6">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="coreCount" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">코어 수 <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="coreCount"
                                     type="number"
@@ -418,32 +435,35 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     onChange={(e) => setFormData({ ...formData, coreCount: e.target.value === "" ? "" : Number(e.target.value) })}
                                     required
                                     min="0"
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="drumNo">제조번호 (Drum No) <span className="text-red-500">*</span></Label>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="drumNo" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">제조번호 (Drum No) <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="drumNo"
                                     value={formData.drumNo}
                                     onChange={(e) => setFormData({ ...formData, drumNo: e.target.value })}
                                     required
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
                         </div>
 
                         {/* 6. 보관장소 & 입고량 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="location">보관장소 <span className="text-red-500">*</span></Label>
+                        <div className="grid grid-cols-2 gap-4 px-6">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="location" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">보관장소 <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="location"
                                     value={formData.location}
                                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                                     required
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="incomingLength">입고량(m) <span className="text-red-500">*</span></Label>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="incomingLength" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">입고량(m) <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="incomingLength"
                                     type="number"
@@ -451,14 +471,15 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     onChange={(e) => handleIncomingLengthChange(e.target.value === "" ? "" : Number(e.target.value))}
                                     required
                                     min="0"
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
                         </div>
 
                         {/* 7. 단가 */}
-                        <div className="grid grid-cols-1 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="unitPrice">단가 (원) <span className="text-red-500">*</span></Label>
+                        <div className="grid grid-cols-1 gap-4 px-6">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="unitPrice" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">단가 (원) <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="unitPrice"
                                     type="number"
@@ -466,22 +487,24 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     onChange={(e) => handleUnitPriceChange(e.target.value === "" ? "" : Number(e.target.value))}
                                     required
                                     min="0"
+                                    className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                                 />
                             </div>
                         </div>
 
                         {/* 9. 비고 */}
-                        <div className="grid grid-cols-1 gap-2">
-                            <Label htmlFor="remark">비고</Label>
+                        <div className="grid grid-cols-1 gap-1.5 px-6">
+                            <Label htmlFor="remark" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">비고</Label>
                             <Input
                                 id="remark"
                                 value={formData.remark}
                                 onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                                className="h-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
                             />
                         </div>
 
                         {/* 8. 즉시 폐기 옵션 */}
-                        <div className="grid gap-2 border-t pt-4">
+                        <div className="grid gap-2 border-t border-slate-100 dark:border-zinc-800 pt-4 px-6">
                             <div className="flex items-center space-x-2">
                                 <Checkbox
                                     id="immediateWaste"
@@ -535,8 +558,8 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         </div>
 
                         {/* 10. 첨부파일 */}
-                        <div className="grid grid-cols-4 items-start gap-4 border-t pt-4">
-                            <Label className="text-right pt-2 col-span-1">
+                        <div className="grid grid-cols-4 items-start gap-4 border-t border-slate-100 dark:border-zinc-800 pt-4 px-6 pb-2">
+                            <Label className="text-right pt-2 col-span-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                 첨부파일
                             </Label>
                             <div className="col-span-3">
@@ -554,7 +577,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                     {attachments.length < 4 && (
                                         <label
                                             htmlFor={uniqueId}
-                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                                         >
                                             <Upload className="h-5 w-5 text-primary" />
                                             <span className="text-sm font-medium text-primary">
@@ -590,11 +613,11 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         </div>
 
                     </div>
-                    <div className="flex justify-end gap-2">
-                        <Button type="button" variant="outline" onClick={() => normalizedOnOpenChange(false)}>
+                    <div className="flex justify-end gap-2 p-6 pt-0">
+                        <Button type="button" variant="outline" onClick={() => normalizedOnOpenChange(false)} className="h-9">
                             취소
                         </Button>
-                        <Button type="submit" disabled={isUploading}>
+                        <Button type="submit" disabled={isUploading} className="h-9 bg-primary/90 hover:bg-primary">
                             {isUploading ? (
                                 <>
                                     <Upload className="mr-2 h-4 w-4 animate-spin" />

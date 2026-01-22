@@ -168,220 +168,183 @@ export default function FieldOpticalStatus() {
     }
 
     return (
-        <div className="flex flex-col h-full">
-            {/* Desktop View */}
-            <div className="hidden md:flex flex-col h-full">
-                <div className="flex-shrink-0 space-y-4 pb-4">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold">현장팀 보유 재고 현황 (광케이블)</h1>
-                            <p className="text-muted-foreground">각 현장팀이 현재 보유하고 있는 광케이블 드럼을 조회합니다</p>
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+            {/* Ultra Compact Header Section */}
+            <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 px-1">
+                        <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            현장팀 보유 재고 (광케이블)
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 animate-pulse"></span>
+                        </h1>
+                        <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+                        <span className="text-xs font-medium text-slate-500">{filteredStock.length} items</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="드럼번호, 현장팀 검색..."
+                            className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
+                        />
+
+                        {canWrite && !isFieldTeam && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 border-slate-200 text-slate-600 hover:bg-slate-50 text-xs px-2 gap-1.5"
+                                onClick={handleExportExcel}
+                            >
+                                <Download className="h-3 w-3" />
+                                Excel
+                            </Button>
+                        )}
+
+                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
+
+                        <div className="w-[120px]">
+                            <Select value={selectedDivision} onValueChange={setSelectedDivision}>
+                                <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
+                                    <SelectValue placeholder="사업부" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="전체" className="text-xs">전체 사업부</SelectItem>
+                                    {uniqueDivisions.filter(d => d !== "전체").map(d => (
+                                        <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            {canWrite && !isFieldTeam && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 border-green-600 text-green-600 hover:bg-green-50"
-                                    onClick={handleExportExcel}
-                                >
-                                    <Download className="h-3 w-3 mr-1" />
-                                    Excel
-                                </Button>
-                            )}
-                            <div className="w-[180px]">
-                                <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="사업부 선택" />
+
+                        {!isFieldTeam && (
+                            <div className="w-[150px]">
+                                <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                                    <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
+                                        <SelectValue placeholder="현장팀" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="전체">전체</SelectItem>
-                                        {uniqueDivisions.filter(d => d !== "전체").map(d => (
-                                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                                        <SelectItem value="전체" className="text-xs">전체 현장팀</SelectItem>
+                                        {uniqueTeams.map(t => (
+                                            <SelectItem key={String(t)} value={String(t)} className="text-xs">{String(t)}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                        </div>
-                    </div>
-
-                    {!isFieldTeam && (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            {allTeams
-                                .filter((t: any) => {
-                                    if (selectedDivision === "전체") return true;
-                                    const division = divisions?.find(d => d.id === t.divisionId);
-                                    return division?.name === selectedDivision;
-                                })
-                                .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
-                                .slice(0, 4)
-                                .map((team: any) => {
-                                    // Calculate current cable count for this team
-                                    const teamCableCount = allStockItems.filter(item => item.teamCategory === team.name).length;
-
-                                    return (
-                                        <FieldTeamCard
-                                            key={team.id}
-                                            team={{ ...team, materialCount: teamCableCount }}
-                                            onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "전체" : t.name)}
-                                        />
-                                    );
-                                })}
-                        </div>
-                    )}
-
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                        <SearchInput
-                            value={searchQuery}
-                            onChange={setSearchQuery}
-                            placeholder="제조번호, 규격, 팀명 검색..."
-                            className="flex-1 max-w-sm"
-                        />
-                        {!isFieldTeam && (
-                            <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                                <SelectTrigger className="w-48">
-                                    <SelectValue placeholder="팀 선택" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="전체">전체</SelectItem>
-                                    {uniqueTeams.filter(t => t !== "전체").map((team) => (
-                                        <SelectItem key={String(team)} value={String(team)}>
-                                            {String(team)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         )}
                     </div>
                 </div>
+            </div>
+            {/* Desktop View */}
+            <div className="hidden md:flex flex-col h-full">
+                {!isFieldTeam && (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-2">
+                        {allTeams
+                            .filter((t: any) => {
+                                if (selectedDivision === "전체") return true;
+                                const division = divisions?.find(d => d.id === t.divisionId);
+                                return division?.name === selectedDivision;
+                            })
+                            .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
+                            .slice(0, 4)
+                            .map((team: any) => {
+                                // Calculate current cable count for this team
+                                const teamCableCount = allStockItems.filter(item => item.teamCategory === team.name).length;
 
-                <div className="flex-1 rounded-md border bg-background overflow-hidden relative">
-                    <div className="h-full overflow-auto">
-                        <table className="w-full caption-bottom text-sm table-fixed">
-                            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                                <TableRow className="h-8">
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
-                                        사업
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("division", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.teamCategory }}>
-                                        현장팀
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("teamCategory", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
-                                        품명
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("productName", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
-                                        제조번호
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("drumNo", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
-                                        규격
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("spec", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.coreCount }}>
-                                        코어
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("coreCount", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remainingLength }}>
-                                        잔량(m)
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("remainingLength", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.status }}>
-                                        상태
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                            onMouseDown={(e) => startResizing("status", e)}
-                                        />
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
+                                return (
+                                    <FieldTeamCard
+                                        key={team.id}
+                                        team={{ ...team, materialCount: teamCableCount }}
+                                        onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "전체" : t.name)}
+                                    />
+                                );
+                            })}
+                    </div>
+                )}
+
+                {/* Main Table Area */}
+                <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
+                    <div className="flex-1 overflow-auto custom-scrollbar relative">
+                        <table className="w-full text-sm border-collapse table-fixed">
+                            <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+                                <TableRow className="h-10 border-b border-slate-200">
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.division }}>사업<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("division", e)} /></TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.teamCategory }}>현장팀<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("teamCategory", e)} /></TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.productName }}>품명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("productName", e)} /></TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.drumNo }}>제조번호<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("drumNo", e)} /></TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.spec }}>규격<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("spec", e)} /></TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.coreCount }}>코어<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("coreCount", e)} /></TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.remainingLength }}>잔량<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remainingLength", e)} /></TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.status }}>상태<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("status", e)} /></TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredStock.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                            보유 중인 광케이블이 없습니다
+                                        <TableCell colSpan={9} className="h-64 text-center text-muted-foreground flex flex-col items-center justify-center">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
+                                                    <Cable className="h-6 w-6 text-slate-400 opacity-50" />
+                                                </div>
+                                                <p className="font-medium">보유한 광케이블 재고가 없습니다</p>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     filteredStock.map((item) => (
-                                        <TableRow key={item.id} className="h-10 hover:bg-muted/50">
-                                            <TableCell className="text-center align-middle p-2">
-                                                <div className="w-full truncate font-medium" title={item.division}>{item.division}</div>
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle p-2">
-                                                <div className="w-full truncate" title={item.teamCategory}>{item.teamCategory}</div>
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle p-2">
-                                                <div className="w-full truncate" title={item.productName}>{item.productName}</div>
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle p-2">
-                                                <div className="w-full truncate font-medium" title={item.drumNo}>{item.drumNo}</div>
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle p-2">
-                                                <div className="w-full truncate" title={item.spec}>{item.spec}</div>
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle p-2">
-                                                <div className="w-full truncate" title={String(item.coreCount)}>{item.coreCount}</div>
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle font-bold p-2">
-                                                {item.remainingLength.toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle px-2 py-1">
+                                        <TableRow
+                                            key={item.id}
+                                            className="group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors hover:bg-slate-50/80 text-xs"
+                                        >
+                                            <TableCell className="text-center px-1 font-medium text-slate-700">{item.division}</TableCell>
+                                            <TableCell className="text-center px-1 text-slate-600">{item.teamCategory}</TableCell>
+                                            <TableCell className="text-center px-1 text-slate-600 truncate">{item.productName}</TableCell>
+                                            <TableCell className="text-center px-1 font-mono text-slate-700">{item.drumNo}</TableCell>
+                                            <TableCell className="text-center px-1 text-slate-500">{item.spec}</TableCell>
+                                            <TableCell className="text-center px-1 text-slate-500">{item.coreCount}</TableCell>
+                                            <TableCell className="text-right px-4 font-bold font-mono text-emerald-600">{item.remainingLength.toLocaleString()}</TableCell>
+                                            <TableCell className="text-center px-1">
                                                 {item.returnRequestStatus === 'pending' ? (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                        반납 대기
-                                                    </span>
+                                                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-600 border-amber-200">반납 승인 대기</Badge>
                                                 ) : (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {item.status === 'assigned' ? '보유중' : item.status === 'in_stock' ? '재고' : item.status === 'used_up' ? '사용완료' : item.status === 'returned' ? '반납' : item.status === 'waste' ? '폐기' : item.status}
-                                                    </span>
+                                                    <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500">보유중</Badge>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle px-2 py-1">
+                                            <TableCell className="text-center p-0">
                                                 {canAction && (
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <MoreHorizontal className="h-4 w-4 text-slate-400" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
+                                                        <DropdownMenuContent align="end" className="w-32">
                                                             {item.returnRequestStatus === 'pending' ? (
                                                                 <DropdownMenuItem
-                                                                    onClick={() => handleCancelReturn(item.id)}
+                                                                    onClick={() => handleCancelReturn(String(item.id))}
+                                                                    className="text-amber-600 focus:text-amber-700 focus:bg-amber-50 text-xs"
                                                                 >
-                                                                    <X className="mr-2 h-4 w-4" />
-                                                                    반납 취소
+                                                                    <X className="mr-2 h-3.5 w-3.5" />
+                                                                    반납 요청 취소
                                                                 </DropdownMenuItem>
                                                             ) : (
-                                                                <DropdownMenuItem onClick={() => handleOpenAction(item, 'return')}>
-                                                                    <ArrowLeftRight className="mr-2 h-4 w-4" />
-                                                                    사무실 반납
-                                                                </DropdownMenuItem>
+                                                                <>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => handleOpenAction(item, 'return')}
+                                                                        className="text-xs"
+                                                                    >
+                                                                        <ArrowLeftRight className="mr-2 h-3.5 w-3.5" />
+                                                                        반납 신청
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => handleOpenAction(item, 'waste')}
+                                                                        className="text-red-600 focus:text-red-700 focus:bg-red-50 text-xs"
+                                                                    >
+                                                                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                                        폐기 처리
+                                                                    </DropdownMenuItem>
+                                                                </>
                                                             )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
