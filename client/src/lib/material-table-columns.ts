@@ -49,10 +49,10 @@ export const MATERIAL_OUTGOING_COLUMNS = {
 // 현장팀 보유 현황 (TeamOutgoing)
 export const TEAM_INVENTORY_COLUMNS = {
     division: 80,
-    teamName: 120,
+    teamName: 90,
     category: 70,
-    productName: 200,       // 품명 (Left align)
-    specification: 200,     // 규격
+    productName: 300,       // 품명 (Left align)
+    specification: 400,     // 규격
     quantity: 100,          // 보유량 (Right align)
     actions: 50
 } as const;

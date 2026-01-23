@@ -314,6 +314,8 @@ export default function OpticalCables() {
                                 </Tooltip>
                             </TooltipProvider>
 
+
+
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -362,16 +364,7 @@ export default function OpticalCables() {
                 {filterOpen && (
                     <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-top-1 duration-200 mt-1">
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                            <div className="space-y-0.5">
-                                <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-                                    <SelectTrigger className="h-7 text-xs rounded-md border-slate-200 bg-slate-50/50"><SelectValue placeholder="사업구분" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="전체" className="text-xs">전체(사업)</SelectItem>
-                                        <SelectItem value="SKT" className="text-xs">SKT</SelectItem>
-                                        <SelectItem value="SKB" className="text-xs">SKB</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+
                             <div className="space-y-0.5">
                                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                                     <SelectTrigger className="h-7 text-xs rounded-md border-slate-200 bg-slate-50/50"><SelectValue placeholder="자재승인" /></SelectTrigger>

@@ -49,6 +49,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useDownload } from "@/hooks/useDownload";
 import { Paperclip, Upload } from "lucide-react";
 import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
@@ -298,8 +304,8 @@ export default function FieldOpticalUsage() {
     }
 
     return (
-        <div className="flex flex-col h-full">
-            <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1 px-2">
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+            <div className="hidden md:flex flex-col gap-2 flex-shrink-0 mb-2 pt-1 px-2">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 px-1">
                         <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -311,11 +317,7 @@ export default function FieldOpticalUsage() {
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                        <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded-md text-xs font-medium text-slate-600">
-                            <span>총 사용량:</span>
-                            <span className="text-primary">{totalLength.toLocaleString()}m</span>
-                        </div>
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
+
 
                         <SearchInput
                             value={searchQuery}
@@ -324,26 +326,55 @@ export default function FieldOpticalUsage() {
                             className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
                         />
 
+                        <div className="w-[120px]">
+                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
+                                    <SelectValue placeholder="사업부" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="전체" className="text-xs">전체 사업부</SelectItem>
+                                    <SelectItem value="SKT" className="text-xs">SKT</SelectItem>
+                                    <SelectItem value="SKB" className="text-xs">SKB</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         {canManage && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 border-slate-200 text-slate-600 hover:bg-slate-50 text-xs px-2 gap-1.5"
-                                onClick={handleExportExcel}
-                            >
-                                <Download className="h-3 w-3" />
-                                Excel
-                            </Button>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50"
+                                            onClick={handleExportExcel}
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Excel 다운로드</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         )}
 
                         {canRegister && (
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button className="h-7 px-2 text-xs bg-primary hover:bg-primary/90">
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        등록
-                                    </Button>
-                                </DropdownMenuTrigger>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm p-0" size="icon">
+                                                    <Plus className="h-3.5 w-3.5 text-white" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>사용 등록</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={() => openDialog()}>
                                         <Plus className="h-3.5 w-3.5 mr-2" />
@@ -372,18 +403,7 @@ export default function FieldOpticalUsage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 px-1">
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-[120px] h-7 text-xs border-slate-200 bg-white">
-                            <SelectValue placeholder="사업부" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="전체" className="text-xs">전체 사업부</SelectItem>
-                            <SelectItem value="SKT" className="text-xs">SKT</SelectItem>
-                            <SelectItem value="SKB" className="text-xs">SKB</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+
             </div>
 
             <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0 mx-2">

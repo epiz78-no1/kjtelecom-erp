@@ -149,7 +149,7 @@ export default function DemolitionDashboard() {
                 </div>
                 <div className="flex items-end gap-2">
                     <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
-                        철거자재 대시보드
+                        철거자재 관리
                     </h1>
                     <p className="text-xs text-slate-500 font-medium pb-0.5">
                         철거자재 현황을 한눈에 확인하세요
@@ -342,9 +342,6 @@ export default function DemolitionDashboard() {
                                         className="group relative flex items-center justify-between p-4 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all border border-white/10 hover:border-white/30 cursor-default"
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-full bg-slate-700/50 flex items-center justify-center font-bold text-lg shadow-inner text-slate-300">
-                                                {team.name.substring(0, 1)}
-                                            </div>
                                             <div>
                                                 <h4 className="font-bold text-sm tracking-wide text-white">{team.name}</h4>
                                                 <p className="text-xs text-indigo-100 flex items-center gap-1 mt-0.5">

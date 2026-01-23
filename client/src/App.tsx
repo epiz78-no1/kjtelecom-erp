@@ -34,7 +34,7 @@ const Inventory = lazy(() => import("@/pages/general/Inventory"));
 const IncomingRecords = lazy(() => import("@/pages/general/IncomingRecords"));
 const OutgoingRecords = lazy(() => import("@/pages/general/OutgoingRecords"));
 
-const Auth = lazy(() => import("@/pages/auth/Auth"));
+
 
 // Optical Pages
 const OpticalDashboard = lazy(() => import("@/pages/optical/OpticalDashboard"));

@@ -443,35 +443,6 @@ export default function TeamMaterialUsageDemolition() {
                                 </Button>
                             )}
 
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 border-slate-200 text-slate-600 hover:bg-slate-50 text-xs px-2 gap-1.5"
-                                            onClick={handleExportExcel}
-                                        >
-                                            <Download className="h-3 w-3" />
-                                            Excel
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
-                                </Tooltip>
-
-                                <Button
-                                    size="sm"
-                                    className="h-7 text-xs px-2 gap-1.5 bg-primary/90 hover:bg-primary shadow-sm"
-                                    onClick={() => {
-                                        resetForm();
-                                        setDialogOpen(true);
-                                    }}
-                                >
-                                    <Plus className="h-3 w-3" />
-                                    등록
-                                </Button>
-                            </TooltipProvider>
-
                             <div className="w-[140px]">
                                 <Select value={team} onValueChange={setTeam}>
                                     <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
@@ -487,6 +458,42 @@ export default function TeamMaterialUsageDemolition() {
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50"
+                                            onClick={handleExportExcel}
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm p-0"
+                                            onClick={() => {
+                                                resetForm();
+                                                setDialogOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="h-3.5 w-3.5 text-white" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>철거자재 등록</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+
                         </div>
                     </div>
                 </div>

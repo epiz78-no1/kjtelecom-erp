@@ -179,25 +179,6 @@ export default function TeamOutgoing() {
                 className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
               />
 
-              <TooltipProvider>
-                {canWrite && !isFieldTeam && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 border-slate-200 text-slate-600 hover:bg-slate-50 text-xs px-2 gap-1.5"
-                        onClick={handleExportExcel}
-                      >
-                        <Download className="h-3 w-3" />
-                        Excel
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
-                  </Tooltip>
-                )}
-              </TooltipProvider>
-
               <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
 
               <div className="w-[120px]">
@@ -231,6 +212,24 @@ export default function TeamOutgoing() {
                   </Select>
                 </div>
               )}
+
+              <TooltipProvider>
+                {canWrite && !isFieldTeam && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50 ml-1"
+                        onClick={handleExportExcel}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+                  </Tooltip>
+                )}
+              </TooltipProvider>
             </div>
           </div>
         </div>

@@ -28,6 +28,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import {
     DropdownMenu,
@@ -392,12 +393,12 @@ export default function DemolitionIncoming() {
                                     <TooltipContent side="bottom" className="text-xs">입고 등록</TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="w-32 p-1">
                                 <DropdownMenuItem onClick={() => {
                                     resetForm();
                                     setDialogOpen(true);
-                                }}>
-                                    <Plus className="h-4 w-4 mr-2" />
+                                }} className="text-xs py-1.5 cursor-pointer rounded-md">
+                                    <Plus className="h-3 w-3 mr-2 text-primary" />
                                     직접 등록
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -593,267 +594,386 @@ export default function DemolitionIncoming() {
             </div>
 
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-[800px] bg-white sm:max-w-[800px]">
-                    <DialogHeader>
-                        <DialogTitle>{isEditing ? "철거자재 수정" : "철거자재 등록"}</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>공사번호</Label>
-                                <Input
-                                    value={formData.projectCode}
-                                    onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>공사명</Label>
-                                <Input
-                                    value={formData.projectName}
-                                    onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>철거일</Label>
-                                <Input
-                                    type="date"
-                                    value={formData.demolitionDate}
-                                    onChange={(e) => setFormData({ ...formData, demolitionDate: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>사업구분</Label>
-                                <Select
-                                    value={formData.division}
-                                    onValueChange={(value) => setFormData({ ...formData, division: value })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="선택" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="SKT">SKT</SelectItem>
-                                        <SelectItem value="SKB">SKB</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>구분</Label>
-                                {inputMode.category ? (
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={formData.category}
-                                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                            className="flex-1"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => setInputMode({ ...inputMode, category: false })}
-                                        >
-                                            선택
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <Select
-                                        value={formData.category}
-                                        onValueChange={(value) => {
-                                            if (value === "direct") {
-                                                setInputMode({ ...inputMode, category: true });
-                                                setFormData({ ...formData, category: "" });
-                                            } else {
-                                                setFormData({ ...formData, category: value, productName: "", specification: "" });
-                                            }
-                                        }}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="선택" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {Object.keys(DEMOLITION_ITEMS).map((key) => (
-                                                <SelectItem key={key} value={key}>{key}</SelectItem>
-                                            ))}
-                                            <SelectItem value="direct">직접입력</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label>품명</Label>
-                                {inputMode.productName ? (
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={formData.productName}
-                                            onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                                            className="flex-1"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => setInputMode({ ...inputMode, productName: false })}
-                                        >
-                                            선택
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <Select
-                                        value={formData.productName}
-                                        onValueChange={(value) => {
-                                            if (value === "direct") {
-                                                setInputMode({ ...inputMode, productName: true });
-                                                setFormData({ ...formData, productName: "" });
-                                            } else {
-                                                setFormData({ ...formData, productName: value, specification: "" });
-                                            }
-                                        }}
-                                        disabled={!formData.category || inputMode.category}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="선택" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {formData.category && DEMOLITION_ITEMS[formData.category] &&
-                                                Object.keys(DEMOLITION_ITEMS[formData.category]).map((key) => (
-                                                    <SelectItem key={key} value={key}>{key}</SelectItem>
-                                                ))
-                                            }
-                                            <SelectItem value="direct">직접입력</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label>규격</Label>
-                                {inputMode.specification ? (
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={formData.specification}
-                                            onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                                            className="flex-1"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => setInputMode({ ...inputMode, specification: false })}
-                                        >
-                                            선택
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <Select
-                                        value={formData.specification}
-                                        onValueChange={(value) => {
-                                            if (value === "direct") {
-                                                setInputMode({ ...inputMode, specification: true });
-                                                setFormData({ ...formData, specification: "" });
-                                            } else {
-                                                setFormData({ ...formData, specification: value });
-                                            }
-                                        }}
-                                        disabled={!formData.productName || inputMode.productName}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="선택" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {formData.category && formData.productName &&
-                                                DEMOLITION_ITEMS[formData.category] &&
-                                                DEMOLITION_ITEMS[formData.category][formData.productName] &&
-                                                DEMOLITION_ITEMS[formData.category][formData.productName].map((spec: string) => (
-                                                    <SelectItem key={spec} value={spec}>{spec}</SelectItem>
-                                                ))
-                                            }
-                                            <SelectItem value="direct">직접입력</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label>수량</Label>
-                                <Input
-                                    type="number"
-                                    value={formData.originalQuantity}
-                                    onChange={(e) => setFormData({ ...formData, originalQuantity: parseInt(e.target.value) || 0 })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>작업자</Label>
-                                <div className="flex gap-2">
-                                    <div className="flex-1">
-                                        <Select
-                                            value={formData.currentTeamId}
-                                            onValueChange={(val) => {
-                                                setFormData({ ...formData, currentTeamId: val, workerName: "" });
-                                            }}
-                                        >
-                                            <SelectTrigger><SelectValue placeholder="팀 선택" /></SelectTrigger>
-                                            <SelectContent>
-                                                {teamsList.map((team: any) => (
-                                                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex-1">
-                                        <Select
-                                            value={formData.workerName}
-                                            onValueChange={(val) => setFormData({ ...formData, workerName: val })}
-                                            disabled={!formData.currentTeamId}
-                                        >
-                                            <SelectTrigger><SelectValue placeholder="작업자 선택" /></SelectTrigger>
-                                            <SelectContent>
-                                                {membersList
-                                                    .filter((m: any) => m.teamId === formData.currentTeamId)
-                                                    .map((m: any) => (
-                                                        <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
-                                                    ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]">
+                    <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-blue-500 to-sky-500" />
+
+                    <div className="px-6 pt-6 pb-2">
+                        <DialogHeader className="mb-4">
+                            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+                                {isEditing ? "철거자재 입고 정보 수정" : "철거자재 입고 등록"}
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-slate-500">
+                                {isEditing ? "등록된 철거자재의 입고 정보를 수정합니다." : "현장에서 수거된 철거자재 입고 내역을 등록합니다."}
+                            </DialogDescription>
+                        </DialogHeader>
+                    </div>
+
+                    <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex-1">
+                        <form onSubmit={handleSubmit} className="grid gap-6">
+                            {/* 공사 정보 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-indigo-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">공사 정보</h4>
                                 </div>
-                            </div>
-                            <div className="col-span-2 space-y-2">
-                                <Label>첨부파일</Label>
-                                <div className="space-y-2">
-                                    <Input
-                                        type="file"
-                                        onChange={handleFileChange}
-                                        multiple
-                                        className="cursor-pointer"
-                                    />
-                                    {attachments.length > 0 && (
-                                        <div className="space-y-1">
-                                            {attachments.map((file, index) => (
-                                                <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
-                                                    <span className="text-sm truncate">{file.name}</span>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => removeAttachment(index)}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5 flex flex-col">
+                                        <div className="flex justify-between items-center">
+                                            <Label htmlFor="projectCode" className="text-[12px] font-semibold text-slate-500 ml-1">공사번호</Label>
+                                            <span className="text-[10px] text-indigo-500 font-medium">*필수</span>
                                         </div>
-                                    )}
+                                        <Input
+                                            id="projectCode"
+                                            value={formData.projectCode}
+                                            onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all font-mono text-xs"
+                                            placeholder="공사번호를 입력하세요"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="projectName" className="text-[12px] font-semibold text-slate-500 ml-1">공사명</Label>
+                                        <Input
+                                            id="projectName"
+                                            value={formData.projectName}
+                                            onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all text-xs"
+                                            placeholder="공사명을 입력하세요"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="demolitionDate" className="text-[12px] font-semibold text-slate-500 ml-1">철거일</Label>
+                                        <Input
+                                            id="demolitionDate"
+                                            type="date"
+                                            value={formData.demolitionDate}
+                                            onChange={(e) => setFormData({ ...formData, demolitionDate: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="division" className="text-[12px] font-semibold text-slate-500 ml-1">사업구분</Label>
+                                        <Select
+                                            value={formData.division}
+                                            onValueChange={(value) => setFormData({ ...formData, division: value })}
+                                        >
+                                            <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs">
+                                                <SelectValue placeholder="선택" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="SKT" className="text-xs">SKT</SelectItem>
+                                                <SelectItem value="SKB" className="text-xs">SKB</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="col-span-2 space-y-2">
-                                <Label>비고</Label>
-                                <Textarea
-                                    value={formData.remark}
-                                    onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                                />
+
+                            <div className="h-px bg-slate-100" />
+
+                            {/* 자재 정보 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-blue-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">자재 정보</h4>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5 flex flex-col">
+                                        <Label htmlFor="category" className="text-[12px] font-semibold text-slate-500 ml-1">자재 구분</Label>
+                                        {inputMode.category ? (
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={formData.category}
+                                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                                    className="flex-1 h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all text-xs"
+                                                    placeholder="직접 입력"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setInputMode({ ...inputMode, category: false })}
+                                                    className="h-9 px-3 text-xs text-slate-500 border border-slate-200 hover:bg-slate-50"
+                                                >
+                                                    선택
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <Select
+                                                value={formData.category}
+                                                onValueChange={(value) => {
+                                                    if (value === "direct") {
+                                                        setInputMode({ ...inputMode, category: true });
+                                                        setFormData({ ...formData, category: "" });
+                                                    } else {
+                                                        setFormData({ ...formData, category: value, productName: "", specification: "" });
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs text-left">
+                                                    <SelectValue placeholder="자재 구분 선택" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.keys(DEMOLITION_ITEMS).map((key) => (
+                                                        <SelectItem key={key} value={key} className="text-xs">{key}</SelectItem>
+                                                    ))}
+                                                    <SelectItem value="direct" className="text-xs font-semibold text-indigo-600">직접 입력</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5 flex flex-col">
+                                        <Label htmlFor="productName" className="text-[12px] font-semibold text-slate-500 ml-1">품명</Label>
+                                        {inputMode.productName ? (
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={formData.productName}
+                                                    onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
+                                                    className="flex-1 h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all text-xs"
+                                                    placeholder="직접 입력"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setInputMode({ ...inputMode, productName: false })}
+                                                    className="h-9 px-3 text-xs text-slate-500 border border-slate-200 hover:bg-slate-50"
+                                                >
+                                                    선택
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <Select
+                                                value={formData.productName}
+                                                onValueChange={(value) => {
+                                                    if (value === "direct") {
+                                                        setInputMode({ ...inputMode, productName: true });
+                                                        setFormData({ ...formData, productName: "" });
+                                                    } else {
+                                                        setFormData({ ...formData, productName: value, specification: "" });
+                                                    }
+                                                }}
+                                                disabled={!formData.category || inputMode.category}
+                                            >
+                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs text-left">
+                                                    <SelectValue placeholder="품명 선택" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {formData.category && DEMOLITION_ITEMS[formData.category] &&
+                                                        Object.keys(DEMOLITION_ITEMS[formData.category]).map((key) => (
+                                                            <SelectItem key={key} value={key} className="text-xs">{key}</SelectItem>
+                                                        ))
+                                                    }
+                                                    <SelectItem value="direct" className="text-xs font-semibold text-indigo-600">직접 입력</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5 flex flex-col">
+                                        <Label htmlFor="specification" className="text-[12px] font-semibold text-slate-500 ml-1">규격</Label>
+                                        {inputMode.specification ? (
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={formData.specification}
+                                                    onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
+                                                    className="flex-1 h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all text-xs"
+                                                    placeholder="직접 입력"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setInputMode({ ...inputMode, specification: false })}
+                                                    className="h-9 px-3 text-xs text-slate-500 border border-slate-200 hover:bg-slate-50"
+                                                >
+                                                    선택
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <Select
+                                                value={formData.specification}
+                                                onValueChange={(value) => {
+                                                    if (value === "direct") {
+                                                        setInputMode({ ...inputMode, specification: true });
+                                                        setFormData({ ...formData, specification: "" });
+                                                    } else {
+                                                        setFormData({ ...formData, specification: value });
+                                                    }
+                                                }}
+                                                disabled={!formData.productName || inputMode.productName}
+                                            >
+                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs text-left">
+                                                    <SelectValue placeholder="규격 선택" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {formData.category && formData.productName &&
+                                                        DEMOLITION_ITEMS[formData.category] &&
+                                                        DEMOLITION_ITEMS[formData.category][formData.productName] &&
+                                                        DEMOLITION_ITEMS[formData.category][formData.productName].map((spec: string) => (
+                                                            <SelectItem key={spec} value={spec} className="text-xs">{spec}</SelectItem>
+                                                        ))
+                                                    }
+                                                    <SelectItem value="direct" className="text-xs font-semibold text-indigo-600">직접 입력</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5 flex flex-col">
+                                        <Label htmlFor="originalQuantity" className="text-[12px] font-semibold text-slate-500 ml-1">입고 수량</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                value={formData.originalQuantity}
+                                                onChange={(e) => setFormData({ ...formData, originalQuantity: parseInt(e.target.value) || 0 })}
+                                                className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all font-mono text-right pr-2"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
-                            <Button type="submit" disabled={isUploading || createMutation.isPending || updateMutation.isPending}>
-                                {isUploading ? "파일 업로드 중..." : (isEditing ? "수정" : "등록")}
-                            </Button>
-                        </DialogFooter>
-                    </form>
+
+                            <div className="h-px bg-slate-100" />
+
+                            {/* 작업자 및 첨부 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-sky-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">작업자 및 기타</h4>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5 flex flex-col">
+                                        <Label htmlFor="worker" className="text-[12px] font-semibold text-slate-500 ml-1">작업자</Label>
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <Select
+                                                    value={formData.currentTeamId}
+                                                    onValueChange={(val) => {
+                                                        setFormData({ ...formData, currentTeamId: val, workerName: "" });
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs">
+                                                        <SelectValue placeholder="팀 선택" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {teamsList.map((team: any) => (
+                                                            <SelectItem key={team.id} value={team.id} className="text-xs">{team.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex-1">
+                                                <Select
+                                                    value={formData.workerName}
+                                                    onValueChange={(val) => setFormData({ ...formData, workerName: val })}
+                                                    disabled={!formData.currentTeamId}
+                                                >
+                                                    <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs">
+                                                        <SelectValue placeholder="작업자 선택" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {membersList
+                                                            .filter((m: any) => m.teamId === formData.currentTeamId)
+                                                            .map((m: any) => (
+                                                                <SelectItem key={m.id} value={m.name} className="text-xs">{m.name}</SelectItem>
+                                                            ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5 flex flex-col">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">첨부파일</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type="file"
+                                                id="file-upload"
+                                                className="hidden"
+                                                onChange={handleFileChange}
+                                                multiple
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => document.getElementById('file-upload')?.click()}
+                                                className="w-full h-9 bg-slate-50/50 border-slate-200 border-dashed hover:bg-slate-100 hover:border-slate-300 text-slate-500 text-xs"
+                                            >
+                                                <Upload className="h-3.5 w-3.5 mr-2" />
+                                                {attachments.length > 0 ? `${attachments.length}개 파일 선택됨` : "파일 첨부하기"}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {attachments.length > 0 && (
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        {attachments.map((file, index) => (
+                                            <div key={index} className="flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50/50">
+                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                    <div className="p-1.5 bg-white rounded-md border border-slate-100 shadow-sm shrink-0">
+                                                        <Paperclip className="h-3.5 w-3.5 text-indigo-500" />
+                                                    </div>
+                                                    <span className="text-xs text-slate-600 truncate">{file.name}</span>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-500 rounded-full"
+                                                    onClick={() => removeAttachment(index)}
+                                                >
+                                                    <X className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="remark" className="text-[12px] font-semibold text-slate-500 ml-1">비고</Label>
+                                    <Textarea
+                                        value={formData.remark}
+                                        onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                                        className="min-h-[60px] bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 text-xs resize-none"
+                                        placeholder="비고 사항을 입력하세요"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-2 -mx-6 -mb-6 mt-2">
+                                <Button type="button" variant="ghost" className="h-9 text-slate-500 hover:text-slate-900" onClick={() => setDialogOpen(false)}>
+                                    취소
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={isUploading || createMutation.isPending || updateMutation.isPending}
+                                    className="h-9 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md shadow-indigo-200"
+                                >
+                                    {isUploading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                            업로드 중...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="mr-2 h-3.5 w-3.5" />
+                                            {isEditing ? "수정 완료" : "입고 등록"}
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

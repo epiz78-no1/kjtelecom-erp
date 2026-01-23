@@ -1,7 +1,7 @@
 import { Download, Loader2, Cable, MoreHorizontal, ArrowLeftRight, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { FieldTeamCard } from "@/components/FieldTeamCard";
+
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +32,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function FieldOpticalStatus() {
     const { tenants, currentTenant, divisions, teams: allTeams, checkPermission } = useAppContext();
@@ -189,18 +195,6 @@ export default function FieldOpticalStatus() {
                             className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
                         />
 
-                        {canWrite && !isFieldTeam && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 border-slate-200 text-slate-600 hover:bg-slate-50 text-xs px-2 gap-1.5"
-                                onClick={handleExportExcel}
-                            >
-                                <Download className="h-3 w-3" />
-                                Excel
-                            </Button>
-                        )}
-
                         <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
 
                         <div className="w-[120px]">
@@ -225,42 +219,39 @@ export default function FieldOpticalStatus() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="전체" className="text-xs">전체 현장팀</SelectItem>
-                                        {uniqueTeams.map(t => (
+                                        {uniqueTeams.filter(t => t !== "전체").map(t => (
                                             <SelectItem key={String(t)} value={String(t)} className="text-xs">{String(t)}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                         )}
+
+                        {canWrite && !isFieldTeam && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50 ml-1"
+                                            onClick={handleExportExcel}
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Excel 다운로드</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                     </div>
                 </div>
             </div>
             {/* Desktop View */}
             <div className="hidden md:flex flex-col h-full">
-                {!isFieldTeam && (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-2">
-                        {allTeams
-                            .filter((t: any) => {
-                                if (selectedDivision === "전체") return true;
-                                const division = divisions?.find(d => d.id === t.divisionId);
-                                return division?.name === selectedDivision;
-                            })
-                            .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
-                            .slice(0, 4)
-                            .map((team: any) => {
-                                // Calculate current cable count for this team
-                                const teamCableCount = allStockItems.filter(item => item.teamCategory === team.name).length;
 
-                                return (
-                                    <FieldTeamCard
-                                        key={team.id}
-                                        team={{ ...team, materialCount: teamCableCount }}
-                                        onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "전체" : t.name)}
-                                    />
-                                );
-                            })}
-                    </div>
-                )}
 
                 {/* Main Table Area */}
                 <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">

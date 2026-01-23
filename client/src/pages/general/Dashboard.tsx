@@ -25,7 +25,7 @@ export default function Dashboard() {
   useEffect(() => {
     // If user has no permission to view inventory but can view usage -> Redirect to Team Material Usage
     if (!checkPermission("inventory", "read") && checkPermission("usage", "read")) {
-      setLocation("/team-material-usage");
+      setLocation("/team-material-usage-optical");
     }
   }, [checkPermission, setLocation]);
 
@@ -160,10 +160,10 @@ export default function Dashboard() {
         </div>
         <div className="flex items-end gap-2">
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
-            종합 대시보드
+            일반자재 관리
           </h1>
           <p className="text-xs text-slate-500 font-medium pb-0.5">
-            자재 수급 현황과 재고 가치를 한눈에 모니터링합니다
+            전 공정의 흐름과 자원 현황을 실시간으로 제어합니다
           </p>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">총 재고량</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">가용 자원 총량</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
                 {totalRemaining.toLocaleString()}
               </h3>
@@ -192,7 +192,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">총 자산 가치</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">공정 자산 규모</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-violet-600 transition-colors">
                 {(totalAmount / 1000000).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                 <span className="text-lg text-slate-400 font-normal ml-1">백만원</span>
@@ -210,7 +210,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">활성 현장팀</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">가동 중인 시공팀</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors">
                 {activeTeamCount}
                 <span className="text-lg text-slate-400 font-normal ml-1">Teams</span>
@@ -228,7 +228,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">임계 재고</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">수급 경보 항목</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-red-500 transition-colors">
                 {lowStockCount}
                 <span className="text-lg text-slate-400 font-normal ml-1">Items</span>
@@ -245,8 +245,10 @@ export default function Dashboard() {
         <Card className="lg:col-span-2 border-slate-200 shadow-sm rounded-3xl overflow-hidden bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 border-b border-slate-100 dark:border-zinc-800">
             <div>
-              <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">항목별 재고 현황</CardTitle>
-              <CardDescription>사업 구분별 상세 재고 내역입니다</CardDescription>
+              <p className="text-sm font-medium text-slate-500 dark:text-blue-200">공정별 자원 분포</p>
+              <h3 className="text-2xl font-bold mt-2 text-slate-900 dark:text-white">
+                공정 및 사업 구분별 자원 현황
+              </h3>
             </div>
 
           </CardHeader>
@@ -336,7 +338,7 @@ export default function Dashboard() {
               <Users className="h-5 w-5 text-indigo-100" />
               현장팀 현황
             </CardTitle>
-            <CardDescription className="text-indigo-100/80">자재를 보유 중인 팀 목록입니다.</CardDescription>
+            <CardDescription className="text-indigo-100/80">현장 자원을 운용 중인 팀 목록입니다.</CardDescription>
           </CardHeader>
           <CardContent className="h-[600px] overflow-y-auto pr-2 custom-scrollbar">
             <div className="space-y-3">
@@ -353,10 +355,6 @@ export default function Dashboard() {
                     className="group relative flex items-center justify-between p-4 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all border border-white/10 hover:border-white/30 cursor-default"
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-lg shadow-inner ${team.isActive ? "bg-emerald-400 text-white" : "bg-slate-700/50 text-slate-300"
-                        }`}>
-                        {team.name.substring(0, 1)}
-                      </div>
                       <div>
                         <h4 className="font-bold text-sm tracking-wide text-white">{team.name}</h4>
                         <p className="text-xs text-indigo-100 flex items-center gap-1 mt-0.5">

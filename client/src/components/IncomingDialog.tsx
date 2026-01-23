@@ -240,7 +240,7 @@ export function IncomingDialog({
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl">
+            <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]">
                 {/* Top Gradient Indicator */}
                 <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500" />
 
@@ -255,7 +255,7 @@ export function IncomingDialog({
                     </DialogHeader>
                 </div>
 
-                <div className="px-6 pb-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex-1">
                     <div className="grid gap-6">
 
                         {/* 기본 정보 */}

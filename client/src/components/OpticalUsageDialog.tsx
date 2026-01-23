@@ -308,14 +308,14 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl">
-                {/* Top Gradient Indicator */}
-                <div className="h-1.5 w-full bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
+            <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]">
+                {/* Top Gradient Indicator - Optical Theme (Blue/Indigo) */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500" />
 
                 <div className="px-6 pt-6 pb-2">
                     <DialogHeader className="mb-4">
                         <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
-                            {editingLog ? "사용 내역 수정" : "사용 내역 등록"}
+                            {editingLog ? "광케이블 사용 수정" : "광케이블 사용 등록"}
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-500">
                             광케이블 포설 및 접속 작업 실적을 {editingLog ? "수정하여 데이터를 갱신합니다." : "새로 등록합니다."}
@@ -323,10 +323,10 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     </DialogHeader>
                 </div>
 
-                <div className="px-6 pb-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6">
                     {isLoading ? (
                         <div className="flex flex-col justify-center items-center py-20 space-y-4">
-                            <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+                            <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
                             <p className="text-sm font-medium text-slate-500">데이터를 불러오는 중입니다...</p>
                         </div>
                     ) : (
@@ -335,7 +335,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                             {/* 기본 정보 */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <div className="h-4 w-1 bg-violet-500 rounded-full" />
+                                    <div className="h-4 w-1 bg-indigo-500 rounded-full" />
                                     <h4 className="font-bold text-[13px] text-slate-700">작업 기본 정보</h4>
                                 </div>
 
@@ -347,15 +347,15 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                 <Button
                                                     variant="outline"
                                                     className={cn(
-                                                        "w-full justify-start text-left font-normal h-9 bg-slate-50/50 border-slate-200/60 hover:bg-white hover:border-violet-500/50 transition-all text-xs",
+                                                        "w-full justify-start text-left font-normal h-9 bg-slate-50/50 border-slate-200/60 hover:bg-white hover:border-indigo-500/50 transition-all text-xs",
                                                         !formData.usageDate && "text-muted-foreground"
                                                     )}
                                                 >
-                                                    <CalendarIcon className="mr-2 h-4 w-4 text-violet-600" />
+                                                    <CalendarIcon className="mr-2 h-4 w-4 text-indigo-600" />
                                                     {formData.usageDate ? format(new Date(formData.usageDate), "yyyy-MM-dd") : <span>날짜 선택</span>}
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 border-violet-100 shadow-xl" align="start">
+                                            <PopoverContent className="w-auto p-0 border-indigo-100 shadow-xl" align="start">
                                                 <Calendar
                                                     mode="single"
                                                     selected={formData.usageDate ? new Date(formData.usageDate) : undefined}
@@ -363,8 +363,8 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                     initialFocus
                                                     className="p-3"
                                                     classNames={{
-                                                        day_selected: "bg-violet-500 text-white hover:bg-violet-600 focus:bg-violet-600",
-                                                        day_today: "bg-violet-50 text-violet-600",
+                                                        day_selected: "bg-indigo-500 text-white hover:bg-indigo-600 focus:bg-indigo-600",
+                                                        day_today: "bg-indigo-50 text-indigo-600",
                                                     }}
                                                 />
                                             </PopoverContent>
@@ -376,7 +376,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                             <Input
                                                 value={teams.find(t => t.id === myTeamId)?.name || ''}
                                                 disabled
-                                                className="h-9 bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed"
+                                                className="h-9 bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed text-xs"
                                             />
                                         ) : (
                                             <Select
@@ -384,7 +384,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                 onValueChange={(val) => setFormData({ ...formData, teamId: val, cableId: "" })}
                                                 disabled={!!editingLog}
                                             >
-                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-violet-500/20 text-xs">
+                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs">
                                                     <SelectValue placeholder="팀 선택" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -403,7 +403,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                             <Input
                                                 value={formData.workerName}
                                                 disabled
-                                                className="h-9 bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed"
+                                                className="h-9 bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed text-xs"
                                             />
                                         ) : (
                                             <Select
@@ -411,7 +411,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                 onValueChange={(val) => setFormData({ ...formData, workerName: val })}
                                                 disabled={!formData.teamId}
                                             >
-                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-violet-500/20 text-xs">
+                                                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs">
                                                     <SelectValue placeholder="사용자 선택" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -435,7 +435,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                             {/* 사용 정보 */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <div className="h-4 w-1 bg-purple-500 rounded-full" />
+                                    <div className="h-4 w-1 bg-blue-500 rounded-full" />
                                     <h4 className="font-bold text-[13px] text-slate-700">케이블 사용 정보</h4>
                                 </div>
 
@@ -448,7 +448,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                             onValueChange={(val) => setFormData({ ...formData, cableId: val })}
                                             disabled={(!isFieldTeam && !formData.teamId) || !!editingLog}
                                         >
-                                            <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-violet-500/20 text-xs">
+                                            <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-indigo-500/20 text-xs">
                                                 <SelectValue placeholder={
                                                     !isFieldTeam && !formData.teamId
                                                         ? "먼저 팀을 선택하세요"
@@ -469,8 +469,8 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
 
                                     {/* 선택된 드럼 정보 카드 */}
                                     {selectedCable && (
-                                        <div className="text-xs text-purple-700 font-medium p-3 bg-purple-50/50 rounded-lg border border-purple-100 flex items-center gap-2">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+                                        <div className="text-xs text-blue-700 font-medium p-3 bg-blue-50/50 rounded-lg border border-blue-100 flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                                             선택됨: {selectedCable.drumNo} ({selectedCable.productName} / 잔량 {selectedCable.remainingLength.toLocaleString()}m)
                                         </div>
                                     )}
@@ -484,7 +484,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                 onChange={(e) => setFormData({ ...formData, installLength: Number(e.target.value) })}
                                                 min={0}
                                                 placeholder="0"
-                                                className="h-9 font-mono bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-purple-500/50 transition-all text-right"
+                                                className="h-9 font-mono bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all text-right"
                                             />
                                         </div>
                                         <div className="space-y-1.5">
@@ -495,7 +495,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                 onChange={(e) => setFormData({ ...formData, wasteLength: Number(e.target.value) })}
                                                 min={0}
                                                 placeholder="0"
-                                                className="h-9 font-mono bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-purple-500/50 transition-all text-right"
+                                                className="h-9 font-mono bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-indigo-500/50 transition-all text-right"
                                             />
                                         </div>
                                     </div>
@@ -507,7 +507,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                             {/* 공사 정보 */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <div className="h-4 w-1 bg-fuchsia-500 rounded-full" />
+                                    <div className="h-4 w-1 bg-violet-500 rounded-full" />
                                     <h4 className="font-bold text-[13px] text-slate-700">공사 정보</h4>
                                 </div>
 
@@ -517,7 +517,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                         <Input
                                             value={formData.projectCode || ''}
                                             onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-fuchsia-500/50 transition-all"
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-violet-500/50 transition-all text-xs"
                                             placeholder="공사번호 입력"
                                         />
                                     </div>
@@ -526,7 +526,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                         <Input
                                             value={formData.projectNameUsage}
                                             onChange={(e) => setFormData({ ...formData, projectNameUsage: e.target.value })}
-                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-fuchsia-500/50 transition-all"
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-violet-500/50 transition-all text-xs"
                                             placeholder="공사명 입력"
                                         />
                                     </div>
@@ -558,14 +558,14 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                             <label
                                                 htmlFor="optical-usage-file-upload"
                                                 className={cn(
-                                                    "group flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-all duration-200",
+                                                    "group flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-200",
                                                     isUploading && "opacity-50 cursor-wait"
                                                 )}
                                             >
-                                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
-                                                    <Upload className="h-4 w-4 text-slate-400 group-hover:text-violet-600" />
+                                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                                    <Upload className="h-4 w-4 text-slate-400 group-hover:text-indigo-600" />
                                                 </div>
-                                                <span className="text-xs font-medium text-slate-500 group-hover:text-violet-600">
+                                                <span className="text-xs font-medium text-slate-500 group-hover:text-indigo-600">
                                                     {isUploading ? "업로드 중..." : "클릭하여 파일 업로드 또는 드래그 앤 드롭"}
                                                 </span>
                                             </label>
@@ -577,13 +577,13 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                             {attachments.map((file, index) => (
                                                 <div key={index} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 rounded-lg shadow-sm hover:shadow-md transition-all">
                                                     <div className="flex items-center gap-2.5 overflow-hidden">
-                                                        <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 text-lg">
+                                                        <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0 text-lg">
                                                             {file.name.endsWith('.pdf') ? '📄' :
                                                                 file.name.endsWith('.xls') || file.name.endsWith('.xlsx') ? '📊' : '🖼️'}
                                                         </div>
                                                         <div className="flex flex-col min-w-0">
                                                             {file.storageUrl ? (
-                                                                <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-slate-700 truncate block max-w-[120px] hover:text-violet-600 hover:underline">
+                                                                <a href={file.storageUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-slate-700 truncate block max-w-[120px] hover:text-indigo-600 hover:underline">
                                                                     {file.name}
                                                                 </a>
                                                             ) : (
@@ -591,7 +591,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                                                                     {file.name}
                                                                 </span>
                                                             )}
-                                                            <span className="text-[10px] text-violet-600">업로드 완료</span>
+                                                            <span className="text-[10px] text-indigo-600">업로드 완료</span>
                                                         </div>
                                                     </div>
                                                     <Button
@@ -620,8 +620,8 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                     <Button
                         type="submit"
                         disabled={usageMutation.isPending || isUploading}
-                        onClick={handleSubmit} // Using onClick instead of type=submit here because form is wrapped differently or just to be safe with placement
-                        className="h-9 px-6 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white shadow-md shadow-violet-200"
+                        onClick={handleSubmit}
+                        className="h-9 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md shadow-indigo-200"
                     >
                         {usageMutation.isPending || isUploading ? (
                             <>

@@ -143,7 +143,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl">
+      <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]">
         {/* Top Gradient Indicator */}
         <div className={`h-1.5 w-full ${GradientLine}`} />
 
@@ -160,7 +160,7 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
           </DialogHeader>
         </div>
 
-        <div className="px-6 pb-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+        <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex-1">
           <form onSubmit={handleSubmit} className="grid gap-6">
 
             {/* 기본 정보 */}
@@ -315,8 +315,8 @@ export function MaterialFormDialog({ open, onOpenChange, onSubmit, editingItem }
           <Button
             onClick={handleSubmit}
             className={`h-9 px-6 text-white shadow-md ${isEdit
-                ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-200"
-                : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-200"
+              ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-200"
+              : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-200"
               }`}
             data-testid="button-submit-material"
           >

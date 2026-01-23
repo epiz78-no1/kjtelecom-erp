@@ -32,6 +32,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import {
     Popover,
@@ -610,140 +611,205 @@ export default function DemolitionMaterials() {
             </div>
 
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-xl">
-                    <DialogHeader>
-                        <DialogTitle>철거자재 수정</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="demolitionDate">철거일자</Label>
-                                <Input
-                                    id="demolitionDate"
-                                    type="date"
-                                    value={formData.demolitionDate}
-                                    onChange={(e) => setFormData({ ...formData, demolitionDate: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="division">사업</Label>
-                                <Select
-                                    value={formData.division}
-                                    onValueChange={(val) => setFormData({ ...formData, division: val })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="사업 선택" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="SKT">SKT</SelectItem>
-                                        <SelectItem value="SKB">SKB</SelectItem>
-                                        <SelectItem value="KT">KT</SelectItem>
-                                        <SelectItem value="LG">LG</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]">
+                    <div className="h-1.5 w-full bg-gradient-to-r from-red-500 via-orange-500 to-amber-500" />
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="projectCode">공사번호</Label>
-                                <Input
-                                    id="projectCode"
-                                    value={formData.projectCode}
-                                    onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="projectName">공사명</Label>
-                                <Input
-                                    id="projectName"
-                                    value={formData.projectName}
-                                    onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                                />
-                            </div>
-                        </div>
+                    <div className="px-6 pt-6 pb-2">
+                        <DialogHeader className="mb-4">
+                            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+                                철거자재 정보 수정
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-slate-500">
+                                선택한 철거자재의 상세 정보를 수정하고 상태를 업데이트합니다.
+                            </DialogDescription>
+                        </DialogHeader>
+                    </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <Label htmlFor="category">구분</Label>
-                                <Input
-                                    id="category"
-                                    value={formData.category}
-                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="productName">품명</Label>
-                                <Input
-                                    id="productName"
-                                    value={formData.productName}
-                                    onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="specification">규격</Label>
-                                <Input
-                                    id="specification"
-                                    value={formData.specification}
-                                    onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                                />
-                            </div>
-                        </div>
+                    <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex-1">
+                        <form onSubmit={handleSubmit} className="grid gap-6">
+                            {/* 기본 정보 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-red-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">기본 정보</h4>
+                                </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="originalQuantity">원수량</Label>
-                                <Input
-                                    id="originalQuantity"
-                                    type="number"
-                                    value={formData.originalQuantity}
-                                    onChange={(e) => setFormData({ ...formData, originalQuantity: parseInt(e.target.value) || 0 })}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="remark">비고</Label>
-                                <Input
-                                    id="remark"
-                                    value={formData.remark}
-                                    onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                                />
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="demolitionDate" className="text-[12px] font-semibold text-slate-500 ml-1">철거일자</Label>
+                                        <Input
+                                            id="demolitionDate"
+                                            type="date"
+                                            value={formData.demolitionDate}
+                                            onChange={(e) => setFormData({ ...formData, demolitionDate: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="division" className="text-[12px] font-semibold text-slate-500 ml-1">사업</Label>
+                                        <Select
+                                            value={formData.division}
+                                            onValueChange={(val) => setFormData({ ...formData, division: val })}
+                                        >
+                                            <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-red-500/20 text-xs">
+                                                <SelectValue placeholder="사업 선택" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="SKT" className="text-xs">SKT</SelectItem>
+                                                <SelectItem value="SKB" className="text-xs">SKB</SelectItem>
+                                                <SelectItem value="KT" className="text-xs">KT</SelectItem>
+                                                <SelectItem value="LG" className="text-xs">LG</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
 
-                        <div>
-                            <Label htmlFor="status">상태</Label>
-                            <Select
-                                value={formData.status}
-                                onValueChange={(val) => setFormData({ ...formData, status: val })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="상태 선택" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="pending_review">검토대기</SelectItem>
-                                    <SelectItem value="approved_reusable">재사용가능</SelectItem>
-                                    <SelectItem value="waste">폐기</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="projectCode" className="text-[12px] font-semibold text-slate-500 ml-1">공사번호</Label>
+                                        <Input
+                                            id="projectCode"
+                                            value={formData.projectCode}
+                                            onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all font-mono text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="projectName" className="text-[12px] font-semibold text-slate-500 ml-1">공사명</Label>
+                                        <Input
+                                            id="projectName"
+                                            value={formData.projectName}
+                                            onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all text-xs"
+                                        />
+                                    </div>
+                                </div>
 
-                        {(formData.status === 'waste' || formData.status === 'rejected') && (
-                            <div className="grid gap-2">
-                                <Label htmlFor="reason">폐기 사유</Label>
-                                <Textarea
-                                    id="reason"
-                                    value={formData.remark || ""}
-                                    onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                                    placeholder="폐기 사유를 입력하세요"
-                                />
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="category" className="text-[12px] font-semibold text-slate-500 ml-1">구분</Label>
+                                        <Input
+                                            id="category"
+                                            value={formData.category}
+                                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="productName" className="text-[12px] font-semibold text-slate-500 ml-1">품명</Label>
+                                        <Input
+                                            id="productName"
+                                            value={formData.productName}
+                                            onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="specification" className="text-[12px] font-semibold text-slate-500 ml-1">규격</Label>
+                                        <Input
+                                            id="specification"
+                                            value={formData.specification}
+                                            onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
+                                            className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all text-xs"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        )}
 
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
-                            <Button type="submit">수정 저장</Button>
-                        </DialogFooter>
-                    </form>
+                            <div className="h-px bg-slate-100" />
+
+                            {/* 상태 및 수량 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-4 w-1 bg-orange-500 rounded-full" />
+                                    <h4 className="font-bold text-[13px] text-slate-700">상태 및 수량</h4>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="originalQuantity" className="text-[12px] font-semibold text-slate-500 ml-1">원수량</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="originalQuantity"
+                                                type="number"
+                                                value={formData.originalQuantity}
+                                                onChange={(e) => setFormData({ ...formData, originalQuantity: parseInt(e.target.value) || 0 })}
+                                                className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all text-right font-mono pr-2"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="status" className="text-[12px] font-semibold text-slate-500 ml-1">상태</Label>
+                                        <Select
+                                            value={formData.status}
+                                            onValueChange={(val) => setFormData({ ...formData, status: val })}
+                                        >
+                                            <SelectTrigger className="h-9 bg-slate-50/50 border-slate-200/60 focus:ring-red-500/20 text-xs">
+                                                <SelectValue placeholder="상태 선택" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="pending_review" className="text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+                                                        <span>검토대기</span>
+                                                    </div>
+                                                </SelectItem>
+                                                <SelectItem value="approved_reusable" className="text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                                        <span>재사용가능</span>
+                                                    </div>
+                                                </SelectItem>
+                                                <SelectItem value="waste" className="text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                                        <span>폐기</span>
+                                                    </div>
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="remark" className="text-[12px] font-semibold text-slate-500 ml-1">비고</Label>
+                                    <Input
+                                        id="remark"
+                                        value={formData.remark}
+                                        onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                                        className="h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white focus:border-red-500/50 transition-all text-xs"
+                                        placeholder="비고 사항을 입력하세요"
+                                    />
+                                </div>
+
+                                {(formData.status === 'waste' || formData.status === 'rejected') && (
+                                    <div className="space-y-1.5 p-3 rounded-xl bg-red-50 border border-red-100">
+                                        <Label htmlFor="reason" className="text-[12px] font-semibold text-red-600 ml-1">폐기 사유</Label>
+                                        <Textarea
+                                            id="reason"
+                                            value={formData.remark || ""}
+                                            onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                                            placeholder="폐기 사유를 상세히 입력하세요"
+                                            className="bg-white border-red-200 focus:border-red-400 focus:ring-red-500/20 text-xs min-h-[60px]"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <Button type="button" variant="ghost" className="h-9 text-slate-500 hover:text-slate-900" onClick={() => setDialogOpen(false)}>
+                            취소
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            className="h-9 px-6 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-md shadow-red-200"
+                        >
+                            <CheckCircle className="h-3.5 w-3.5 mr-2" />
+                            수정 사항 저장
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
 

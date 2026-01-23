@@ -53,9 +53,9 @@ export default function TeamOutgoingDemolition() {
 
     const { widths, startResizing } = useColumnResize({
         division: 80,
-        teamCategory: 120,
-        productName: 200,
-        specification: 150,
+        teamCategory: 90,
+        productName: 300,
+        specification: 400,
         quantity: 100
     });
 
@@ -156,25 +156,6 @@ export default function TeamOutgoingDemolition() {
                                 className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
                             />
 
-                            <TooltipProvider>
-                                {canWrite && !isFieldTeam && (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 border-slate-200 text-slate-600 hover:bg-slate-50 text-xs px-2 gap-1.5"
-                                                onClick={handleExportExcel}
-                                            >
-                                                <Download className="h-3 w-3" />
-                                                Excel
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
-                                    </Tooltip>
-                                )}
-                            </TooltipProvider>
-
                             <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
 
                             <div className="w-[120px]">
@@ -208,6 +189,24 @@ export default function TeamOutgoingDemolition() {
                                     </Select>
                                 </div>
                             )}
+
+                            <TooltipProvider>
+                                {canWrite && !isFieldTeam && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50 ml-1"
+                                                onClick={handleExportExcel}
+                                            >
+                                                <Download className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+                                    </Tooltip>
+                                )}
+                            </TooltipProvider>
                         </div>
                     </div>
                 </div>
@@ -255,9 +254,9 @@ export default function TeamOutgoingDemolition() {
                                         <TableRow key={item.id} className="group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors hover:bg-slate-50/80 text-xs">
                                             <TableCell className="text-center px-1 font-medium text-slate-700">{item.division}</TableCell>
                                             <TableCell className="text-center px-1 text-slate-600">{item.teamCategory}</TableCell>
-                                            <TableCell className="text-left px-4 text-slate-700 font-medium truncate" title={item.productName}>{item.productName}</TableCell>
+                                            <TableCell className="text-center px-4 text-slate-700 font-medium truncate" title={item.productName}>{item.productName}</TableCell>
                                             <TableCell className="text-center px-1 text-slate-500" title={item.specification}>{item.specification}</TableCell>
-                                            <TableCell className="text-right px-4 font-bold font-mono text-primary">{item.quantity.toLocaleString()}</TableCell>
+                                            <TableCell className="text-center px-4 font-bold font-mono text-primary">{item.quantity.toLocaleString()}</TableCell>
                                         </TableRow>
                                     ))
                                 )}

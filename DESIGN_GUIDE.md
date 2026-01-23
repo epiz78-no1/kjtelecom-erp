@@ -65,7 +65,8 @@
 모든 데이터 등록/수정 다이얼로그는 첨부된 표준 이미지(입고 등록 예시)의 'Pro Max' 스타일을 엄격히 따릅니다.
 
 ### A. 컨테이너 및 헤더 (Container & Header)
-- **DialogContent**: `max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl`
+- **DialogContent**: `max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]`
+  - **참고**: 모든 일반 등록/수정 다이얼로그는 **750px** 표준 너비와 **max-h-[90vh]** 높이를 적용하며, 내부 컨텐츠는 `flex-1 overflow-y-auto`로 처리하여 광케이블/일반자재/철거자재 모든 모듈에서 동일한 사용자 경험을 제공합니다.
 - **Top Gradient**: 최상단에 얇은 그라데이션 라인 배치 (`h-1.5 w-full bg-gradient-to-r ...`). 색상은 모듈별 테마를 따릅니다.
   - *입고(Green/Teal)*, *출고(Orange/Amber)*, *광케이블(Blue/Indigo)*, *철거(Red)*
 - **Title**: `text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent`
@@ -96,6 +97,7 @@
 ### A. 아이콘 버튼
 - 가로 공간 절약을 위해 헤더의 보조 액션(Excel 다운로드, 필터 등)은 아이콘 버튼(`Button variant="ghost" size="icon"`)을 사용합니다.
 - 반드시 `Tooltip`을 감싸서 해당 기능을 설명해야 합니다.
+- **Excel 다운로드 버튼**: `text-emerald-600 hover:bg-emerald-50` 스타일을 적용하여 데이터/엑셀 기능임을 시각적으로 구분합니다. (참조: `OpticalCables.tsx`)
 
 ### B. 대표 액션
 - 등록/추가와 같은 주된 액션은 `Primary` 색상의 버튼을 사용하되, `h-9` 높이로 콤팩트하게 유지합니다.

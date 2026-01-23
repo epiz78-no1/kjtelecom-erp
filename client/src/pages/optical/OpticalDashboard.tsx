@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Loader2, Cable, Cuboid, ChevronDown, ChevronRight, ShoppingCart, Users, CornerDownRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
@@ -33,6 +34,16 @@ export default function OpticalDashboard() {
             [divisionName]: !prev[divisionName]
         }));
     };
+
+    // Redirect Field Team users to Usage Registration
+    const { checkPermission } = useAppContext();
+    const [, setLocation] = useLocation();
+
+    useEffect(() => {
+        if (!checkPermission("inventory", "read") && checkPermission("usage", "read")) {
+            setLocation("/team-material-usage-optical");
+        }
+    }, [checkPermission, setLocation]);
 
     const { data: cables = [], isLoading: isLoadingCables } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
         queryKey: ["/api/optical-cables"],
@@ -356,12 +367,6 @@ export default function OpticalDashboard() {
                                     className="group relative flex items-center justify-between p-4 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all border border-white/10 hover:border-white/30 cursor-default"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className={cn(
-                                            "h-10 w-10 rounded-full flex items-center justify-center font-bold text-lg shadow-inner",
-                                            team.isActive ? "bg-emerald-400 text-white" : "bg-slate-700/50 text-slate-300"
-                                        )}>
-                                            {team.name.substring(0, 1)}
-                                        </div>
                                         <div>
                                             <h4 className="font-bold text-sm tracking-wide text-white">{team.name}</h4>
                                             <p className="text-xs text-indigo-100 flex items-center gap-1 mt-0.5">
