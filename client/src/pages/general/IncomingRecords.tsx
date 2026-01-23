@@ -42,18 +42,18 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import { validateIncomingRow, transformIncomingRow, incomingColumns, type ParsedIncomingRow } from "@/lib/bulk-configs/incoming";
-import { IncomingDialog } from "@/components/IncomingDialog";
+import { IncomingDialog } from "@/components/dialogs/IncomingDialog";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { Loader } from "lucide-react";
 
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
-import { InspectionPreviewDialog } from "@/components/InspectionPreviewDialog";
+import { InspectionPreviewDialog } from "@/components/dialogs/InspectionPreviewDialog";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { InfiniteScrollLoader } from "@/components/layout/InfiniteScrollLoader";
 import { MATERIAL_LOG_COLUMNS } from "@/lib/material-table-columns";
 import {
   Tooltip,

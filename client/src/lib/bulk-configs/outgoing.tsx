@@ -1,4 +1,4 @@
-import { BulkUploadColumn } from "@/components/GenericBulkUploadDialog";
+import { BulkUploadColumn } from "@/components/dialogs/GenericBulkUploadDialog";
 
 export interface ParsedOutgoingRow {
     date: string;

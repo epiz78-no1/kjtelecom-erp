@@ -11,7 +11,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { useAppContext } from "@/contexts/AppContext";
-import { FieldTeamCard } from "@/components/FieldTeamCard";
+import { FieldTeamCard } from "@/components/common/FieldTeamCard";
 import { DemolitionMaterial } from "@/types/demolition";
 
 export default function DemolitionDashboard() {

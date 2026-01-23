@@ -1,4 +1,4 @@
-import { BulkUploadColumn } from "@/components/GenericBulkUploadDialog";
+import { BulkUploadColumn } from "@/components/dialogs/GenericBulkUploadDialog";
 
 export interface ParsedOpticalOutgoingRow {
     managementNo: string; // 관리번호 (필수)

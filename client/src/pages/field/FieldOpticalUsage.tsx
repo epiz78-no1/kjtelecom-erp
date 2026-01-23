@@ -43,7 +43,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useAppContext } from "@/contexts/AppContext";
-import { OpticalUsageDialog } from "@/components/OpticalUsageDialog";
+import { OpticalUsageDialog } from "@/components/optical/OpticalUsageDialog";
 import {
     Popover,
     PopoverContent,
@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useDownload } from "@/hooks/useDownload";
 import { Paperclip, Upload } from "lucide-react";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import {
     downloadOpticalUsageTemplate,
     validateOpticalUsageRow,

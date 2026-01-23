@@ -42,9 +42,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import { validateOutgoingRow, transformOutgoingRow, outgoingColumns, type ParsedOutgoingRow } from "@/lib/bulk-configs/outgoing";
-import { OutgoingDialog } from "@/components/OutgoingDialog";
+import { OutgoingDialog } from "@/components/dialogs/OutgoingDialog";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
 
@@ -52,7 +52,7 @@ import { useColumnResize } from "@/hooks/useColumnResize";
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { InfiniteScrollLoader } from "@/components/layout/InfiniteScrollLoader";
 import { MATERIAL_OUTGOING_COLUMNS } from "@/lib/material-table-columns";
 import {
   Tooltip,

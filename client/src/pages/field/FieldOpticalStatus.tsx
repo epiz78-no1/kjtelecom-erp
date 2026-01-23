@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { exportToExcel } from "@/lib/excel";
 import { useTableFilters } from "@/hooks/useTableFilters";
-import { OpticalActionDialog } from "@/components/OpticalActionDialog";
+import { OpticalActionDialog } from "@/components/optical/OpticalActionDialog";
 import {
     Select,
     SelectContent,

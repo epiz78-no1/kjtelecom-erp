@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { OpticalCableFormData } from "@/components/OpticalCableFormDialog";
+import type { OpticalCableFormData } from "@/components/optical/OpticalCableFormDialog";
 
 /**
  * 광케이블 생성 뮤테이션 훅

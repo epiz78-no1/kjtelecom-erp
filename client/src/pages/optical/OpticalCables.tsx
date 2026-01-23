@@ -45,17 +45,17 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAppContext } from "@/contexts/AppContext";
 import { Upload } from "lucide-react";
-import { OpticalCableFormDialog, type OpticalCableFormData } from "@/components/OpticalCableFormDialog";
-import { OpticalCableHistoryDialog } from "@/components/OpticalCableHistoryDialog";
-import { OpticalReserveDialog } from "@/components/OpticalReserveDialog";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { OpticalCableFormDialog, type OpticalCableFormData } from "@/components/optical/OpticalCableFormDialog";
+import { OpticalCableHistoryDialog } from "@/components/optical/OpticalCableHistoryDialog";
+import { OpticalReserveDialog } from "@/components/optical/OpticalReserveDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import {
     validateOpticalRow,
     transformOpticalRow,
     opticalColumns,
     downloadOpticalTemplate
 } from "@/lib/bulk-configs/optical";
-import { OpticalCableActionDialog } from "@/components/OpticalCableActionDialog";
+import { OpticalCableActionDialog } from "@/components/optical/OpticalCableActionDialog";
 import * as XLSX from "xlsx";
 import {
     MultiSelectFilter
@@ -73,7 +73,7 @@ import { useTableFilters } from "@/hooks/useTableFilters";
 import { OPTICAL_CABLE_COLUMNS } from "@/lib/optical-table-columns";
 import { useOpticalFilters } from "@/hooks/useOpticalFilters";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { InfiniteScrollLoader } from "@/components/layout/InfiniteScrollLoader";
 
 export default function OpticalCables() {
     const { toast } = useToast();
