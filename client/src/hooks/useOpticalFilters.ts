@@ -29,7 +29,7 @@ export function useOpticalFilters(cables: OpticalCable[]) {
             if (maxRemaining && cable.remainingLength > Number(maxRemaining)) return false;
 
             // 사업 필터
-            if (selectedDivision.length > 0 && !selectedDivision.includes(cable.division || "SKT")) return false;
+            if (selectedDivision.length > 0 && !selectedDivision.includes(cable.division ?? "SKT")) return false;
 
             // 구분 필터
             if (selectedCategory.length > 0 && !selectedCategory.includes(cable.category)) return false;
