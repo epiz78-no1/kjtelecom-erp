@@ -93,6 +93,11 @@ export default function OpticalCables() {
         categoryField: "category"
     });
 
+    // Extract unique divisions
+    const divisions = useMemo(() => {
+        return Array.from(new Set(cables.map(c => c.division).filter(Boolean))).sort();
+    }, [cables]);
+
     const {
         open: dialogOpen,
         editingItem,
@@ -350,18 +355,27 @@ export default function OpticalCables() {
                 {/* Compact Expandable Filter Panel */}
                 {filterOpen && (
                     <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-top-1 duration-200 mt-1">
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-0">
+                        <div className="flex flex-wrap items-end gap-2">
 
-                            <div className="space-y-0.5">
+                            <div className="space-y-0.5 min-w-[120px]">
                                 <MultiSelectFilter
-                                    title="자재승인 (전체)"
+                                    title="사업 (전체)"
+                                    options={divisions.map(d => ({ label: String(d), value: String(d) }))}
+                                    selectedValues={selectedDivision}
+                                    onChange={setSelectedDivision}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-0.5 min-w-[120px]">
+                                <MultiSelectFilter
+                                    title="구분 (전체)"
                                     options={categories.filter(c => c !== "전체").map(c => ({ label: String(c), value: String(c) }))}
                                     selectedValues={selectedCategory}
                                     onChange={setSelectedCategory}
                                     className="w-full"
                                 />
                             </div>
-                            <div className="space-y-0.5">
+                            <div className="space-y-0.5 min-w-[120px]">
                                 <MultiSelectFilter
                                     title="상태 (전체)"
                                     options={[
@@ -376,7 +390,7 @@ export default function OpticalCables() {
                                     className="w-full"
                                 />
                             </div>
-                            <div className="space-y-0.5">
+                            <div className="space-y-0.5 min-w-[120px]">
                                 <MultiSelectFilter
                                     title="코어 (전체)"
                                     options={[
@@ -392,48 +406,48 @@ export default function OpticalCables() {
                                     className="w-full"
                                 />
                             </div>
-                            <div className="col-span-2 space-y-0.5 min-w-[180px]">
+                            <div className="space-y-0.5">
                                 <div className="flex items-center gap-1.5 h-7">
-                                    <Input type="number" value={minRemaining} onChange={e => setMinRemaining(e.target.value)} placeholder="Min (m)" className="h-full text-xs rounded-md bg-slate-50/50" />
+                                    <Input type="number" value={minRemaining} onChange={e => setMinRemaining(e.target.value)} placeholder="Min (m)" className="h-full text-xs rounded-md bg-slate-50/50 w-[70px]" />
                                     <span className="text-slate-300 text-[10px]">-</span>
-                                    <Input type="number" value={maxRemaining} onChange={e => setMaxRemaining(e.target.value)} placeholder="Max (m)" className="h-full text-xs rounded-md bg-slate-50/50" />
+                                    <Input type="number" value={maxRemaining} onChange={e => setMaxRemaining(e.target.value)} placeholder="Max (m)" className="h-full text-xs rounded-md bg-slate-50/50 w-[70px]" />
                                 </div>
                             </div>
-                            <div className="flex items-center justify-end space-x-2 h-7 w-full">
+                            <div className="flex items-center space-x-2 h-7 ml-auto">
                                 <Checkbox id="show-waste" checked={showWaste} onCheckedChange={(checked) => setShowWaste(checked as boolean)} className="h-3.5 w-3.5" />
                                 <label htmlFor="show-waste" className="text-xs font-medium leading-none text-slate-600 cursor-pointer">
                                     폐기 포함
                                 </label>
                             </div>
-                        </div>
 
-                        {getAllActiveFilters().length > 0 && (
-                            <div className="flex items-center gap-1 flex-wrap justify-end mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
-                                {getAllActiveFilters().map(filter => (
-                                    <Badge
-                                        key={filter.key}
-                                        variant="secondary"
-                                        className="h-5 px-1.5 rounded-md bg-slate-100 text-slate-700 border-0 text-[10px]"
-                                    >
-                                        {filter.label}
-                                        <button
-                                            onClick={() => handleRemoveFilter(filter.key)}
-                                            className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
+                            {getAllActiveFilters().length > 0 && (
+                                <div className="flex items-center gap-1 flex-wrap justify-end mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                                    {getAllActiveFilters().map(filter => (
+                                        <Badge
+                                            key={filter.key}
+                                            variant="secondary"
+                                            className="h-5 px-1.5 rounded-md bg-slate-100 text-slate-700 border-0 text-[10px]"
                                         >
-                                            <X className="h-2 w-2" />
-                                        </button>
-                                    </Badge>
-                                ))}
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleResetFilters}
-                                    className="h-5 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
-                                >
-                                    초기화
-                                </Button>
-                            </div>
-                        )}
+                                            {filter.label}
+                                            <button
+                                                onClick={() => handleRemoveFilter(filter.key)}
+                                                className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
+                                            >
+                                                <X className="h-2 w-2" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleResetFilters}
+                                        className="h-5 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
+                                    >
+                                        초기화
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>  {/* Bulk Action Bar */}
@@ -499,11 +513,12 @@ export default function OpticalCables() {
                                     <TableRow
                                         key={cable.id}
                                         className={`group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors cursor-pointer text-xs
-                                            ${cable.returnRequestStatus === 'pending' ? 'bg-amber-50/50 hover:bg-amber-100/50'
-                                                : cable.reservationStatus === 'reserved' ? 'bg-orange-50/50 hover:bg-orange-100/50'
-                                                    : cable.status === 'assigned' ? 'bg-blue-50/30 hover:bg-blue-50/60'
-                                                        : cable.status === 'waste' ? 'bg-red-50/30 text-red-900 opacity-70 hover:opacity-100'
-                                                            : 'hover:bg-slate-50/80'
+                                            ${!cable.tangoRegistered ? 'bg-red-100/80 hover:bg-red-200/80 border-l-[6px] border-l-red-600'
+                                                : cable.returnRequestStatus === 'pending' ? 'bg-amber-50/50 hover:bg-amber-100/50'
+                                                    : cable.reservationStatus === 'reserved' ? 'bg-orange-50/50 hover:bg-orange-100/50'
+                                                        : cable.status === 'assigned' ? 'bg-blue-50/30 hover:bg-blue-50/60'
+                                                            : cable.status === 'waste' ? 'bg-red-50/30 text-red-900 opacity-70 hover:opacity-100'
+                                                                : 'hover:bg-slate-50/80'
                                             }
                                         `}
                                         onDoubleClick={() => {
@@ -556,9 +571,33 @@ export default function OpticalCables() {
                                                     {canWrite && (
                                                         <>
                                                             {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
-                                                                <DropdownMenuItem onClick={() => { setSelectedReserveCable(cable); setReserveDialogOpen(true); }} className="gap-2">
-                                                                    <Calendar className="h-4 w-4" /> 자재 예약
-                                                                </DropdownMenuItem>
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div>
+                                                                                <DropdownMenuItem
+                                                                                    onClick={() => {
+                                                                                        if (!cable.tangoRegistered) {
+                                                                                            toast({ title: "출고 불가", description: "Tango 미등록 케이블은 출고할 수 없습니다. 먼저 등록 상태를 변경해주세요.", variant: "destructive" });
+                                                                                            return;
+                                                                                        }
+                                                                                        setSelectedReserveCable(cable);
+                                                                                        setReserveDialogOpen(true);
+                                                                                    }}
+                                                                                    className="gap-2"
+                                                                                    disabled={!cable.tangoRegistered}
+                                                                                >
+                                                                                    <Calendar className="h-4 w-4" /> 자재 예약
+                                                                                </DropdownMenuItem>
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        {!cable.tangoRegistered && (
+                                                                            <TooltipContent side="left" className="text-xs bg-amber-600">
+                                                                                Tango 미등록 케이블은 예약할 수 없습니다
+                                                                            </TooltipContent>
+                                                                        )}
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
                                                             )}
                                                             {cable.reservationStatus === 'reserved' && (
                                                                 <DropdownMenuItem onClick={() => { setSelectedReserveCable(cable); setReserveDialogOpen(true); }} className="gap-2 text-orange-600">
@@ -566,9 +605,32 @@ export default function OpticalCables() {
                                                                 </DropdownMenuItem>
                                                             )}
                                                             {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
-                                                                <DropdownMenuItem onClick={() => handleAction(cable, 'assign')} className="gap-2 text-blue-600">
-                                                                    <Send className="h-4 w-4" /> 불출 (Assign)
-                                                                </DropdownMenuItem>
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div>
+                                                                                <DropdownMenuItem
+                                                                                    onClick={() => {
+                                                                                        if (!cable.tangoRegistered) {
+                                                                                            toast({ title: "출고 불가", description: "Tango 미등록 케이블은 출고할 수 없습니다. 먼저 등록 상태를 변경해주세요.", variant: "destructive" });
+                                                                                            return;
+                                                                                        }
+                                                                                        handleAction(cable, 'assign');
+                                                                                    }}
+                                                                                    className="gap-2 text-blue-600"
+                                                                                    disabled={!cable.tangoRegistered}
+                                                                                >
+                                                                                    <Send className="h-4 w-4" /> 불출 (Assign)
+                                                                                </DropdownMenuItem>
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        {!cable.tangoRegistered && (
+                                                                            <TooltipContent side="left" className="text-xs bg-amber-600">
+                                                                                Tango 미등록 케이블은 출고할 수 없습니다
+                                                                            </TooltipContent>
+                                                                        )}
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
                                                             )}
                                                             <DropdownMenuItem onClick={() => openDialog(cable)} className="gap-2">
                                                                 <Pencil className="h-4 w-4" /> 정보 수정

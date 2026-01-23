@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Calendar as CalendarIcon, Upload, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 import {
     Dialog,
@@ -55,6 +56,7 @@ export interface OpticalCableFormData {
     isWaste?: boolean;
     wasteReason?: string;
     wasteLength?: number;
+    tangoRegistered?: boolean;
 }
 
 interface OpticalCableFormDialogProps {
@@ -68,6 +70,8 @@ interface OpticalCableFormDialogProps {
 export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: setControlledOpen, onSubmit, editingItem, trigger }: OpticalCableFormDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const { toast } = useToast();
+
+
 
     // Hook integration
     const {
@@ -89,6 +93,19 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     const open = isControlled ? controlledOpen : internalOpen;
     const onOpenChange = isControlled ? setControlledOpen : setInternalOpen;
 
+    // Fetch existing cables for autocomplete suggestions
+    const { data: existingCables = [] } = useQuery<OpticalCable[]>({
+        queryKey: ["/api/optical-cables"],
+        enabled: open // Only fetch when dialog is open
+    });
+
+    // Extract unique values for autocomplete
+    const uniqueCategories = Array.from(new Set(existingCables.map(c => c.category).filter(Boolean))) as string[];
+    const uniqueManufacturers = Array.from(new Set(existingCables.map(c => c.manufacturer).filter(Boolean))) as string[];
+    const uniqueYears = Array.from(new Set(existingCables.map(c => c.manufactureYear).filter(Boolean))).sort().reverse() as string[];
+    const uniqueSpecs = Array.from(new Set(existingCables.map(c => c.spec).filter(Boolean))) as string[];
+    const uniqueCoreCounts = Array.from(new Set(existingCables.map(c => c.coreCount).filter((c): c is number => typeof c === 'number'))).sort((a, b) => a - b);
+
     const [formData, setFormData] = useState<OpticalCableFormData>({
         managementNo: "",
         division: "",
@@ -106,6 +123,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         totalAmount: 0,
         projectCode: "",
         projectName: "",
+        tangoRegistered: true,
     });
 
     const [incomingLength, setIncomingLength] = useState<number | "">("");
@@ -142,6 +160,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         totalAmount: editingItem.totalAmount || 0,
                         projectCode: editingItem.projectCode || "",
                         projectName: editingItem.projectName || "",
+                        tangoRegistered: editingItem.tangoRegistered !== undefined ? editingItem.tangoRegistered : true,
                     });
                     // Calculate initial incoming length (Remaining + Used + Waste)
                     const calculatedIncoming = (editingItem.remainingLength || 0) + (editingItem.usedLength || 0) + (editingItem.wasteLength || 0);
@@ -187,6 +206,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         totalAmount: 0,
                         projectCode: "",
                         projectName: "",
+                        tangoRegistered: true,
                     });
                     setIncomingLength("");
                     setAttachments([]);
@@ -413,22 +433,30 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                 <div className="space-y-1.5">
                                     <Label className="text-[12px] font-semibold text-slate-500 ml-1">구분 (케이블 종류) <span className="text-red-500">*</span></Label>
                                     <Input
+                                        list="category-suggestions"
                                         value={formData.category}
                                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                         required
                                         className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
                                         placeholder="예: 광케이블"
                                     />
+                                    <datalist id="category-suggestions">
+                                        {uniqueCategories.map((cat, idx) => <option key={idx} value={cat || ""} />)}
+                                    </datalist>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-[12px] font-semibold text-slate-500 ml-1">제조사 <span className="text-red-500">*</span></Label>
                                     <Input
+                                        list="manufacturer-suggestions"
                                         value={formData.manufacturer}
                                         onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
                                         required
                                         className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
                                         placeholder="제조사 입력"
                                     />
+                                    <datalist id="manufacturer-suggestions">
+                                        {uniqueManufacturers.map((mfr, idx) => <option key={idx} value={mfr || ""} />)}
+                                    </datalist>
                                 </div>
                             </div>
 
@@ -436,26 +464,35 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                 <div className="space-y-1.5">
                                     <Label className="text-[12px] font-semibold text-slate-500 ml-1">제조년도 <span className="text-red-500">*</span></Label>
                                     <Input
+                                        list="year-suggestions"
                                         value={formData.manufactureYear}
                                         onChange={(e) => setFormData({ ...formData, manufactureYear: e.target.value })}
                                         required
                                         className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
                                         placeholder="YYYY"
                                     />
+                                    <datalist id="year-suggestions">
+                                        {uniqueYears.map((year, idx) => <option key={idx} value={year || ""} />)}
+                                    </datalist>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-[12px] font-semibold text-slate-500 ml-1">규격 <span className="text-red-500">*</span></Label>
                                     <Input
+                                        list="spec-suggestions"
                                         value={formData.spec}
                                         onChange={(e) => handleSpecChange(e.target.value)}
                                         required
                                         className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
                                         placeholder="규격 입력"
                                     />
+                                    <datalist id="spec-suggestions">
+                                        {uniqueSpecs.map((spec, idx) => <option key={idx} value={spec || ""} />)}
+                                    </datalist>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-[12px] font-semibold text-slate-500 ml-1">코어 수 <span className="text-red-500">*</span></Label>
                                     <Input
+                                        list="core-suggestions"
                                         type="number"
                                         value={formData.coreCount}
                                         onChange={(e) => setFormData({ ...formData, coreCount: e.target.value === "" ? "" : Number(e.target.value) })}
@@ -464,6 +501,9 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                         className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
                                         placeholder="0"
                                     />
+                                    <datalist id="core-suggestions">
+                                        {uniqueCoreCounts.map((core, idx) => <option key={idx} value={core} />)}
+                                    </datalist>
                                 </div>
                             </div>
                         </div>
@@ -537,6 +577,42 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                 className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
                                 placeholder="특이사항 입력"
                             />
+                        </div>
+
+                        {/* Tango 등록 여부 */}
+                        <div className="flex items-center space-x-2 border-t border-slate-100 pt-4">
+                            <Checkbox
+                                id="tangoUnregistered"
+                                checked={!formData.tangoRegistered}
+                                onCheckedChange={(checked) => {
+                                    const isUnregistered = checked as boolean;
+                                    const statusText = "[Tango 미등록 상태]";
+                                    let newRemark = formData.remark;
+
+                                    if (isUnregistered) {
+                                        // Add text if not present
+                                        if (!newRemark.includes(statusText)) {
+                                            newRemark = newRemark ? `${statusText} ${newRemark}` : statusText;
+                                        }
+                                    } else {
+                                        // Remove text if present
+                                        newRemark = newRemark.replace(statusText, "").trim();
+                                    }
+
+                                    setFormData({
+                                        ...formData,
+                                        tangoRegistered: !isUnregistered,
+                                        remark: newRemark
+                                    });
+                                }}
+                                className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                            />
+                            <label
+                                htmlFor="tangoUnregistered"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer select-none"
+                            >
+                                Tango 미등록 (체크 시 출고 불가)
+                            </label>
                         </div>
 
                         {/* 폐기 옵션 */}

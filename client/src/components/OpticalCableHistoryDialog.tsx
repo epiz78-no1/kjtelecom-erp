@@ -253,6 +253,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                                         <TableHead className="w-[90px] text-center h-8 text-xs font-bold text-slate-600">잔량(m)</TableHead>
                                         <TableHead className="w-[80px] text-center h-8 text-xs font-bold text-slate-600">수령자</TableHead>
                                         <TableHead className="w-[80px] text-center h-8 text-xs font-bold text-slate-600">입력자</TableHead>
+                                        <TableHead className="w-[150px] text-center h-8 text-xs font-bold text-slate-600">비고</TableHead>
                                         <TableHead className="w-[50px] text-center h-8 text-xs font-bold text-slate-600">첨부</TableHead>
                                         <TableHead className="w-[50px] text-center h-8 text-xs font-bold text-slate-600">취소</TableHead>
                                     </TableRow>
@@ -260,7 +261,7 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                                 <TableBody>
                                     {logs.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                                                 이력이 없습니다.
                                             </TableCell>
                                         </TableRow>
@@ -314,6 +315,17 @@ export function OpticalCableHistoryDialog({ cableId, open, onOpenChange, drumNo,
                                                 </TableCell>
                                                 <TableCell className="text-center text-xs">{log.workerName || '-'}</TableCell>
                                                 <TableCell className="text-center text-xs text-muted-foreground">{(log as any).createdByName || '-'}</TableCell>
+                                                <TableCell className="text-center text-xs text-slate-600">
+                                                    {(() => {
+                                                        try {
+                                                            if (!log.attributes) return '-';
+                                                            const attr = typeof log.attributes === 'string' ? JSON.parse(log.attributes) : log.attributes;
+                                                            return attr.remark || '-';
+                                                        } catch (e) {
+                                                            return '-';
+                                                        }
+                                                    })()}
+                                                </TableCell>
                                                 {/* Attachment Icon */}
                                                 <TableCell className="text-center">
                                                     {(() => {
