@@ -1,16 +1,12 @@
 import { Download, Loader2, Package } from "lucide-react";
 import { useState } from "react";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { Input } from "@/components/ui/input";
-import { FieldTeamCard } from "@/components/FieldTeamCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
 import { useQuery } from "@tanstack/react-query";
 import type { OutgoingRecord, MaterialUsageRecord } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 import { exportToExcel } from "@/lib/excel";
-import { useToast } from "@/hooks/use-toast";
 import { useTableFilters } from "@/hooks/useTableFilters";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import {
@@ -28,10 +24,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TEAM_INVENTORY_COLUMNS } from "@/lib/material-table-columns";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function TeamOutgoing() {
-  const { toast } = useToast();
-  const { user, divisions, teams: allTeams, checkPermission, tenants, currentTenant } = useAppContext();
+  const { divisions, teams: allTeams, checkPermission, tenants, currentTenant } = useAppContext();
   const canWrite = checkPermission("outgoing", "write");
 
   const currentTenantData = tenants.find(t => t.id === currentTenant);
@@ -54,13 +56,7 @@ export default function TeamOutgoing() {
 
   const isLoading = outgoingLoading || usageLoading;
 
-  const { widths, startResizing } = useColumnResize({
-    division: 80,
-    teamCategory: 120,
-    productName: 200,
-    specification: 150,
-    quantity: 100
-  });
+  const { widths, startResizing } = useColumnResize(TEAM_INVENTORY_COLUMNS);
 
   // Aggregate stock
   const stockMap = new Map<string, any>();
@@ -139,8 +135,6 @@ export default function TeamOutgoing() {
 
   const uniqueDivisions = ["전체", ...Array.from(new Set(allStockItems.map(item => item.division))).filter(Boolean)];
 
-
-
   const handleExportExcel = () => {
     const dataToExport = filteredStock.map(item => ({
       "사업": item.division,
@@ -162,163 +156,130 @@ export default function TeamOutgoing() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
       {/* Desktop View */}
       <div className="hidden md:flex flex-col h-full">
-        <div className="flex-shrink-0 space-y-4 pb-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold" data-testid="text-page-title">현장팀 보유 재고 현황</h1>
-              <p className="text-muted-foreground">각 현장팀이 현재 보유하고 있는 자재 수량을 조회합니다</p>
+        {/* Ultra Compact Header Section */}
+        <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                현장팀 보유 재고
+                <span className="flex h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50 animate-pulse"></span>
+              </h1>
+              <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+              <span className="text-xs font-medium text-slate-500">{filteredStock.length} items</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {canWrite && !isFieldTeam && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 border-green-600 text-green-600 hover:bg-green-50"
-                    onClick={handleExportExcel}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Excel
-                  </Button>
-                </>
-              )}
-              <div className="w-[180px]">
+
+            <div className="flex items-center gap-1.5">
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="품명, 규격 검색..."
+                className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
+              />
+
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
+
+              <div className="w-[120px]">
                 <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-                  <SelectTrigger data-testid="select-division">
-                    <SelectValue placeholder="사업부 선택" />
+                  <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
+                    <SelectValue placeholder="사업부" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="전체">전체</SelectItem>
+                    <SelectItem value="전체" className="text-xs">전체 사업부</SelectItem>
                     {uniqueDivisions.filter(d => d !== "전체").map(d => (
-                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                      <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {!isFieldTeam && (
+                <div className="w-[140px]">
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
+                      <SelectValue placeholder="팀 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="전체" className="text-xs">전체 팀</SelectItem>
+                      {uniqueTeams.filter(t => t !== "전체").map((team) => (
+                        <SelectItem key={String(team)} value={String(team)} className="text-xs">
+                          {String(team)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <TooltipProvider>
+                {canWrite && !isFieldTeam && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50 ml-1"
+                        onClick={handleExportExcel}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+                  </Tooltip>
+                )}
+              </TooltipProvider>
             </div>
-          </div>
-
-          {!isFieldTeam && (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {allTeams
-                .filter((t: any) => {
-                  if (selectedDivision === "전체") return true;
-                  const division = divisions?.find(d => d.id === t.divisionId);
-                  return division?.name === selectedDivision;
-                })
-                .sort((a: any, b: any) => (b.lastActivity || "").localeCompare(a.lastActivity || ""))
-                .slice(0, 4) // 최근 활동 순 상위 4개만 표시
-                .map((team: any) => {
-                  // Calculate current material count for this team
-                  const teamStockCount = allStockItems.filter(item => item.teamCategory === team.name).length;
-
-                  return (
-                    <FieldTeamCard
-                      key={team.id}
-                      team={{ ...team, materialCount: teamStockCount }}
-                      onClick={(t) => setSelectedTeam(t.name === selectedTeam ? "전체" : t.name)}
-                    />
-                  );
-                })}
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="품명, 팀명 검색..."
-              className="flex-1 max-w-sm"
-              data-testid="input-search"
-            />
-            {!isFieldTeam && (
-              <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                <SelectTrigger className="w-48" data-testid="select-team-filter">
-                  <SelectValue placeholder="팀 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="전체">전체</SelectItem>
-                  {uniqueTeams.filter(t => t !== "전체").map((team) => (
-                    <SelectItem key={String(team)} value={String(team)}>
-                      {String(team)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
         </div>
 
-        <div className="flex-1 rounded-md border overflow-hidden">
-          <div className="h-full overflow-auto relative">
-            <table className="w-full caption-bottom text-sm table-fixed">
-              <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                <TableRow className="h-10">
-                  <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.division }}>
+        {/* Main Table Area */}
+        <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
+          <div className="flex-1 overflow-auto custom-scrollbar relative">
+            <table className="w-full text-sm border-collapse table-fixed">
+              <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+                <TableRow className="h-10 border-b border-slate-200">
+                  <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.division }}>
                     사업
-                    <div
-                      onMouseDown={(e) => startResizing('division', e)}
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    />
+                    <div onMouseDown={(e) => startResizing('teamCategory', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" />
                   </TableHead>
-                  <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.teamCategory }}>
+                  <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.teamCategory }}>
                     현장팀
-                    <div
-                      onMouseDown={(e) => startResizing('teamCategory', e)}
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    />
+                    <div onMouseDown={(e) => startResizing('teamCategory', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
                   </TableHead>
-                  <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.productName }}>
+                  <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.productName }}>
                     품명
-                    <div
-                      onMouseDown={(e) => startResizing('productName', e)}
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    />
+                    <div onMouseDown={(e) => startResizing('productName', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
                   </TableHead>
-                  <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.specification }}>
+                  <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.specification }}>
                     규격
-                    <div
-                      onMouseDown={(e) => startResizing('specification', e)}
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    />
+                    <div onMouseDown={(e) => startResizing('specification', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
                   </TableHead>
-                  <TableHead className="font-semibold text-center align-middle bg-background relative select-none" style={{ width: widths.quantity }}>
+                  <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.quantity }}>
                     보유 수량
-                    <div
-                      onMouseDown={(e) => startResizing('quantity', e)}
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    />
+                    <div onMouseDown={(e) => startResizing('quantity', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredStock.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      보유 중인 자재가 없습니다
+                    <TableCell colSpan={5} className="h-64 text-center text-muted-foreground flex flex-col items-center justify-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <Package className="h-6 w-6 text-slate-400 opacity-50" />
+                        <p className="font-medium">보유 중인 자재가 없습니다</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredStock.map((item) => (
-                    <TableRow key={item.id} className="h-10 hover:bg-muted/50">
-                      <TableCell className="text-center align-middle p-2">
-                        <div className="w-full truncate font-medium" title={item.division}>{item.division}</div>
-                      </TableCell>
-                      <TableCell className="text-center align-middle p-2">
-                        <div className="w-full truncate" title={item.teamCategory}>{item.teamCategory}</div>
-                      </TableCell>
-                      <TableCell className="text-center align-middle p-2">
-                        <div className="w-full truncate" title={item.productName}>{item.productName}</div>
-                      </TableCell>
-                      <TableCell className="text-center align-middle p-2">
-                        <div className="w-full truncate" title={item.specification}>{item.specification}</div>
-                      </TableCell>
-                      <TableCell className="text-center align-middle font-bold p-2">
-                        {item.quantity.toLocaleString()}
-                      </TableCell>
+                    <TableRow key={item.id} className="group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors hover:bg-slate-50/80 text-xs">
+                      <TableCell className="text-center px-1 font-medium text-slate-700">{item.division}</TableCell>
+                      <TableCell className="text-center px-1 text-slate-600">{item.teamCategory}</TableCell>
+                      <TableCell className="text-center px-4 text-slate-700 font-medium truncate" title={item.productName}>{item.productName}</TableCell>
+                      <TableCell className="text-center px-1 text-slate-500 truncate" title={item.specification}>{item.specification}</TableCell>
+                      <TableCell className="text-center px-4 font-bold font-mono text-primary">{item.quantity.toLocaleString()}</TableCell>
                     </TableRow>
                   ))
                 )}

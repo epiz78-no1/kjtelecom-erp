@@ -17,9 +17,9 @@ export const OPTICAL_CABLE_COLUMNS = {
     usedLength: 75,         // 사용량
     wasteLength: 65,        // 폐기량
     remainingLength: 75,    // 잔량
+    remark: 80,             // 비고
     unitPrice: 85,          // 단가
     totalAmount: 100,       // 금액
-    remark: 80,             // 비고
     actions: 50             // 작업
 } as const;
 
@@ -48,18 +48,21 @@ export const OPTICAL_LOG_COLUMNS = {
 // 광케이블 출고 로그 테이블 컬럼 정의
 export const OPTICAL_OUTGOING_COLUMNS = {
     checkbox: 40,
-    usageDate: 95,          // 사용일
+    division: 60,
+    category: 50,
+    date: 95,               // 출고일자 (usageDate -> date to match component)
     projectCode: 120,
     projectName: 250,
-    drumNo: 120,            // 제조번호 (더 넓게)
-    spec: 80,
-    installLength: 80,      // 설치량
-    wasteLength: 80,        // 폐기량
-    totalUsed: 80,          // 총 사용량
-    beforeRemaining: 90,    // 사용 전 잔량
-    afterRemaining: 90,     // 사용 후 잔량
-    workerName: 80,         // 사용자
-    createdBy: 80,          // 입력자
+    manufacturer: 90,
+    manufactureYear: 70,
+    spec: 50,
+    coreCount: 50,
+    drumNo: 70,
+    location: 70,
+    amount: 90,             // 출고량
+    recipient: 80,          // 수령자
+    remark: 80,
+    createdBy: 80,
     attachment: 60,
     actions: 50
 } as const;

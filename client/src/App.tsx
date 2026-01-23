@@ -34,7 +34,7 @@ const Inventory = lazy(() => import("@/pages/general/Inventory"));
 const IncomingRecords = lazy(() => import("@/pages/general/IncomingRecords"));
 const OutgoingRecords = lazy(() => import("@/pages/general/OutgoingRecords"));
 
-const Auth = lazy(() => import("@/pages/auth/Auth"));
+
 
 // Optical Pages
 const OpticalDashboard = lazy(() => import("@/pages/optical/OpticalDashboard"));
@@ -61,7 +61,12 @@ const AdminOrg = lazy(() => import("@/pages/admin/AdminOrg"));
 const AdminPositions = lazy(() => import("@/pages/admin/AdminPositions"));
 const SuperAdminDashboard = lazy(() => import("@/pages/admin/SuperAdminDashboard"));
 
+import Home from "@/pages/general/Home";
+
+const Archives = lazy(() => import("@/pages/general/Archives"));
+
 import { FEATURE_FLAGS } from "@/lib/constants";
+import { Header } from "@/components/Header";
 
 
 function AppContent() {
@@ -131,84 +136,13 @@ function AppContent() {
               <div className="flex h-screen w-full">
                 {location.startsWith('/admin') ? <AdminSidebar /> : <AppSidebar />}
                 <div className="flex flex-col flex-1 overflow-hidden">
-                  <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
-                    <div className="flex items-center gap-4">
-                      <SidebarTrigger data-testid="button-sidebar-toggle" />
-
-                      {/* 모듈 타이틀 (왼쪽에서 옮겨옴) */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-slate-900">자재관리</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-
-
-                      {/* User Profile Menu - Everyone */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="gap-2 px-2 hover:bg-slate-100">
-                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center border">
-                              <User className="h-4 w-4 text-slate-600" />
-                            </div>
-                            <span className="text-sm font-medium text-slate-700">{user.name}</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>내 계정</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem asChild>
-                            <Link href="/settings" className="cursor-pointer">
-                              <SettingsIcon className="mr-2 h-4 w-4" />
-                              <span>내 정보 수정</span>
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => logout()} className="text-red-600 cursor-pointer">
-                            <LogOut className="mr-2 h-4 w-4" />
-                            <span>로그아웃</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      {/* Admin Settings Menu - Admin Only */}
-                      {(activeTenant?.role === 'admin' || activeTenant?.role === 'owner') && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" title="시스템 관리">
-                              <SettingsIcon className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>시스템 관리</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                              <a href="/admin/members" target="_blank" rel="noopener noreferrer" className="cursor-pointer flex items-center">
-                                <Users className="mr-2 h-4 w-4" />
-                                <span>멤버 관리</span>
-                              </a>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <a href="/admin/org" target="_blank" rel="noopener noreferrer" className="cursor-pointer flex items-center">
-                                <Network className="mr-2 h-4 w-4" />
-                                <span>조직 관리</span>
-                              </a>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <a href="/admin/positions" target="_blank" rel="noopener noreferrer" className="cursor-pointer flex items-center">
-                                <Award className="mr-2 h-4 w-4" />
-                                <span>직급/직책 관리</span>
-                              </a>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  </header>
+                  <Header />
                   <main className="flex-1 overflow-auto p-6">
                     <Suspense fallback={<LoadingFallback />}>
                       <Switch>
-                        <Route path="/" component={Dashboard} />
+                        <Route path="/" component={Home} />
+                        <Route path="/general-dashboard" component={Dashboard} />
+                        <Route path="/archives" component={Archives} />
                         <Route path="/inventory" component={Inventory} />
                         <Route path="/incoming" component={IncomingRecords} />
                         <Route path="/outgoing" component={OutgoingRecords} />

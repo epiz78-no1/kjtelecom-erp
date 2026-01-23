@@ -12,7 +12,8 @@ import {
     GitPullRequest,
     Menu,
     User,
-    Building2
+    Building2,
+    ChevronDown
 } from "lucide-react";
 import {
     NavigationMenu,
@@ -23,6 +24,15 @@ import {
     NavigationMenuTrigger,
     navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -112,20 +122,35 @@ export function TopNavigation() {
         },
     ];
 
+    const breadcrumbs = React.useMemo(() => {
+        for (const item of mainNavItems) {
+            if (item.activePattern?.test(location)) {
+                if (item.children) {
+                    const child = item.children.find(c => c.href === location);
+                    if (child) return { parent: item.title, current: child.title };
+                }
+                return { parent: item.title, current: item.title };
+            }
+        }
+        return null;
+    }, [location, mainNavItems]);
+
     return (
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container flex h-20 items-center px-4">
+        <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60">
+            <div className="container flex h-12 items-center px-3">
                 {/* 모바일 메뉴 (Sheet) */}
                 <Sheet>
                     <SheetTrigger asChild>
-                        <Button variant="ghost" size="icon" className="mr-2 md:hidden">
-                            <Menu className="h-5 w-5" />
+                        <Button variant="ghost" size="icon" className="mr-2 md:hidden h-8 w-8">
+                            <Menu className="h-4 w-4" />
                             <span className="sr-only">메뉴 열기</span>
                         </Button>
                     </SheetTrigger>
                     <SheetContent side="left" className="pr-0">
-                        <Link href="/" className="flex items-center gap-2 font-bold text-xl mb-6">
-                            <Building2 className="h-6 w-6 text-primary" />
+                        <Link href="/" className="flex items-center gap-2 font-bold text-lg mb-6">
+                            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary text-primary-foreground">
+                                <Building2 className="h-5 w-5" />
+                            </div>
                             <span>KJ Telecom ERP</span>
                         </Link>
                         <div className="flex flex-col gap-4">
@@ -133,17 +158,17 @@ export function TopNavigation() {
                             {mainNavItems.map((item) => (
                                 <div key={item.title} className="flex flex-col gap-2">
                                     <Link href={item.href || "#"} className={cn(
-                                        "flex items-center gap-2 text-lg font-medium",
+                                        "flex items-center gap-2 text-base font-medium",
                                         (item.href && location === item.href) ? "text-primary" : "text-muted-foreground",
                                         item.disabled && "opacity-50 cursor-not-allowed"
                                     )}>
-                                        <item.icon className="h-5 w-5" />
+                                        <item.icon className="h-4 w-4" />
                                         {item.title}
                                     </Link>
                                     {item.children && (
                                         <div className="pl-6 flex flex-col gap-2">
                                             {item.children.map((child) => (
-                                                <Link key={child.href} href={child.href} className="text-sm text-muted-foreground hover:text-primary">
+                                                <Link key={child.href} href={child.href} className="text-sm text-muted-foreground hover:text-primary transition-colors">
                                                     {child.title}
                                                 </Link>
                                             ))}
@@ -155,39 +180,60 @@ export function TopNavigation() {
                     </SheetContent>
                 </Sheet>
 
-                {/* 로고 */}
-                <div className="mr-8 hidden md:flex">
-                    <Link href="/" className="flex items-center gap-2 font-bold text-xl text-primary">
-                        <Building2 className="h-8 w-8" />
-                        <span>KJ Telecom ERP</span>
+                {/* 로고 & Breadcrumb */}
+                <div className="mr-6 hidden md:flex items-center gap-4">
+                    <Link href="/" className="flex items-center gap-2 font-bold text-base text-slate-800 dark:text-slate-100">
+                        <Building2 className="h-4 w-4 text-primary" />
+                        <span>KJ Telecom</span>
                     </Link>
+                    {breadcrumbs && (
+                        <>
+                            <div className="h-3 w-px bg-slate-200 dark:bg-slate-700"></div>
+                            <Breadcrumb>
+                                <BreadcrumbList>
+                                    <BreadcrumbItem>
+                                        <BreadcrumbLink className="text-xs font-medium text-slate-500">{breadcrumbs.parent}</BreadcrumbLink>
+                                    </BreadcrumbItem>
+                                    <BreadcrumbSeparator />
+                                    <BreadcrumbItem>
+                                        <BreadcrumbPage className="text-xs font-bold text-primary">{breadcrumbs.current}</BreadcrumbPage>
+                                    </BreadcrumbItem>
+                                </BreadcrumbList>
+                            </Breadcrumb>
+                        </>
+                    )}
                 </div>
 
                 {/* 데스크톱 메인 네비게이션 */}
                 <NavigationMenu className="hidden md:flex mx-auto">
-                    <NavigationMenuList className="gap-2">
+                    <NavigationMenuList className="gap-1">
                         {mainNavItems.map((item) => (
                             <NavigationMenuItem key={item.title}>
                                 {item.children ? (
                                     <>
                                         <NavigationMenuTrigger className={cn(
-                                            "h-16 w-24 flex flex-col gap-1 rounded-md transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-                                            item.activePattern && item.activePattern.test(location) && "bg-accent text-accent-foreground text-primary"
+                                            "h-8 px-2 bg-transparent hover:bg-slate-100 dark:hover:bg-zinc-800 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-zinc-800",
+                                            item.activePattern && item.activePattern.test(location) && "text-primary font-medium"
                                         )}>
-                                            <item.icon className="h-6 w-6 mb-1" />
-                                            <span className="text-xs font-medium">{item.title}</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <item.icon className="h-3.5 w-3.5 opacity-70" />
+                                                <span className="text-xs">{item.title}</span>
+                                            </div>
                                         </NavigationMenuTrigger>
                                         <NavigationMenuContent>
-                                            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                                            <ul className="grid w-[400px] gap-2 p-3 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-white dark:bg-zinc-950">
                                                 {item.children.map((child) => (
                                                     <li key={child.title}>
                                                         <NavigationMenuLink asChild>
                                                             <Link
                                                                 href={child.href}
-                                                                className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                                                                className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-50 hover:text-primary focus:bg-slate-50 focus:text-primary dark:hover:bg-zinc-900"
                                                             >
-                                                                <div className="text-sm font-medium leading-none">{child.title}</div>
-                                                                <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                                                                <div className="text-sm font-medium leading-none flex items-center gap-2">
+                                                                    {child.title}
+                                                                    {location === child.href && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                                                                </div>
+                                                                <p className="line-clamp-1 text-xs leading-snug text-muted-foreground mt-1.5">
                                                                     {child.description}
                                                                 </p>
                                                             </Link>
@@ -200,12 +246,12 @@ export function TopNavigation() {
                                 ) : (
                                     <Link href={item.href || "#"}>
                                         <div className={cn(
-                                            "group inline-flex h-16 w-24 flex-col items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50 cursor-pointer",
-                                            item.activePattern && item.activePattern.test(location) ? "bg-accent/10 text-primary" : "text-muted-foreground",
+                                            "group inline-flex h-8 items-center justify-center rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800 focus:bg-slate-100 focus:text-primary focus:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer gap-1.5",
+                                            item.activePattern && item.activePattern.test(location) ? "text-primary bg-slate-50 dark:bg-zinc-900" : "text-slate-600 dark:text-slate-400",
                                             item.disabled && "opacity-50 cursor-not-allowed"
                                         )}>
-                                            <item.icon className={cn("h-6 w-6 mb-1", item.activePattern?.test(location) && "text-primary")} />
-                                            <span className="text-xs">{item.title}</span>
+                                            <item.icon className="h-3.5 w-3.5 opacity-70" />
+                                            <span>{item.title}</span>
                                         </div>
                                     </Link>
                                 )}
@@ -215,23 +261,28 @@ export function TopNavigation() {
                 </NavigationMenu>
 
                 {/* 우측 유틸리티 메뉴 (사업부, 프로필) */}
-                <div className="ml-auto flex items-center gap-4">
+                <div className="ml-auto flex items-center gap-2">
                     {/* 사업부 선택 */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="hidden md:flex gap-2">
-                                <Building2 className="h-4 w-4" />
-                                <span>{activeTenant?.name || "사업부 선택"}</span>
+                            <Button variant="outline" size="sm" className="hidden md:flex gap-1.5 h-7 px-2 pl-1.5 text-[11px] border-slate-200 dark:border-zinc-800 shadow-sm bg-white/50 backdrop-blur">
+                                <div className="h-3.5 w-3.5 rounded-full bg-slate-100 flex items-center justify-center">
+                                    <Building2 className="h-2 w-2 text-slate-500" />
+                                </div>
+                                <span className="font-medium text-slate-600 dark:text-slate-300 max-w-[100px] truncate">
+                                    {activeTenant?.name || "사업부 선택"}
+                                </span>
+                                <ChevronDown className="h-2.5 w-2.5 text-slate-400" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>사업부 전환</DropdownMenuLabel>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">사업부 전환</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             {tenants.map((tenant) => (
                                 <DropdownMenuItem
                                     key={tenant.id}
                                     onClick={() => setTenant(tenant.id)}
-                                    className={currentTenant === tenant.id ? "bg-accent" : ""}
+                                    className={cn("text-xs cursor-pointer", currentTenant === tenant.id ? "bg-slate-50 text-primary font-medium" : "")}
                                 >
                                     {tenant.name}
                                 </DropdownMenuItem>
@@ -239,29 +290,35 @@ export function TopNavigation() {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* 프로필 및 설정 */}
+                    <div className="h-4 w-px bg-slate-200 dark:bg-zinc-800 mx-1 hidden md:block" />
+
+                    {/* 프로필 (Avatar Only) */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full">
-                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                    {user?.name?.[0] || <User className="h-4 w-4" />}
-                                </div>
+                            <Button variant="ghost" className="relative h-7 w-7 rounded-full">
+                                <Avatar className="h-7 w-7 border border-slate-200 shadow-sm">
+                                    {/* <AvatarImage src={user?.avatarUrl} alt={user?.username} /> */}
+                                    <AvatarFallback className="text-[10px] font-bold bg-indigo-50 text-indigo-600">
+                                        {user?.username?.substring(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-56" forceMount>
                             <DropdownMenuLabel className="font-normal">
                                 <div className="flex flex-col space-y-1">
-                                    <p className="text-sm font-medium leading-none">{user?.name}</p>
-                                    <p className="text-xs leading-none text-muted-foreground">{user?.username}</p>
+                                    <p className="text-sm font-medium leading-none">{user?.username}</p>
+                                    {/* <p className="text-xs leading-none text-muted-foreground">{user?.email}</p> */}
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem asChild>
-                                <Link href="/settings" className="w-full cursor-pointer flex items-center">
-                                    <Settings className="mr-2 h-4 w-4" />
+                                <Link href="/settings" className="w-full cursor-pointer flex items-center py-2">
+                                    <Settings className="mr-2 h-4 w-4 text-slate-500" />
                                     <span>설정</span>
                                 </Link>
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-red-600 focus:text-red-600">
                                 <LogOut className="mr-2 h-4 w-4" />
                                 <span>로그아웃</span>

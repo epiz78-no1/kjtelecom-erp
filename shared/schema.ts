@@ -491,6 +491,7 @@ export const opticalCables = pgTable("optical_cables", {
   returnRequestedAt: timestamp("return_requested_at"), // 반납 요청 일시
   returnApprovedBy: varchar("return_approved_by").references(() => users.id), // 승인자
   returnApprovedAt: timestamp("return_approved_at"), // 승인 일시
+  tangoRegistered: boolean("tango_registered").notNull().default(true), // Tango 등록 여부
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -516,6 +517,7 @@ export const apiInsertOpticalCableSchema = z.object({
   unitPrice: z.number().min(0).optional(),
   totalAmount: z.number().min(0).optional(),
   remainingLength: z.number().min(0).optional(),
+  tangoRegistered: z.boolean().optional(),
   attributes: z.string().optional(),
 });
 export type InsertOpticalCable = z.infer<typeof insertOpticalCableSchema>;

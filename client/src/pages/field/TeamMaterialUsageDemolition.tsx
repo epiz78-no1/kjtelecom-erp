@@ -56,6 +56,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -84,8 +90,6 @@ export default function TeamMaterialUsageDemolition() {
         clearAttachments
     } = useFileUpload();
 
-    // Image-matched columns: 
-    // Checkbox, Date, Division, Team, ProjectCode, ProjectName, ProductName, Spec, Quantity, Worker, Remark, CreatedBy, Attachment, Actions
     const { widths, startResizing } = useColumnResize({
         checkbox: 40,
         date: 90,
@@ -109,22 +113,11 @@ export default function TeamMaterialUsageDemolition() {
     const [formData, setFormData] = useState({
         recipient: user?.name || "",
         teamId: initialTeamId ? String(initialTeamId) : "",
-        // Common Project Code/Name for the whole usage registration?
-        // User request: "Add Project Code before Project Name".
-        // In the previous multi-item form, these were per-item.
-        // If the new design (from image) implies simpler one-time entry (like Project Name at top), I should move them up.
-        // Looking at the uploaded image 'uploaded_image_1768799364729.png',
-        // It shows "Project Name" (공사명) as a single field below Date/Team/User.
-        // This implies Project Name is common for all items in this batch?
-        // Or maybe just a default?
-        // Let's assume common Project Info for the batch significantly simplifies things and matches the single field shown.
-        // I will move Project Code and Project Name to the top level Form Data.
         projectCode: "",
         projectName: "",
         items: [{
             id: crypto.randomUUID(),
             materialId: "",
-            // Project Code/Name moved to top
             usedQuantity: "",
             remark: ""
         }]
@@ -271,7 +264,6 @@ export default function TeamMaterialUsageDemolition() {
             });
 
             // Auto-Add Logic
-            // If the last item has any valid data (materialId or quantity), append a new empty item
             const isLastItem = prev.items[prev.items.length - 1].id === id;
             if (isLastItem) {
                 if ((field === 'materialId' && value) || (field === 'usedQuantity' && value && value !== '0')) {
@@ -320,12 +312,12 @@ export default function TeamMaterialUsageDemolition() {
                 const data = {
                     materialId: item.materialId,
                     teamId: formData.teamId,
-                    projectCode: formData.projectCode, // Top level
-                    projectName: formData.projectName, // Top level
+                    projectCode: formData.projectCode,
+                    projectName: formData.projectName,
                     usedQuantity: parseInt(item.usedQuantity) || 0,
                     workerName: formData.recipient,
-                    logDate: format(selectedDate, "yyyy-MM-dd"), // usageDate에서 logDate로 변경
-                    logType: 'usage', // 사용 타입 명시
+                    logDate: format(selectedDate, "yyyy-MM-dd"),
+                    logType: 'usage',
                     remark: item.remark,
                     attributes: JSON.stringify(attributesObj)
                 };
@@ -414,45 +406,320 @@ export default function TeamMaterialUsageDemolition() {
     }
 
     return (
-        <div className="flex flex-col h-full space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">자재 사용등록내역</h1>
-                    <p className="text-muted-foreground">현장팀 자재 사용 이력을 조회합니다</p>
-                </div>
-                <div className="flex gap-2 items-center">
-                    <Select value={team} onValueChange={setTeam}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="팀 선택" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="전체">전체 (팀)</SelectItem>
-                            {teamsList.filter(t => t !== "전체").map(t => (
-                                <SelectItem key={String(t)} value={String(t)}>{String(t)}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+            {/* Desktop View */}
+            <div className="hidden md:flex flex-col h-full">
+                {/* Ultra Compact Header Section */}
+                <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
+                    <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                철거자재 사용 목록
+                                <span className="flex h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm shadow-red-500/50 animate-pulse"></span>
+                            </h1>
+                            <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+                            <span className="text-xs font-medium text-slate-500">
+                                {displayedLogs.length}건 / 수량 {displayedLogs.reduce((acc, curr) => acc + (curr.usedQuantity || 0), 0).toLocaleString()}
+                            </span>
+                        </div>
 
-                    {selectedIds.size > 0 && (
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setBulkDeleteOpen(true)}
-                        >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            삭제 ({selectedIds.size})
-                        </Button>
-                    )}
-                    <Button
-                        variant="outline"
+                        <div className="flex items-center gap-1.5">
+                            <SearchInput
+                                value={query}
+                                onChange={setQuery}
+                                placeholder="품명, 공사명, 수령인..."
+                                className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
+                            />
+
+                            {selectedIds.size > 0 && (
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="h-7 border-destructive/20 text-xs px-2 gap-1.5"
+                                    onClick={() => setBulkDeleteOpen(true)}
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                    삭제 ({selectedIds.size})
+                                </Button>
+                            )}
+
+                            <div className="w-[140px]">
+                                <Select value={team} onValueChange={setTeam}>
+                                    <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
+                                        <SelectValue placeholder="팀 선택" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="전체" className="text-xs">전체 팀</SelectItem>
+                                        {teamsList.filter(t => t !== "전체").map(t => (
+                                            <SelectItem key={String(t)} value={String(t)} className="text-xs">
+                                                {String(t)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50"
+                                            onClick={handleExportExcel}
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm p-0"
+                                            onClick={() => {
+                                                resetForm();
+                                                setDialogOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="h-3.5 w-3.5 text-white" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>철거자재 등록</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Table Area */}
+                <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
+                    <div className="flex-1 overflow-auto custom-scrollbar relative">
+                        <table className="w-full text-sm border-collapse table-fixed">
+                            <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+                                <TableRow className="h-10 border-b border-slate-200">
+                                    <TableHead className="w-[40px] text-center p-0 align-middle bg-slate-50/50 border-r" style={{ width: widths.checkbox }}>
+                                        <Checkbox
+                                            checked={allSelected}
+                                            onCheckedChange={toggleSelectAll}
+                                            aria-label="Select all"
+                                            className="translate-y-[2px]"
+                                        />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.date }}>
+                                        사용일
+                                        <div onMouseDown={(e) => startResizing('date', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.division }}>
+                                        사업
+                                        <div onMouseDown={(e) => startResizing('division', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.team }}>
+                                        사용팀
+                                        <div onMouseDown={(e) => startResizing('team', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.projectCode }}>
+                                        공사번호
+                                        <div onMouseDown={(e) => startResizing('projectCode', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.projectName }}>
+                                        공사명
+                                        <div onMouseDown={(e) => startResizing('projectName', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.productName }}>
+                                        품명
+                                        <div onMouseDown={(e) => startResizing('productName', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.specification }}>
+                                        규격
+                                        <div onMouseDown={(e) => startResizing('specification', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.quantity }}>
+                                        수량
+                                        <div onMouseDown={(e) => startResizing('quantity', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.recipient }}>
+                                        사용자
+                                        <div onMouseDown={(e) => startResizing('recipient', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.remark }}>
+                                        비고
+                                        <div onMouseDown={(e) => startResizing('remark', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.createdBy }}>
+                                        입력자
+                                        <div onMouseDown={(e) => startResizing('createdBy', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.attachment }}>
+                                        첨부
+                                        <div onMouseDown={(e) => startResizing('attachment', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" />
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-slate-600 text-center relative select-none" style={{ width: widths.actions }}></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {displayedLogs.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={14} className="h-64 text-center text-muted-foreground">
+                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                <FileText className="h-8 w-8 text-slate-300" />
+                                                <p>사용 내역이 없습니다</p>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    displayedLogs.map((log: any) => {
+
+                                        const rowColor = log.logType === 'dispose' ? 'bg-red-50/50 hover:bg-red-100/50' : 'hover:bg-slate-50/80';
+
+                                        return (
+                                            <TableRow key={log.id} className={`group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors ${rowColor} text-xs`}>
+                                                <TableCell className="text-center px-1">
+                                                    <Checkbox
+                                                        checked={selectedIds.has(log.id)}
+                                                        onCheckedChange={() => toggleSelect(log.id)}
+                                                        className="translate-y-[2px]"
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="text-center px-1 text-[11px] text-slate-500 font-mono">{log.logDate || ''}</TableCell>
+                                                <TableCell className="text-center px-1 text-slate-600">{log.division || ''}</TableCell>
+                                                <TableCell className="text-center px-1 font-medium text-slate-700">{log.teamName || ''}</TableCell>
+                                                <TableCell className="text-center px-1 text-slate-600 truncate" title={log.projectCode}>{log.projectCode || ''}</TableCell>
+                                                <TableCell className="text-left px-2 text-slate-800 font-medium truncate" title={log.projectName}>{log.projectName || ''}</TableCell>
+                                                <TableCell className="text-center px-2 text-slate-700 font-medium truncate" title={log.productName}>{log.productName || ''}</TableCell>
+                                                <TableCell className="text-center px-1 text-slate-500 truncate" title={log.spec}>{log.spec || ''}</TableCell>
+                                                <TableCell className="text-center px-2 font-bold font-mono text-primary">{log.usedQuantity?.toLocaleString() || '0'}</TableCell>
+                                                <TableCell className="text-center px-1 text-slate-600">{log.workerName || ''}</TableCell>
+                                                <TableCell className="text-left px-2 text-slate-400 italic truncate" title={log.remark || ''}>{log.remark || ''}</TableCell>
+                                                <TableCell className="text-center px-1 text-slate-400">{(log as any).createdByName || (log as any).creatorName || "-"}</TableCell>
+                                                <TableCell className="text-center px-1">
+                                                    {(() => {
+                                                        let hasAttachments = false;
+                                                        let attachments: any[] = [];
+                                                        try {
+                                                            const parsed = typeof log.attributes === 'string'
+                                                                ? JSON.parse(log.attributes)
+                                                                : log.attributes || {};
+
+                                                            if (parsed.attachments && parsed.attachments.length > 0) {
+                                                                attachments = parsed.attachments;
+                                                                hasAttachments = true;
+                                                            } else if (parsed.attachment) {
+                                                                attachments = [parsed.attachment];
+                                                                hasAttachments = true;
+                                                            } else if ((log as any).attachment) { // Legacy fallback
+                                                                attachments = [(log as any).attachment];
+                                                                hasAttachments = true;
+                                                            }
+                                                        } catch (e) {
+                                                            hasAttachments = false;
+                                                        }
+
+                                                        if (!hasAttachments) return <span className="text-slate-300">-</span>;
+
+                                                        if (attachments.length === 1) {
+                                                            return (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0 hover:bg-slate-100"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        downloadAttachment(attachments[0]);
+                                                                    }}
+                                                                    title={attachments[0].name}
+                                                                >
+                                                                    <Download className="h-3 w-3 text-slate-500" />
+                                                                </Button>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-100 gap-0.5" onClick={(e) => e.stopPropagation()}>
+                                                                        <Paperclip className="h-3 w-3 text-slate-500" />
+                                                                        <span className="text-[9px] font-medium text-slate-600">{attachments.length}</span>
+                                                                    </Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-auto p-2" align="center">
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">첨부파일 {attachments.length}개</div>
+                                                                        {attachments.map((file: any, index: number) => (
+                                                                            <Button
+                                                                                key={index}
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    downloadAttachment(file);
+                                                                                }}
+                                                                                title={file.name}
+                                                                            >
+                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                                <span className="truncate">{file.name}</span>
+                                                                            </Button>
+                                                                        ))}
+                                                                    </div>
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        );
+                                                    })()}
+                                                </TableCell>
+                                                <TableCell className="text-center px-1">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-slate-100">
+                                                                <span className="sr-only">메뉴</span>
+                                                                <MoreHorizontal className="h-3 w-3 text-slate-400" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onClick={() => deleteMutation.mutate(log.id)}
+                                                                className="text-red-600 focus:text-red-600 text-xs"
+                                                            >
+                                                                <Trash2 className="mr-2 h-3 w-3" />
+                                                                <span>삭제</span>
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })
+                                )}
+                            </TableBody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden flex flex-col h-full space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 className="text-lg font-bold">자재 사용등록내역</h1>
+                        <p className="text-xs text-muted-foreground">{displayedLogs.length}건 / 수량 {displayedLogs.reduce((acc, curr) => acc + (curr.usedQuantity || 0), 0).toLocaleString()}</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                    <SearchInput
+                        value={query}
+                        onChange={setQuery}
+                        placeholder="품명, 공사명..."
+                        className="max-w-sm"
                         size="sm"
-                        className="h-9 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 font-medium"
-                        onClick={handleExportExcel}
-                    >
-                        <Download className="h-4 w-4 mr-2" />
-                        Excel
-                    </Button>
-                    <Button onClick={() => {
+                    />
+                    <Button size="sm" onClick={() => {
                         resetForm();
                         setDialogOpen(true);
                     }}>
@@ -460,190 +727,69 @@ export default function TeamMaterialUsageDemolition() {
                         등록
                     </Button>
                 </div>
-            </div>
 
-            <div className="flex items-center justify-between gap-4">
-                <SearchInput
-                    value={query}
-                    onChange={setQuery}
-                    placeholder="품명, 공사명, 규격, 수령인 검색..."
-                    className="max-w-sm"
-                />
-                <div className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground">{displayedLogs.length}</span>건 / 수량 <span className="font-semibold text-foreground">{displayedLogs.reduce((acc, curr) => acc + (curr.usedQuantity || 0), 0).toLocaleString()}</span>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/10">
+                    {displayedLogs.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                            <p className="text-sm">사용 내역이 없습니다</p>
+                        </div>
+                    ) : (
+                        displayedLogs.map((log: any) => (
+                            <div key={log.id} className="bg-card border rounded-lg p-3 shadow-sm">
+                                <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-semibold">{log.logDate}</span>
+                                            <span className="text-xs px-1.5 py-0.5 bg-secondary rounded">{log.division}</span>
+                                        </div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                            {log.teamName}
+                                        </div>
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                                onClick={() => deleteMutation.mutate(log.id)}
+                                                className="text-red-600 focus:text-red-600"
+                                            >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                <span>삭제</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                <div className="space-y-1 mb-2">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-sm font-medium">{log.productName}</span>
+                                        <span className="text-xs text-muted-foreground">{log.spec}</span>
+                                    </div>
+                                    {log.projectName && (
+                                        <div className="text-xs text-muted-foreground truncate">
+                                            {log.projectName}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center justify-between pt-2 border-t">
+                                    <div className="text-xs text-muted-foreground">{log.workerName}</div>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-xs text-muted-foreground">수량:</span>
+                                        <span className="text-base font-bold text-primary">
+                                            {log.usedQuantity?.toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 
-            <div className="flex-1 rounded-md border overflow-hidden">
-                <div className="h-full overflow-auto relative">
-                    <Table className="w-full caption-bottom text-sm table-fixed border-separate border-spacing-0">
-                        <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-8 [&_th]:py-0">
-                                <TableHead className="w-[40px] text-center p-0 align-middle bg-background border-b border-r" style={{ width: widths.checkbox }}>
-                                    <Checkbox
-                                        checked={allSelected}
-                                        onCheckedChange={toggleSelectAll}
-                                        aria-label="Select all"
-                                        className="translate-y-[2px]"
-                                    />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.date }}>
-                                    사용일
-                                    <div onMouseDown={(e) => startResizing('date', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.division }}>
-                                    사업
-                                    <div onMouseDown={(e) => startResizing('division', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.team }}>
-                                    사용팀
-                                    <div onMouseDown={(e) => startResizing('team', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.projectCode }}>
-                                    공사번호
-                                    <div onMouseDown={(e) => startResizing('projectCode', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.projectName }}>
-                                    공사명
-                                    <div onMouseDown={(e) => startResizing('projectName', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.productName }}>
-                                    품명
-                                    <div onMouseDown={(e) => startResizing('productName', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.specification }}>
-                                    규격
-                                    <div onMouseDown={(e) => startResizing('specification', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.quantity }}>
-                                    수량
-                                    <div onMouseDown={(e) => startResizing('quantity', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.recipient }}>
-                                    사용자
-                                    <div onMouseDown={(e) => startResizing('recipient', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.remark }}>
-                                    비고
-                                    <div onMouseDown={(e) => startResizing('remark', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.createdBy }}>
-                                    입력자
-                                    <div onMouseDown={(e) => startResizing('createdBy', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b border-r" style={{ width: widths.attachment }}>
-                                    첨부
-                                    <div onMouseDown={(e) => startResizing('attachment', e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" />
-                                </TableHead>
-                                <TableHead className="text-center align-middle bg-background relative border-b" style={{ width: widths.actions }}>
-
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {displayedLogs.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
-                                        사용 내역이 없습니다
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                displayedLogs.map((log: any) => {
-                                    const { attachments: files } = parseAttributes(log.attributes);
-
-                                    const rowColor = log.logType === 'dispose' ? 'bg-red-50/50 hover:bg-red-100/50' :
-                                        'hover:bg-muted/50';
-
-                                    return (
-                                        <TableRow key={log.id} className={`h-6 [&_td]:py-0 ${rowColor} border-b`}>
-                                            <TableCell className="text-center align-middle p-0 border-r">
-                                                <Checkbox
-                                                    checked={selectedIds.has(log.id)}
-                                                    onCheckedChange={() => toggleSelect(log.id)}
-                                                    className="translate-y-[2px]"
-                                                />
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle border-r">{log.logDate || ''}</TableCell>
-                                            <TableCell className="text-center align-middle font-medium truncate border-r">{log.division || ''}</TableCell>
-                                            <TableCell className="text-center align-middle font-medium truncate border-r">{log.teamName || ''}</TableCell>
-                                            <TableCell className="text-center align-middle truncate border-r" title={log.projectCode}>{log.projectCode || ''}</TableCell>
-                                            <TableCell className="text-left align-middle truncate border-r" title={log.projectName}>{log.projectName || ''}</TableCell>
-                                            <TableCell className="text-center align-middle truncate border-r" title={log.productName}>{log.productName || ''}</TableCell>
-                                            <TableCell className="text-center align-middle truncate border-r" title={log.spec}>{log.spec || ''}</TableCell>
-                                            <TableCell className="text-center align-middle font-bold border-r">{log.usedQuantity?.toLocaleString() || '0'}</TableCell>
-                                            <TableCell className="text-center align-middle truncate border-r">{log.workerName || ''}</TableCell>
-                                            <TableCell className="text-center align-middle truncate border-r">{log.remark || ''}</TableCell>
-                                            <TableCell className="text-center align-middle truncate text-muted-foreground border-r">{log.creatorName || ''}</TableCell>
-                                            <TableCell className="text-center align-middle border-r">
-                                                {files.length > 0 && (
-                                                    files.length === 1 ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-5 w-5"
-                                                            onClick={() => downloadAttachment(files[0])}
-                                                        >
-                                                            <Download className="h-3 w-3" />
-                                                        </Button>
-                                                    ) : (
-                                                        <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <Button variant="ghost" size="sm" className="h-5 gap-1 px-1">
-                                                                    <Paperclip className="h-3 w-3" />
-                                                                    <span className="text-xs font-medium">{files.length}</span>
-                                                                </Button>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-2" align="center">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <div className="text-xs font-semibold px-2 py-1 mb-1 border-b">첨부파일 {files.length}개</div>
-                                                                    {files.map((file: any, index: number) => (
-                                                                        <Button
-                                                                            key={index}
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="justify-start h-auto py-1 px-2 font-normal text-xs overflow-hidden max-w-[200px]"
-                                                                            onClick={() => downloadAttachment(file)}
-                                                                            title={file.name}
-                                                                        >
-                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                            <span className="truncate">{file.name}</span>
-                                                                        </Button>
-                                                                    ))}
-                                                                </div>
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                    )
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-center align-middle">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" className="h-6 w-6 p-0">
-                                                            <span className="sr-only">메뉴 열기</span>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() => deleteMutation.mutate(log.id)}
-                                                            className="text-red-600 focus:text-red-600"
-                                                        >
-                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                            <span>삭제</span>
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
-
-            {/* Registration Dialog - REFINED */}
+            {/* Registration Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
                     <DialogHeader>
@@ -653,7 +799,7 @@ export default function TeamMaterialUsageDemolition() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto pr-2">
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                         <div className="grid gap-4 py-4">
                             {/* Row 1: Date | Team | User */}
                             <div className="grid grid-cols-3 gap-4">

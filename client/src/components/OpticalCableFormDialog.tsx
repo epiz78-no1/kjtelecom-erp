@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Calendar as CalendarIcon, Upload, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 import {
     Dialog,
@@ -55,6 +56,7 @@ export interface OpticalCableFormData {
     isWaste?: boolean;
     wasteReason?: string;
     wasteLength?: number;
+    tangoRegistered?: boolean;
 }
 
 interface OpticalCableFormDialogProps {
@@ -68,6 +70,8 @@ interface OpticalCableFormDialogProps {
 export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: setControlledOpen, onSubmit, editingItem, trigger }: OpticalCableFormDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const { toast } = useToast();
+
+
 
     // Hook integration
     const {
@@ -89,6 +93,19 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
     const open = isControlled ? controlledOpen : internalOpen;
     const onOpenChange = isControlled ? setControlledOpen : setInternalOpen;
 
+    // Fetch existing cables for autocomplete suggestions
+    const { data: existingCables = [] } = useQuery<OpticalCable[]>({
+        queryKey: ["/api/optical-cables"],
+        enabled: open // Only fetch when dialog is open
+    });
+
+    // Extract unique values for autocomplete
+    const uniqueCategories = Array.from(new Set(existingCables.map(c => c.category).filter(Boolean))) as string[];
+    const uniqueManufacturers = Array.from(new Set(existingCables.map(c => c.manufacturer).filter(Boolean))) as string[];
+    const uniqueYears = Array.from(new Set(existingCables.map(c => c.manufactureYear).filter(Boolean))).sort().reverse() as string[];
+    const uniqueSpecs = Array.from(new Set(existingCables.map(c => c.spec).filter(Boolean))) as string[];
+    const uniqueCoreCounts = Array.from(new Set(existingCables.map(c => c.coreCount).filter((c): c is number => typeof c === 'number'))).sort((a, b) => a - b);
+
     const [formData, setFormData] = useState<OpticalCableFormData>({
         managementNo: "",
         division: "",
@@ -106,6 +123,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         totalAmount: 0,
         projectCode: "",
         projectName: "",
+        tangoRegistered: true,
     });
 
     const [incomingLength, setIncomingLength] = useState<number | "">("");
@@ -142,6 +160,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         totalAmount: editingItem.totalAmount || 0,
                         projectCode: editingItem.projectCode || "",
                         projectName: editingItem.projectName || "",
+                        tangoRegistered: editingItem.tangoRegistered !== undefined ? editingItem.tangoRegistered : true,
                     });
                     // Calculate initial incoming length (Remaining + Used + Waste)
                     const calculatedIncoming = (editingItem.remainingLength || 0) + (editingItem.usedLength || 0) + (editingItem.wasteLength || 0);
@@ -187,6 +206,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                         totalAmount: 0,
                         projectCode: "",
                         projectName: "",
+                        tangoRegistered: true,
                     });
                     setIncomingLength("");
                     setAttachments([]);
@@ -282,206 +302,321 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
         }
     };
 
+    const isEdit = !!editingItem;
+    const themeColor = isEdit ? "indigo" : "emerald";
+    const GradientLine = isEdit
+        ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-500"
+        : "bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500";
+    const TitleGradient = isEdit
+        ? "bg-gradient-to-r from-slate-900 to-slate-600"
+        : "bg-gradient-to-r from-slate-900 to-slate-600";
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>{editingItem ? "광케이블 드럼 수정" : "광케이블 드럼 등록"}</DialogTitle>
-                    <DialogDescription>
-                        {editingItem ? "드럼 정보를 수정합니다." : "새로운 광케이블 드럼을 등록합니다."}
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                    <div className="grid gap-4 py-4">
+            <DialogContent className="max-w-[750px] p-0 overflow-hidden border-white/20 bg-background/80 backdrop-blur-xl shadow-2xl flex flex-col max-h-[90vh]">
+                {/* Top Gradient Indicator */}
+                <div className={`h-1.5 w-full ${GradientLine} shrink-0`} />
 
-                        {/* 1. 입고일자 & 사업 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="receivedDate">입고일자 <span className="text-red-500">*</span></Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !formData.receivedDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {formData.receivedDate ? (
-                                                format(new Date(formData.receivedDate), "PPP", { locale: ko })
-                                            ) : (
-                                                <span>날짜 선택</span>
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={formData.receivedDate ? new Date(formData.receivedDate) : undefined}
-                                            onSelect={handleDateSelect}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                <div className="px-6 pt-6 pb-2 shrink-0">
+                    <DialogHeader className="mb-4">
+                        <DialogTitle className={`text-xl font-bold ${TitleGradient} bg-clip-text text-transparent`}>
+                            {isEdit ? "광케이블 드럼 수정" : "신규 광케이블 드럼 등록"}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            {isEdit
+                                ? "기존 드럼 정보를 수정합니다. 변경된 내용은 즉시 반영됩니다."
+                                : "새로운 광케이블 드럼을 입고 처리하고 재고에 반영합니다."}
+                        </DialogDescription>
+                    </DialogHeader>
+                </div>
+
+                <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex-1">
+                    <form id="optical-cable-form" onSubmit={handleSubmit} className="grid gap-6">
+
+                        {/* 기본 정보 Section */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className={`h-4 w-1 rounded-full ${isEdit ? "bg-indigo-500" : "bg-emerald-500"}`} />
+                                <h4 className="font-bold text-[13px] text-slate-700">입고 기본 정보</h4>
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="division">사업 <span className="text-red-500">*</span></Label>
-                                <Select
-                                    value={formData.division}
-                                    onValueChange={(value) => setFormData({ ...formData, division: value })}
-                                    required
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="사업 선택" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="SKT">SKT</SelectItem>
-                                        <SelectItem value="SKB">SKB</SelectItem>
-                                    </SelectContent>
-                                </Select>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">입고일자 <span className="text-red-500">*</span></Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full justify-start text-left font-normal h-9 bg-slate-50/50 border-slate-200/60 hover:bg-white transition-all text-xs",
+                                                    !formData.receivedDate && "text-muted-foreground",
+                                                    isEdit ? "hover:border-indigo-500/50" : "hover:border-emerald-500/50"
+                                                )}
+                                            >
+                                                <CalendarIcon className={`mr-2 h-4 w-4 ${isEdit ? "text-indigo-600" : "text-emerald-600"}`} />
+                                                {formData.receivedDate ? (
+                                                    format(new Date(formData.receivedDate), "PPP", { locale: ko })
+                                                ) : (
+                                                    <span>날짜 선택</span>
+                                                )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className={`w-auto p-0 shadow-xl ${isEdit ? "border-indigo-100" : "border-emerald-100"}`} align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={formData.receivedDate ? new Date(formData.receivedDate) : undefined}
+                                                onSelect={handleDateSelect}
+                                                initialFocus
+                                                className="p-3"
+                                                classNames={{
+                                                    day_selected: isEdit
+                                                        ? "bg-indigo-500 text-white hover:bg-indigo-600 focus:bg-indigo-600"
+                                                        : "bg-emerald-500 text-white hover:bg-emerald-600 focus:bg-emerald-600",
+                                                    day_today: isEdit
+                                                        ? "bg-indigo-50 text-indigo-600"
+                                                        : "bg-emerald-50 text-emerald-600",
+                                                }}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">사업 구분 <span className="text-red-500">*</span></Label>
+                                    <Select
+                                        value={formData.division}
+                                        onValueChange={(value) => setFormData({ ...formData, division: value })}
+                                    >
+                                        <SelectTrigger className={`h-9 bg-slate-50/50 border-slate-200/60 text-xs ${isEdit ? "focus:ring-indigo-500/20" : "focus:ring-emerald-500/20"}`}>
+                                            <SelectValue placeholder="사업 선택" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="SKT" className="text-xs">SKT</SelectItem>
+                                            <SelectItem value="SKB" className="text-xs">SKB</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">공사번호</Label>
+                                    <Input
+                                        value={formData.projectCode}
+                                        onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="공사번호 입력"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">공사명</Label>
+                                    <Input
+                                        value={formData.projectName}
+                                        onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="공사명 입력"
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="projectCode">공사번호</Label>
-                                <Input
-                                    id="projectCode"
-                                    value={formData.projectCode}
-                                    onChange={(e) => setFormData({ ...formData, projectCode: e.target.value })}
-                                />
+                        <div className="h-px bg-slate-100" />
+
+                        {/* 자재 상세 정보 Section */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className={`h-4 w-1 rounded-full ${isEdit ? "bg-purple-500" : "bg-teal-500"}`} />
+                                <h4 className="font-bold text-[13px] text-slate-700">자재 상세 스펙</h4>
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="projectName">공사명</Label>
-                                <Input
-                                    id="projectName"
-                                    value={formData.projectName}
-                                    onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                                />
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">구분 (케이블 종류) <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        list="category-suggestions"
+                                        value={formData.category}
+                                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                        required
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="예: 광케이블"
+                                    />
+                                    <datalist id="category-suggestions">
+                                        {uniqueCategories.map((cat, idx) => <option key={idx} value={cat || ""} />)}
+                                    </datalist>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">제조사 <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        list="manufacturer-suggestions"
+                                        value={formData.manufacturer}
+                                        onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+                                        required
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="제조사 입력"
+                                    />
+                                    <datalist id="manufacturer-suggestions">
+                                        {uniqueManufacturers.map((mfr, idx) => <option key={idx} value={mfr || ""} />)}
+                                    </datalist>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">제조년도 <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        list="year-suggestions"
+                                        value={formData.manufactureYear}
+                                        onChange={(e) => setFormData({ ...formData, manufactureYear: e.target.value })}
+                                        required
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="YYYY"
+                                    />
+                                    <datalist id="year-suggestions">
+                                        {uniqueYears.map((year, idx) => <option key={idx} value={year || ""} />)}
+                                    </datalist>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">규격 <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        list="spec-suggestions"
+                                        value={formData.spec}
+                                        onChange={(e) => handleSpecChange(e.target.value)}
+                                        required
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="규격 입력"
+                                    />
+                                    <datalist id="spec-suggestions">
+                                        {uniqueSpecs.map((spec, idx) => <option key={idx} value={spec || ""} />)}
+                                    </datalist>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">코어 수 <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        list="core-suggestions"
+                                        type="number"
+                                        value={formData.coreCount}
+                                        onChange={(e) => setFormData({ ...formData, coreCount: e.target.value === "" ? "" : Number(e.target.value) })}
+                                        required
+                                        min="0"
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="0"
+                                    />
+                                    <datalist id="core-suggestions">
+                                        {uniqueCoreCounts.map((core, idx) => <option key={idx} value={core} />)}
+                                    </datalist>
+                                </div>
                             </div>
                         </div>
 
-                        {/* 3. 구분 & 제조사 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="category">구분 <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="category"
-                                    value={formData.category}
-                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                    required
-                                />
+                        <div className="h-px bg-slate-100" />
+
+                        {/* 재고 및 위치 정보 Section */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className={`h-4 w-1 rounded-full ${isEdit ? "bg-violet-500" : "bg-cyan-500"}`} />
+                                <h4 className="font-bold text-[13px] text-slate-700">재고 및 위치 정보</h4>
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="manufacturer">제조사 <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="manufacturer"
-                                    value={formData.manufacturer}
-                                    onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                                    required
-                                />
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">제조번호 (Drum No) <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        value={formData.drumNo}
+                                        onChange={(e) => setFormData({ ...formData, drumNo: e.target.value })}
+                                        required
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all font-mono ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="Drum No 입력"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">보관장소 <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        value={formData.location}
+                                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                        required
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="보관장소 입력"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">입고량(m) <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        type="number"
+                                        value={incomingLength}
+                                        onChange={(e) => handleIncomingLengthChange(e.target.value === "" ? "" : Number(e.target.value))}
+                                        required
+                                        min="0"
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all text-right font-mono ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[12px] font-semibold text-slate-500 ml-1">단가 (원) <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        type="number"
+                                        value={formData.unitPrice}
+                                        onChange={(e) => handleUnitPriceChange(e.target.value === "" ? "" : Number(e.target.value))}
+                                        required
+                                        min="0"
+                                        className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all text-right font-mono ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                        placeholder="0"
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        {/* 4. 제조년도 & 규격 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="manufactureYear">제조년도 <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="manufactureYear"
-                                    value={formData.manufactureYear}
-                                    onChange={(e) => setFormData({ ...formData, manufactureYear: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="spec">규격 <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="spec"
-                                    value={formData.spec}
-                                    onChange={(e) => handleSpecChange(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* 5. 코어 수 & 제조번호 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="coreCount">코어 수 <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="coreCount"
-                                    type="number"
-                                    value={formData.coreCount}
-                                    onChange={(e) => setFormData({ ...formData, coreCount: e.target.value === "" ? "" : Number(e.target.value) })}
-                                    required
-                                    min="0"
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="drumNo">제조번호 (Drum No) <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="drumNo"
-                                    value={formData.drumNo}
-                                    onChange={(e) => setFormData({ ...formData, drumNo: e.target.value })}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* 6. 보관장소 & 입고량 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="location">보관장소 <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="location"
-                                    value={formData.location}
-                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="incomingLength">입고량(m) <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="incomingLength"
-                                    type="number"
-                                    value={incomingLength}
-                                    onChange={(e) => handleIncomingLengthChange(e.target.value === "" ? "" : Number(e.target.value))}
-                                    required
-                                    min="0"
-                                />
-                            </div>
-                        </div>
-
-                        {/* 7. 단가 */}
-                        <div className="grid grid-cols-1 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="unitPrice">단가 (원) <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="unitPrice"
-                                    type="number"
-                                    value={formData.unitPrice}
-                                    onChange={(e) => handleUnitPriceChange(e.target.value === "" ? "" : Number(e.target.value))}
-                                    required
-                                    min="0"
-                                />
-                            </div>
-                        </div>
-
-                        {/* 9. 비고 */}
-                        <div className="grid grid-cols-1 gap-2">
-                            <Label htmlFor="remark">비고</Label>
+                        {/* 비고 */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[12px] font-semibold text-slate-500 ml-1">비고</Label>
                             <Input
-                                id="remark"
                                 value={formData.remark}
                                 onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                                className={`h-9 bg-slate-50/50 border-slate-200/60 focus:bg-white transition-all ${isEdit ? "focus:border-indigo-500/50" : "focus:border-emerald-500/50"}`}
+                                placeholder="특이사항 입력"
                             />
                         </div>
 
-                        {/* 8. 즉시 폐기 옵션 */}
-                        <div className="grid gap-2 border-t pt-4">
+                        {/* Tango 등록 여부 */}
+                        <div className="flex items-center space-x-2 border-t border-slate-100 pt-4">
+                            <Checkbox
+                                id="tangoUnregistered"
+                                checked={!formData.tangoRegistered}
+                                onCheckedChange={(checked) => {
+                                    const isUnregistered = checked as boolean;
+                                    const statusText = "[Tango 미등록 상태]";
+                                    let newRemark = formData.remark;
+
+                                    if (isUnregistered) {
+                                        // Add text if not present
+                                        if (!newRemark.includes(statusText)) {
+                                            newRemark = newRemark ? `${statusText} ${newRemark}` : statusText;
+                                        }
+                                    } else {
+                                        // Remove text if present
+                                        newRemark = newRemark.replace(statusText, "").trim();
+                                    }
+
+                                    setFormData({
+                                        ...formData,
+                                        tangoRegistered: !isUnregistered,
+                                        remark: newRemark
+                                    });
+                                }}
+                                className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                            />
+                            <label
+                                htmlFor="tangoUnregistered"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer select-none"
+                            >
+                                Tango 미등록 (체크 시 출고 불가)
+                            </label>
+                        </div>
+
+                        {/* 폐기 옵션 */}
+                        <div className="grid gap-2 border-t border-slate-100 pt-4">
                             <div className="flex items-center space-x-2">
                                 <Checkbox
                                     id="immediateWaste"
@@ -495,6 +630,7 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                             setWasteLength("");
                                         }
                                     }}
+                                    className={isEdit ? "data-[state=checked]:bg-indigo-500" : "data-[state=checked]:bg-destructive"}
                                 />
                                 <Label htmlFor="immediateWaste" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-destructive">
                                     입고 즉시 폐기 처리
@@ -502,31 +638,29 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             </div>
 
                             {isImmediateWaste && (
-                                <div className="mt-2 animate-in slide-in-from-top-2 fade-in duration-200 grid grid-cols-2 gap-4 bg-red-50/50 p-4 rounded-lg border border-red-100">
-                                    <div className="col-span-1">
-                                        <Label htmlFor="wasteReason">폐기 사유 <span className="text-red-500">*</span></Label>
+                                <div className="mt-2 animate-in slide-in-from-top-2 fade-in duration-200 grid grid-cols-2 gap-4 bg-red-50/50 p-4 rounded-xl border border-red-100">
+                                    <div className="col-span-1 space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">폐기 사유 <span className="text-red-500">*</span></Label>
                                         <Textarea
-                                            id="wasteReason"
-                                            placeholder="폐기 사유를 입력하세요"
                                             value={wasteReason}
                                             onChange={(e) => setWasteReason(e.target.value)}
-                                            className="h-[80px] resize-none mt-1.5"
+                                            className="h-[80px] resize-none bg-white border-red-200 focus:border-red-400 focus:ring-red-200"
+                                            placeholder="폐기 사유를 입력하세요"
                                             required={isImmediateWaste}
                                         />
                                     </div>
-                                    <div className="col-span-1">
-                                        <Label htmlFor="wasteLength">폐기 수량 (m) <span className="text-red-500">*</span></Label>
+                                    <div className="col-span-1 space-y-1.5">
+                                        <Label className="text-[12px] font-semibold text-slate-500 ml-1">폐기 수량 (m) <span className="text-red-500">*</span></Label>
                                         <Input
-                                            id="wasteLength"
                                             type="number"
                                             value={wasteLength}
                                             onChange={(e) => setWasteLength(e.target.value === "" ? "" : Number(e.target.value))}
-                                            className="mt-1.5 border-red-200 focus-visible:ring-red-500"
+                                            className="bg-white border-red-200 focus:border-red-400 focus:ring-red-200 text-right"
                                             required={isImmediateWaste}
                                             min={0}
                                             max={Number(incomingLength) || undefined}
                                         />
-                                        <p className="text-xs text-muted-foreground mt-1">
+                                        <p className="text-[11px] text-red-500/80 mt-1">
                                             * 입력한 수량만큼 잔량이 차감됩니다.
                                         </p>
                                     </div>
@@ -534,12 +668,15 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                             )}
                         </div>
 
-                        {/* 10. 첨부파일 */}
-                        <div className="grid grid-cols-4 items-start gap-4 border-t pt-4">
-                            <Label className="text-right pt-2 col-span-1">
-                                첨부파일
-                            </Label>
-                            <div className="col-span-3">
+                        {/* 첨부파일 */}
+                        <div className="space-y-3 pb-2">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="h-4 w-1 bg-slate-400 rounded-full" />
+                                <h4 className="font-bold text-[13px] text-slate-700">첨부파일</h4>
+                                <span className="text-[11px] text-slate-400 font-normal ml-auto">최대 4개 / 이미지, PDF, 엑셀 지원</span>
+                            </div>
+
+                            <div className="space-y-3">
                                 <div className="relative">
                                     <input
                                         type="file"
@@ -550,62 +687,92 @@ export function OpticalCableFormDialog({ open: controlledOpen, onOpenChange: set
                                         onChange={handleFileChange}
                                         disabled={isUploading}
                                     />
-                                    {/* Standard UI from Guide */}
                                     {attachments.length < 4 && (
                                         <label
                                             htmlFor={uniqueId}
-                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                                            className={`group flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer transition-all duration-200 ${isUploading ? "opacity-50 cursor-wait" :
+                                                isEdit ? "hover:border-indigo-400 hover:bg-indigo-50/30" : "hover:border-emerald-400 hover:bg-emerald-50/30"
+                                                }`}
                                         >
-                                            <Upload className="h-5 w-5 text-primary" />
-                                            <span className="text-sm font-medium text-primary">
-                                                파일 선택 ({attachments.length}/4) - 이미지, PDF, 엑셀
+                                            <div className={`h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors ${isEdit ? "group-hover:bg-indigo-100" : "group-hover:bg-emerald-100"
+                                                }`}>
+                                                <Upload className={`h-4 w-4 text-slate-400 ${isEdit ? "group-hover:text-indigo-600" : "group-hover:text-emerald-600"
+                                                    }`} />
+                                            </div>
+                                            <span className={`text-xs font-medium text-slate-500 ${isEdit ? "group-hover:text-indigo-600" : "group-hover:text-emerald-600"
+                                                }`}>
+                                                {isUploading ? "업로드 중..." : "클릭하여 파일 업로드 또는 드래그 앤 드롭"}
                                             </span>
                                         </label>
                                     )}
                                 </div>
 
-                                <div className="space-y-2 mt-2">
-                                    {attachments.map((file, index) => (
-                                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md border">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <span className="text-sm truncate max-w-[200px]">{file.name}</span>
-                                                <span className="text-xs text-muted-foreground">({((file.originalSize || 0) / 1024).toFixed(1)} KB)</span>
+                                {attachments.length > 0 && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {attachments.map((file, index) => (
+                                            <div key={index} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 rounded-lg shadow-sm hover:shadow-md transition-all">
+                                                <div className="flex items-center gap-2.5 overflow-hidden">
+                                                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-lg ${isEdit ? "bg-indigo-50" : "bg-emerald-50"
+                                                        }`}>
+                                                        {file.name.endsWith('.pdf') ? '📄' :
+                                                            file.name.endsWith('.xls') || file.name.endsWith('.xlsx') ? '📊' : '🖼️'}
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-xs font-medium text-slate-700 truncate block max-w-[120px]">
+                                                            {file.name}
+                                                        </span>
+                                                        <span className={`text-[10px] ${isEdit ? "text-indigo-600" : "text-emerald-600"}`}>
+                                                            {((file.originalSize || 0) / 1024).toFixed(1)} KB
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeAttachment(index);
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
                                             </div>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    removeAttachment(index);
-                                                }}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button type="button" variant="outline" onClick={() => normalizedOnOpenChange(false)}>
-                            취소
-                        </Button>
-                        <Button type="submit" disabled={isUploading}>
-                            {isUploading ? (
-                                <>
-                                    <Upload className="mr-2 h-4 w-4 animate-spin" />
-                                    업로드 중
-                                </>
-                            ) : (
-                                "등록"
-                            )}
-                        </Button>
-                    </div>
-                </form>
+                    </form>
+                </div>
+
+                <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between sm:justify-between gap-2 shrink-0">
+                    <Button type="button" variant="ghost" onClick={() => normalizedOnOpenChange(false)} className="h-9 text-slate-500 hover:text-slate-900">
+                        취소
+                    </Button>
+                    <Button
+                        type="submit"
+                        form="optical-cable-form"
+                        disabled={isUploading}
+                        className={`h-9 px-6 text-white shadow-md ${isEdit
+                            ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-200"
+                            : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-200"
+                            }`}
+                    >
+                        {isUploading ? (
+                            <>
+                                <Upload className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                업로드 중
+                            </>
+                        ) : (
+                            <>
+                                {isEdit ? "수정 사항 저장" : "신규 드럼 등록"}
+                            </>
+                        )}
+                    </Button>
+                </div>
             </DialogContent>
         </Dialog>
     );

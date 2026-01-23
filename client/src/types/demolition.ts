@@ -45,5 +45,8 @@ export interface DemolitionLog {
     projectCode?: string;
     projectName?: string;
     mgmtNo?: string;
+    category?: string;
     creatorName?: string;
 }
+
+export type DemolitionOutgoingRecord = DemolitionLog;

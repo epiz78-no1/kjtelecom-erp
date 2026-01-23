@@ -90,6 +90,31 @@ export function useTableFilters<T extends Record<string, any>>(
         return filtered;
     }, [items, searchQuery, selectedDivision, selectedCategory, searchFields, divisionField, categoryField]);
 
+    // 활성화된 필터 목록 반환
+    const getActiveFilters = () => {
+        const filters: { key: string; label: string }[] = [];
+        if (selectedDivision !== "전체" && selectedDivision !== "all") {
+            filters.push({ key: "division", label: selectedDivision });
+        }
+        if (selectedCategory !== "전체") {
+            filters.push({ key: "category", label: selectedCategory });
+        }
+        return filters;
+    };
+
+    // 필터 초기화
+    const resetFilters = () => {
+        setSearchQuery("");
+        setSelectedDivision("전체");
+        setSelectedCategory("전체");
+    };
+
+    // 특정 필터 제거
+    const removeFilter = (key: string) => {
+        if (key === "division") setSelectedDivision("전체");
+        if (key === "category") setSelectedCategory("전체");
+    };
+
     return {
         /** 검색 쿼리 */
         searchQuery,
@@ -107,5 +132,11 @@ export function useTableFilters<T extends Record<string, any>>(
         filteredItems,
         /** 카테고리 목록 */
         categories,
+        /** 활성화된 필터 목록 반환 */
+        getActiveFilters,
+        /** 필터 초기화 */
+        resetFilters,
+        /** 특정 필터 제거 */
+        removeFilter,
     };
 }

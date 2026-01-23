@@ -1,11 +1,13 @@
 import { exportToExcel } from "@/lib/excel";
+import * as XLSX from "xlsx";
 import { useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Plus, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal, Paperclip, FileText } from "lucide-react";
+import { Plus, Trash2, Pencil, Loader2, Upload, Download, MoreHorizontal, Paperclip, FileText, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
-import { validateIncomingRow, transformIncomingRow, incomingColumns } from "@/lib/bulk-configs/incoming";
+import { validateIncomingRow, transformIncomingRow, incomingColumns, type ParsedIncomingRow } from "@/lib/bulk-configs/incoming";
 import { IncomingDialog } from "@/components/IncomingDialog";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
@@ -52,6 +54,13 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { InspectionPreviewDialog } from "@/components/InspectionPreviewDialog";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { MATERIAL_LOG_COLUMNS } from "@/lib/material-table-columns";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function IncomingRecords() {
   const { toast } = useToast();
@@ -67,19 +76,7 @@ export default function IncomingRecords() {
   const [deleteRecord, setDeleteRecord] = useState<IncomingRecord | null>(null);
   const { open: dialogOpen, editingItem: editingRecord, handleOpen: openDialog, handleClose: closeDialog, setOpen: setDialogOpen } = useDialogState<IncomingRecord>();
 
-  const { widths, startResizing } = useColumnResize({
-    checkbox: 40,
-    date: 100,
-    category: 60,
-    supplier: 100,
-    projectName: 220,
-    productName: 160,
-    specification: 200,
-    quantity: 80,
-    remark: 150,
-    createdBy: 80,
-    actions: 50
-  });
+  const { widths, startResizing } = useColumnResize(MATERIAL_LOG_COLUMNS);
 
   const canWrite = checkPermission("incoming", "write");
 
@@ -303,25 +300,6 @@ export default function IncomingRecords() {
     bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
-  const handleBulkUpload = (items: any[]) => {
-    bulkUploadMutation.mutate({ items, mode: 'add' });
-  };
-
-  const handleExportExcel = () => {
-    const dataToExport = filteredRecords.map(record => ({
-      "입고일": record.date,
-      "사업": record.category,
-      "구매처": record.supplier,
-      "공사명": record.projectName,
-      "품명": record.productName,
-      "규격": record.specification,
-      "수량": record.quantity,
-      "비고": record.remark || "-"
-    }));
-
-    exportToExcel(dataToExport, "입고내역");
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -331,358 +309,337 @@ export default function IncomingRecords() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 space-y-4 pb-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">입고 내역</h1>
-            <p className="text-muted-foreground">자재 입고 이력을 조회하고 관리합니다</p>
+    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+      {/* Header Section */}
+      {/* Ultra Compact Header Section */}
+      <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              입고 내역
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 animate-pulse"></span>
+            </h1>
+            <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+            <span className="text-xs font-medium text-slate-500">{filteredRecords.length} Records</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {canWrite && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-green-600 text-green-600 hover:bg-green-50"
-                  onClick={handleExportExcel}
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Excel
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button data-testid="button-add-incoming">
-                      <Plus className="h-4 w-4 mr-2" />
-                      입고 등록
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={openAddDialog}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      직접 등록
-                    </DropdownMenuItem>
-                    {isTenantOwner && (
-                      <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
-                        <Upload className="h-4 w-4 mr-2" />
-                        일괄 등록
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
-          </div>
-        </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            {selectedIds.size > 0 && isTenantOwner && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => setBulkDeleteOpen(true)}
+                      disabled={bulkDeleteMutation.isPending || !canWrite}
+                      className="h-7 w-7 rounded-md shadow-sm"
+                    >
+                      {bulkDeleteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">선택 삭제 ({selectedIds.size})</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="품명, 공사명, 구매처 검색..."
-              className="max-w-sm"
-              data-testid="input-search-incoming"
+              placeholder="검색..."
+              className="w-32 focus:w-48 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
             />
-            {selectedIds.size > 0 && isTenantOwner && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewOpen(true)}
-                  disabled={selectedIds.size === 0}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  입고 검사서 출력
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setBulkDeleteOpen(true)}
-                  data-testid="button-bulk-delete"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  선택 삭제 ({selectedIds.size})
-                </Button>
-              </>
-            )}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            표시 <span className="font-semibold text-foreground">{displayRecords.length}</span> /
-            전체 <span className="font-semibold text-foreground">{filteredRecords.length}</span>건 ·
-            수량 <span className="font-semibold text-foreground">{totalQuantity.toLocaleString()}</span>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50"
+                    onClick={() => exportToExcel(filteredRecords, "입고내역")}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-md text-blue-600 hover:bg-blue-50"
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">검수서 미리보기</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <DropdownMenu>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button disabled={!canWrite} size="icon" className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm">
+                        <Plus className="h-3.5 w-3.5 text-white" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">입고 등록</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <DropdownMenuContent align="end" className="w-32 p-1">
+                <DropdownMenuItem onSelect={openAddDialog} className="text-xs py-1.5 cursor-pointer rounded-md">
+                  <Plus className="h-3 w-3 mr-2 text-primary" />
+                  직접 등록
+                </DropdownMenuItem>
+                {isTenantOwner && (
+                  <DropdownMenuItem onSelect={() => setBulkUploadOpen(true)} className="text-xs py-1.5 cursor-pointer rounded-md">
+                    <Upload className="h-3 w-3 mr-2 text-blue-600" />
+                    일괄 등록
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 rounded-md border overflow-hidden">
-        <div className="h-full overflow-auto relative pb-20">
-          <table className="w-full caption-bottom text-sm table-fixed">
-            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-              <TableRow className="h-8">
-                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
-                  {isTenantOwner ? (
-                    <Checkbox
-                      checked={allSelected}
-                      onCheckedChange={toggleSelectAll}
-                      data-testid="checkbox-select-all"
-                    />
-                  ) : null}
+      {/* Main Table Area */}
+      <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
+          <Table className="w-full text-sm border-collapse table-fixed">
+            <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+              <TableRow className="h-10 border-b border-slate-200">
+                <TableHead className="w-[40px] text-center p-0">
+                  {isTenantOwner && <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} className="translate-y-[2px]" />}
                 </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
-                  입고일
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("date", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
-                  사업
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("category", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.supplier }}>
-                  구매처
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("supplier", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
-                  공사명
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("projectName", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
-                  품명
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("productName", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.specification }}>
-                  규격
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("specification", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.quantity }}>
-                  수량
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("quantity", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
-                  비고
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("remark", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.createdBy }}>
-                  입력자
-                  <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                    onMouseDown={(e) => startResizing("createdBy", e)}
-                  />
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background w-[80px]">
-                  첨부
-                </TableHead>
-                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.date }}>입고일<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("date", e)} /></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.division }}>사업<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("division", e)} /></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.supplier }}>공급처<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("supplier", e)} /></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.project }}>공사명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("project", e)} /></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.product }}>품명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("product", e)} /></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.spec }}>규격<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("spec", e)} /></TableHead>
+                <TableHead className="font-semibold text-emerald-600 text-center text-xs" style={{ width: widths.quantity }}>수량<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("quantity", e)} /></TableHead>
+
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.remark }}>비고<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("remark", e)} /></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.author }}>입력자<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 z-50" onMouseDown={(e) => startResizing("author", e)} /></TableHead>
+                <TableHead className="font-semibold text-slate-600 text-center text-xs" style={{ width: widths.attachment }}>첨부<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("attachment", e)} /></TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayRecords.map((record) => (
-                <TableRow key={record.id} className="h-6 [&_td]:py-0" data-testid={`row-incoming-${record.id}`}>
-                  <TableCell className="text-center align-middle">
-                    {isTenantOwner ? (
-                      <Checkbox
-                        checked={selectedIds.has(record.id)}
-                        onCheckedChange={() => toggleSelect(record.id)}
-                        data-testid={`checkbox-${record.id}`}
-                      />
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-center align-middle whitespace-nowrap">{record.date}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[80px]">
-                    <div className="truncate" title={record.division}>{record.division}</div>
-                  </TableCell>
-                  <TableCell className="text-center align-middle max-w-[100px]">
-                    <div className="truncate" title={record.supplier}>{record.supplier}</div>
-                  </TableCell>
-                  <TableCell className="text-left align-middle max-w-[200px]">
-                    <div className="truncate" title={record.projectName}>{record.projectName}</div>
-                  </TableCell>
-                  <TableCell className="text-center align-middle max-w-[150px]">
-                    <div className="truncate" title={record.productName}>{record.productName}</div>
-                  </TableCell>
-                  <TableCell className="text-center align-middle max-w-[120px]">
-                    <div className="truncate" title={record.specification}>{record.specification}</div>
-                  </TableCell>
-                  <TableCell className="text-center align-middle font-medium whitespace-nowrap">{record.quantity.toLocaleString()}</TableCell>
-                  <TableCell className="text-center align-middle max-w-[150px]">
-                    <div className="truncate" title={record.remark || ""}>{record.remark || ""}</div>
-                  </TableCell>
-                  <TableCell className="text-center align-middle max-w-[100px]">
-                    <div className="truncate" title={(record as any).createdByName || ""}>
-                      {(record as any).createdByName || "-"}
+              {displayRecords.length === 0 && filteredRecords.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={12} className="h-64 border-none p-0">
+                    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                      <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                        <Search className="h-6 w-6 text-slate-400" />
+                      </div>
+                      <p className="font-medium text-slate-900">검색 결과가 없습니다</p>
+                      <p className="text-sm text-slate-500 mt-1">새로운 입고 내역을 등록해보세요</p>
                     </div>
                   </TableCell>
-                  <TableCell className="text-center align-middle">
-                    {(() => {
-                      try {
-                        let attrs: any = {};
-                        if (typeof record.attributes === 'string') {
-                          attrs = JSON.parse(record.attributes);
-                        } else if (typeof record.attributes === 'object' && record.attributes !== null) {
-                          attrs = record.attributes;
-                        }
+                </TableRow>
+              ) : (
+                <>
+                  {displayRecords.map((record) => {
+                    let hasAttachments = false;
+                    try {
+                      const parsed = JSON.parse(record.attributes as string);
+                      hasAttachments = parsed.attachments && parsed.attachments.length > 0;
+                    } catch (e) {
+                      // legacy fallback
+                      hasAttachments = !!((record as any).attachment || (record as any).attributes?.attachment);
+                    }
 
-                        // Support both legacy single attachment and new multiple attachments
-                        const attachments = (attrs && Array.isArray(attrs.attachments))
-                          ? attrs.attachments
-                          : ((attrs && attrs.attachment) ? [attrs.attachment] : []);
+                    return (
+                      <TableRow key={record.id} className="h-[40px] border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+                        <TableCell className="text-center p-0">
+                          {isTenantOwner && <Checkbox checked={selectedIds.has(record.id)} onCheckedChange={() => toggleSelect(record.id)} />}
+                        </TableCell>
+                        <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50">{format(new Date(record.date), "yyyy-MM-dd")}</TableCell>
+                        <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50">{record.division}</TableCell>
+                        <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50 truncate max-w-[150px]" title={record.supplier || ""}>{record.supplier}</TableCell>
+                        <TableCell className="text-left px-2 text-xs text-slate-700 font-medium border-r border-slate-100/50 truncate max-w-[200px]" title={record.projectName || ""}>{record.projectName}</TableCell>
+                        <TableCell className="text-center px-2 text-xs text-slate-700 p-0 border-r border-slate-100/50 truncate max-w-[200px]" title={record.productName}>{record.productName}</TableCell>
+                        <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50 truncate max-w-[100px]" title={record.specification || ""}>{record.specification}</TableCell>
+                        <TableCell className="text-center px-2 text-xs font-bold text-emerald-600 p-0 border-r border-slate-100/50 bg-emerald-50/30">{record.quantity.toLocaleString()}</TableCell>
+                        <TableCell className="text-left px-2 text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[150px]" title={record.remark || ""}>{record.remark}</TableCell>
+                        <TableCell className="text-center text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[80px]">{(record as any).createdByName}</TableCell>
+                        <TableCell className="text-center p-0 border-r border-slate-100/50">
+                          {(() => {
+                            let hasAttachments = false;
+                            let attachments: any[] = [];
+                            try {
+                              const parsed = typeof record.attributes === 'string'
+                                ? JSON.parse(record.attributes)
+                                : record.attributes || {};
 
-                        if (attachments.length === 0) return "-";
+                              if (parsed.attachments && parsed.attachments.length > 0) {
+                                attachments = parsed.attachments;
+                                hasAttachments = true;
+                              } else if (parsed.attachment) {
+                                attachments = [parsed.attachment];
+                                hasAttachments = true;
+                              } else if ((record as any).attachment) { // Legacy fallback
+                                attachments = [(record as any).attachment];
+                                hasAttachments = true;
+                              }
+                            } catch (e) {
+                              hasAttachments = false;
+                            }
 
-                        if (attachments.length === 1) {
-                          const file = attachments[0];
+                            if (!hasAttachments) return <span className="text-slate-300">-</span>;
 
-                          return (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                downloadAttachment(file);
-                              }}
-                              title={file.name}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          );
-                        }
+                            if (attachments.length === 1) {
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadAttachment(attachments[0]);
+                                  }}
+                                  title={attachments[0].name}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </Button>
+                              );
+                            }
 
-                        return (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-1 px-2"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Paperclip className="h-4 w-4" />
-                                <span className="text-xs font-medium">{attachments.length}</span>
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-2" align="end">
-                              <div className="flex flex-col gap-1">
-                                {attachments.map((file: any, idx: number) => (
+                            return (
+                              <Popover>
+                                <PopoverTrigger asChild>
                                   <Button
-                                    key={idx}
                                     variant="ghost"
                                     size="sm"
-                                    className="justify-start h-8 text-xs max-w-[200px]"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (file.storageUrl || file.storagePath) {
-                                        downloadAttachment(file);
-                                      } else {
-                                        downloadFile(`/api/incoming/${record.id}`, file.name);
-                                      }
-                                    }}
-                                    title={file.name}
+                                    className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    <Download className="h-3 w-3 mr-2 shrink-0" />
-                                    <span className="truncate">{file.name}</span>
+                                    <Paperclip className="h-3.5 w-3.5" />
+                                    <span className="text-[10px] font-medium">{attachments.length}</span>
                                   </Button>
-                                ))}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        );
-                      } catch (e) { return "-" }
-                    })()}
-                  </TableCell>
-                  <TableCell className="text-center align-middle">
-                    {canWrite && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-6 w-6 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>입고 관리</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openEditDialog(record)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            수정
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => setDeleteRecord(record)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            삭제
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {displayRecords.length === 0 && filteredRecords.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
-                    검색 결과가 없습니다
-                  </TableCell>
-                </TableRow>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-2" align="end">
+                                  <div className="flex flex-col gap-1">
+                                    {attachments.map((file: any, idx: number) => (
+                                      <Button
+                                        key={idx}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="justify-start h-8 text-xs max-w-[200px]"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          downloadAttachment(file);
+                                        }}
+                                        title={file.name}
+                                      >
+                                        <Download className="h-3 w-3 mr-2 shrink-0" />
+                                        <span className="truncate">{file.name}</span>
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-center p-0">
+                          {canWrite && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600">
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-[100px]">
+                                <DropdownMenuItem onClick={() => openEditDialog(record)} className="text-xs">
+                                  <Pencil className="h-3 w-3 mr-2" />
+                                  수정
+                                </DropdownMenuItem>
+                                {isTenantOwner && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setDeleteRecord(record)} className="text-xs text-red-600 focus:text-red-600">
+                                      <Trash2 className="h-3 w-3 mr-2" />
+                                      삭제
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </>
               )}
             </TableBody>
-          </table>
+          </Table>
 
-          {/* 무한 스크롤 로더 */}
           <InfiniteScrollLoader
-            hasMore={hasMore}
-            isLoading={scrollLoading}
             observerRef={observerRef}
+            isLoading={scrollLoading}
+            hasMore={hasMore}
             itemCount={displayRecords.length}
             totalCount={filteredRecords.length}
           />
         </div>
       </div>
 
-      {/* Dialogs */}
       <IncomingDialog
         open={dialogOpen}
         onClose={closeDialog}
-        onSubmit={handleDialogSubmit}
         editingRecord={editingRecord}
+        onSubmit={handleDialogSubmit}
         inventoryItems={inventoryItems}
       />
 
-      <GenericBulkUploadDialog
+      <InspectionPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        selectedRecords={filteredRecords}
+      />
+
+      <GenericBulkUploadDialog<ParsedIncomingRow>
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
-        title="입고내역 일괄등록"
-        description="CSV 파일을 업로드하여 여러 입고 내역을 한번에 등록할 수 있습니다"
-        templateUrl="/api/templates/incoming"
-        templateFileName="incoming_template.csv"
-        validateRow={validateIncomingRow}
-        transformRow={transformIncomingRow}
+        title="입고 내역 일괄 등록"
+        description="엑셀 파일을 업로드하여 입고 내역을 일괄 등록합니다."
         columns={incomingColumns}
-        onUpload={handleBulkUpload}
-        isLoading={bulkUploadMutation.isPending}
+        onUpload={async (items, mode) => {
+          await bulkUploadMutation.mutateAsync({ items, mode: mode || 'overwrite' });
+        }}
+        transformRow={transformIncomingRow}
+        validateRow={validateIncomingRow}
+        onDownloadTemplate={async () => {
+          // Use local generation instead of backend API
+          const ws = XLSX.utils.json_to_sheet([
+            {
+              "입고일자": "2024-03-20",
+              "사업구분": "SKT",
+              "공급처": "(주)공급사",
+              "공사명": "2024년 정기공사",
+              "품명": "광점퍼코드",
+              "규격": "SC/APC-SC/APC 3M",
+              "수량": "100",
+              "비고": "신규입고"
+            }
+          ]);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "입고내역_업로드양식");
+          XLSX.writeFile(wb, "입고내역_업로드양식.xlsx");
+        }}
       />
 
       <AlertDialog open={!!deleteRecord} onOpenChange={() => setDeleteRecord(null)}>
@@ -690,12 +647,15 @@ export default function IncomingRecords() {
           <AlertDialogHeader>
             <AlertDialogTitle>입고 내역 삭제</AlertDialogTitle>
             <AlertDialogDescription>
-              이 입고 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              정말 삭제하시겠습니까? 삭제된 데이터는 복구할 수 없습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteRecord && deleteMutation.mutate(deleteRecord.id)}>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600"
+              onClick={() => deleteRecord && deleteMutation.mutate(deleteRecord.id)}
+            >
               삭제
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -705,32 +665,22 @@ export default function IncomingRecords() {
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>선택 항목 삭제</AlertDialogTitle>
+            <AlertDialogTitle>일괄 삭제</AlertDialogTitle>
             <AlertDialogDescription>
-              선택한 {selectedIds.size}건의 입고 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              선택한 {selectedIds.size}개의 입고 내역을 영구적으로 삭제하시겠습니까?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} disabled={bulkDeleteMutation.isPending}>
-              {bulkDeleteMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  삭제 중...
-                </>
-              ) : "삭제"}
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600"
+              onClick={confirmBulkDelete}
+            >
+              일괄 삭제
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <InspectionPreviewDialog
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-        selectedRecords={records.filter(r => selectedIds.has(r.id))}
-      />
-
-
-    </div >
+    </div>
   );
 }

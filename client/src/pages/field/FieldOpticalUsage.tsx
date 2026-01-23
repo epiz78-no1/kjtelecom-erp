@@ -49,6 +49,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useDownload } from "@/hooks/useDownload";
 import { Paperclip, Upload } from "lucide-react";
 import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
@@ -298,193 +304,177 @@ export default function FieldOpticalUsage() {
     }
 
     return (
-        <div className="flex flex-col h-full">
-            <div className="hidden md:block flex-shrink-0 space-y-4 pb-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">자재 사용등록내역 (광케이블)</h1>
-                        <p className="text-muted-foreground">현장팀 자재 사용 이력을 조회합니다</p>
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+            <div className="hidden md:flex flex-col gap-2 flex-shrink-0 mb-2 pt-1 px-2">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 px-1">
+                        <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            자재 사용등록내역 (광케이블)
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50 animate-pulse"></span>
+                        </h1>
+                        <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+                        <span className="text-xs font-medium text-slate-500">{totalRecords} items</span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="전체" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="전체">전체</SelectItem>
-                                <SelectItem value="SKT">SKT</SelectItem>
-                                <SelectItem value="SKB">SKB</SelectItem>
-                            </SelectContent>
-                        </Select>
+
+                    <div className="flex items-center gap-1.5">
+
+
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="제조번호, 규격, 공사명..."
+                            className="w-40 focus:w-56 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
+                        />
+
+                        <div className="w-[120px]">
+                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="h-7 text-xs rounded-md bg-white border-slate-200">
+                                    <SelectValue placeholder="사업부" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="전체" className="text-xs">전체 사업부</SelectItem>
+                                    <SelectItem value="SKT" className="text-xs">SKT</SelectItem>
+                                    <SelectItem value="SKB" className="text-xs">SKB</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         {canManage && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 border-green-600 text-green-600 hover:bg-green-50"
-                                onClick={handleExportExcel}
-                            >
-                                <Download className="h-3 w-3 mr-1" />
-                                Excel
-                            </Button>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50"
+                                            onClick={handleExportExcel}
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Excel 다운로드</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         )}
+
                         {canRegister && (
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        등록
-                                    </Button>
-                                </DropdownMenuTrigger>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm p-0" size="icon">
+                                                    <Plus className="h-3.5 w-3.5 text-white" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>사용 등록</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={() => openDialog()}>
-                                        <Plus className="h-4 w-4 mr-2" />
+                                        <Plus className="h-3.5 w-3.5 mr-2" />
                                         직접 등록
                                     </DropdownMenuItem>
                                     {isTenantOwner && (
                                         <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
-                                            <Upload className="h-4 w-4 mr-2" />
+                                            <Upload className="h-3.5 w-3.5 mr-2" />
                                             일괄 등록
                                         </DropdownMenuItem>
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <SearchInput
-                            value={searchQuery}
-                            onChange={setSearchQuery}
-                            placeholder="제조번호, 규격, 공사번호, 공사명 검색..."
-                            className="max-w-sm"
-                        />
                         {selectedIds.size > 0 && isTenantOwner && (
                             <Button
                                 variant="destructive"
                                 size="sm"
+                                className="h-7 px-2 text-xs"
                                 onClick={() => setBulkDeleteOpen(true)}
                             >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                선택 삭제 ({selectedIds.size})
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                삭제
                             </Button>
                         )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                        <span className="font-semibold text-foreground">{totalRecords}</span>건 /
-                        사용량 <span className="font-semibold text-foreground">{totalLength.toLocaleString()}</span>m
-                    </div>
                 </div>
+
+
             </div>
 
-            <div className="flex-1 rounded-md border bg-background overflow-hidden relative">
+            <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0 mx-2">
                 {/* PC View: Table */}
                 <div className="hidden md:block h-full overflow-auto">
                     <table className="w-full caption-bottom text-sm table-fixed">
-                        <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-8">
+                        <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+                            <TableRow className="h-10 border-b border-slate-200">
 
-                                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
+                                <TableHead className="text-center align-middle bg-transparent p-0" style={{ width: widths.checkbox }}>
                                     {isTenantOwner ? (
                                         <Checkbox
                                             checked={allSelected}
                                             onCheckedChange={toggleSelectAll}
+                                            className="translate-y-[2px]"
                                         />
                                     ) : null}
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.date }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.date }}>
                                     사용일
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("date", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("date", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.division }}>
                                     사업
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("division", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("division", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.teamCategory }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.teamCategory }}>
                                     팀
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("teamCategory", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("teamCategory", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectCode }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.projectCode }}>
                                     공사번호
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("projectCode", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectCode", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.projectName }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.projectName }}>
                                     공사명
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("projectName", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("projectName", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.drumNo }}>
                                     제조번호
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("drumNo", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("drumNo", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.spec }}>
                                     규격
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("spec", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("spec", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.installLength }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.installLength }}>
                                     설치(m)
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("installLength", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("installLength", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.wasteLength }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.wasteLength }}>
                                     폐기(m)
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("wasteLength", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("wasteLength", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remainingLength }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.remainingLength }}>
                                     잔량(m)
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("remainingLength", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remainingLength", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.attachment }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.attachment }}>
                                     첨부
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("attachment", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("attachment", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.user }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.user }}>
                                     사용자
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("user", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("user", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.creator }}>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.creator }}>
                                     입력자
-                                    <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50"
-                                        onMouseDown={(e) => startResizing("creator", e)}
-                                    />
+                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("creator", e)} />
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -498,147 +488,155 @@ export default function FieldOpticalUsage() {
                                 filteredLogs.map((log) => {
                                     const teamName = teams.find(t => t.id === log.teamId)?.name || '';
                                     return (
-                                        <TableRow key={log.id} className="h-6 [&_td]:py-0">
-                                            <TableCell className="text-center align-middle">
+                                        <TableRow key={log.id} className="group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors hover:bg-slate-50/80 text-xs text-slate-600">
+                                            <TableCell className="text-center align-middle p-0">
                                                 {isTenantOwner ? (
                                                     <Checkbox
                                                         checked={selectedIds.has(log.id)}
                                                         onCheckedChange={() => toggleSelect(log.id)}
+                                                        className="translate-y-[2px] opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity"
                                                     />
                                                 ) : null}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">
+                                            <TableCell className="text-center px-1">
                                                 {log.usageDate || new Date(log.createdAt).toISOString().split('T')[0]}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable.division}</TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{teamName}</TableCell>
-                                            <TableCell className="align-middle p-0">
+                                            <TableCell className="text-center px-1">{log.cable.division}</TableCell>
+                                            <TableCell className="text-center px-1 truncate" title={teamName}>{teamName}</TableCell>
+                                            <TableCell className="text-center px-1 font-mono text-slate-500">
                                                 <div className="w-full truncate text-center mx-auto" title={(log as any).projectCode || ""}>
                                                     {(log as any).projectCode || ""}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="align-middle p-0">
-                                                <div className="w-full truncate text-left pl-2" title={(log as any).projectNameUsage || log.cable.projectName || ''}>
+                                            <TableCell className="px-2 text-slate-700">
+                                                <div className="w-full truncate text-left" title={(log as any).projectNameUsage || log.cable.projectName || ''}>
                                                     {(log as any).projectNameUsage || log.cable.projectName || ''}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap font-medium">
+                                            <TableCell className="text-center px-1 font-mono text-slate-700 font-medium">
                                                 {log.cable.drumNo}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">{log.cable.spec}</TableCell>
-                                            <TableCell className="text-right align-middle whitespace-nowrap">
+                                            <TableCell className="text-center px-1 text-slate-500">{log.cable.spec}</TableCell>
+                                            <TableCell className="text-right px-2 font-mono">
                                                 {(log.installLength || 0).toLocaleString()}
                                             </TableCell>
-                                            <TableCell className="text-right align-middle whitespace-nowrap">
+                                            <TableCell className="text-right px-2 font-mono text-slate-400">
                                                 {(log.wasteLength || 0).toLocaleString()}
                                             </TableCell>
-                                            <TableCell className="text-right align-middle whitespace-nowrap font-medium text-primary">
+                                            <TableCell className="text-right px-2 font-mono font-bold text-emerald-600">
                                                 {((log as any).afterRemaining || 0).toLocaleString()}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">
+                                            <TableCell className="text-center px-1">
                                                 {(() => {
+                                                    let hasAttachments = false;
+                                                    let attachments: any[] = [];
                                                     try {
-                                                        const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
-                                                        if (!attr) return '-';
+                                                        const parsed = typeof (log as any).attributes === 'string'
+                                                            ? JSON.parse((log as any).attributes)
+                                                            : (log as any).attributes || {};
 
-                                                        const attachments: { name: string; storageUrl?: string; data?: string }[] = [];
-                                                        if (attr.attachments && Array.isArray(attr.attachments)) {
-                                                            attachments.push(...attr.attachments);
-                                                        } else if (attr.attachment && typeof attr.attachment === 'object') {
-                                                            attachments.push(attr.attachment);
+                                                        if (parsed.attachments && parsed.attachments.length > 0) {
+                                                            attachments = parsed.attachments;
+                                                            hasAttachments = true;
+                                                        } else if (parsed.attachment) {
+                                                            attachments = [parsed.attachment];
+                                                            hasAttachments = true;
+                                                        } else if ((log as any).attachment) { // Legacy fallback
+                                                            attachments = [(log as any).attachment];
+                                                            hasAttachments = true;
                                                         }
+                                                    } catch (e) {
+                                                        hasAttachments = false;
+                                                    }
 
-                                                        if (attachments.length === 0) return "-";
+                                                    if (!hasAttachments) return "";
 
-                                                        if (attachments.length === 1) {
-                                                            return (
+                                                    if (attachments.length === 1) {
+                                                        return (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (attachments[0].storagePath || attachments[0].storageUrl) {
+                                                                        downloadAttachment(attachments[0]);
+                                                                    } else {
+                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    }
+                                                                }}
+                                                                title={attachments[0].name}
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-8 w-8 p-0"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (attachments[0].storageUrl) {
-                                                                            downloadAttachment(attachments[0]);
-                                                                        } else {
-                                                                            downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
-                                                                        }
-                                                                    }}
-                                                                    title={attachments[0].name}
+                                                                    className="h-6 gap-1 px-1.5 hover:bg-blue-50 hover:text-blue-600"
+                                                                    onClick={(e) => e.stopPropagation()}
                                                                 >
-                                                                    <Download className="h-4 w-4" />
+                                                                    <Paperclip className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-medium">{attachments.length}</span>
                                                                 </Button>
-                                                            );
-                                                        }
-
-                                                        return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-8 gap-1 px-2"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        <Paperclip className="h-4 w-4" />
-                                                                        <span className="text-xs font-medium">{attachments.length}</span>
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2" align="end">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        {attachments.map((file: any, idx: number) => (
-                                                                            <Button
-                                                                                key={idx}
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="justify-start h-8 text-xs max-w-[200px]"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    if (file.storageUrl) {
-                                                                                        downloadAttachment(file);
-                                                                                    } else {
-                                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
-                                                                                    }
-                                                                                }}
-                                                                                title={file.name}
-                                                                            >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                            </Button>
-                                                                        ))}
-                                                                    </div>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        );
-                                                    } catch (e) {
-                                                        return '-';
-                                                    }
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="end">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {attachments.map((file: any, idx: number) => (
+                                                                        <Button
+                                                                            key={idx}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-8 text-xs max-w-[200px]"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (file.storagePath || file.storageUrl) {
+                                                                                    downloadAttachment(file);
+                                                                                } else {
+                                                                                    downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
+                                                                                }
+                                                                            }}
+                                                                            title={file.name}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
                                                 })()}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">
+                                            <TableCell className="text-center px-1 truncate max-w-[80px]" title={(log as any).workerName || ''}>
                                                 {(log as any).workerName || ''}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle whitespace-nowrap">
+                                            <TableCell className="text-center px-1 truncate max-w-[80px]" title={(log as any).createdByName || ''}>
                                                 {(log as any).createdByName || ''}
                                             </TableCell>
-                                            <TableCell className="text-center align-middle">
+                                            <TableCell className="text-center p-0">
                                                 {(canManage || isFieldTeam) && (
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <MoreHorizontal className="h-4 w-4 text-slate-400" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => openDialog(log)}>
-                                                                <Pencil className="mr-2 h-4 w-4" />
+                                                        <DropdownMenuContent align="end" className="w-32">
+                                                            <DropdownMenuItem onClick={() => openDialog(log)} className="text-xs">
+                                                                <Pencil className="mr-2 h-3.5 w-3.5" />
                                                                 수정
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem
                                                                 onClick={() => setDeleteLog(log)}
-                                                                className="text-destructive"
+                                                                className="text-red-600 focus:text-red-700 focus:bg-red-50 text-xs"
                                                             >
-                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                <Trash2 className="mr-2 h-3.5 w-3.5" />
                                                                 삭제
                                                             </DropdownMenuItem>
                                                         </DropdownMenuContent>
@@ -759,73 +757,89 @@ export default function FieldOpticalUsage() {
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                 <span>{(log as any).workerName || '-'}</span>
                                                 {(() => {
+                                                    let hasAttachments = false;
+                                                    let attachments: any[] = [];
                                                     try {
-                                                        const attr = (log as any).attributes ? JSON.parse((log as any).attributes) : null;
-                                                        if (!attr) return null;
+                                                        const parsed = typeof (log as any).attributes === 'string'
+                                                            ? JSON.parse((log as any).attributes)
+                                                            : (log as any).attributes || {};
 
-                                                        const attachments: { name: string }[] = [];
-                                                        if (attr.attachments && Array.isArray(attr.attachments)) {
-                                                            attachments.push(...attr.attachments);
-                                                        } else if (attr.attachment && typeof attr.attachment === 'object') {
-                                                            attachments.push(attr.attachment);
+                                                        if (parsed.attachments && parsed.attachments.length > 0) {
+                                                            attachments = parsed.attachments;
+                                                            hasAttachments = true;
+                                                        } else if (parsed.attachment) {
+                                                            attachments = [parsed.attachment];
+                                                            hasAttachments = true;
+                                                        } else if ((log as any).attachment) { // Legacy fallback
+                                                            attachments = [(log as any).attachment];
+                                                            hasAttachments = true;
                                                         }
+                                                    } catch (e) {
+                                                        hasAttachments = false;
+                                                    }
 
-                                                        if (attachments.length === 0) return null;
+                                                    if (!hasAttachments) return null;
 
-                                                        if (attachments.length === 1) {
-                                                            return (
+                                                    if (attachments.length === 1) {
+                                                        return (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-5 w-5 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (attachments[0].storagePath || attachments[0].storageUrl) {
+                                                                        downloadAttachment(attachments[0]);
+                                                                    } else {
+                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
+                                                                    }
+                                                                }}
+                                                                title={attachments[0].name}
+                                                            >
+                                                                <Download className="h-3 w-3" />
+                                                            </Button>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-5 px-1"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        downloadFile(`/api/optical-cables/logs/${log.id}`, attachments[0].name);
-                                                                    }}
+                                                                    className="h-5 gap-1 px-1 hover:bg-blue-50 hover:text-blue-600"
+                                                                    onClick={(e) => e.stopPropagation()}
                                                                 >
-                                                                    <Download className="h-3 w-3" />
+                                                                    <Paperclip className="h-3 w-3" />
+                                                                    <span className="text-[10px] font-medium">{attachments.length}</span>
                                                                 </Button>
-                                                            );
-                                                        }
-
-                                                        return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-5 gap-1 px-1"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        <Paperclip className="h-3 w-3" />
-                                                                        <span className="text-[10px] font-medium">{attachments.length}</span>
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2" align="end">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        {attachments.map((file: any, idx: number) => (
-                                                                            <Button
-                                                                                key={idx}
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="justify-start h-8 text-xs max-w-[200px]"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2" align="end">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {attachments.map((file: any, idx: number) => (
+                                                                        <Button
+                                                                            key={idx}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="justify-start h-8 text-xs max-w-[200px]"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (file.storagePath || file.storageUrl) {
+                                                                                    downloadAttachment(file);
+                                                                                } else {
                                                                                     downloadFile(`/api/optical-cables/logs/${log.id}`, file.name);
-                                                                                }}
-                                                                                title={file.name}
-                                                                            >
-                                                                                <Download className="h-3 w-3 mr-2 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                            </Button>
-                                                                        ))}
-                                                                    </div>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        );
-                                                    } catch (e) {
-                                                        return null;
-                                                    }
+                                                                                }
+                                                                            }}
+                                                                            title={file.name}
+                                                                        >
+                                                                            <Download className="h-3 w-3 mr-2 shrink-0" />
+                                                                            <span className="truncate">{file.name}</span>
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    );
                                                 })()}
                                             </div>
                                             <div className="flex items-baseline gap-1">

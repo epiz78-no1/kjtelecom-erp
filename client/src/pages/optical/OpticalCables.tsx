@@ -1,4 +1,21 @@
 import React, { useState, useMemo } from 'react';
+import { cn } from "@/lib/utils";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useColumnResize } from "@/hooks/useColumnResize";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +28,7 @@ import {
     useBulkUploadOpticalCables,
     useReturnApproval
 } from "@/hooks/useOpticalMutations";
-import { Loader2, Plus, Pencil, Trash2, Download, ArrowRightLeft, History, Filter, ChevronDown, ChevronUp, MoreHorizontal, Calendar, CalendarX, Send, CheckCircle, XCircle, AlertTriangle, X } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Download, ArrowRightLeft, History, Filter, ChevronDown, ChevronUp, MoreHorizontal, Calendar, CalendarX, Send, CheckCircle, XCircle, AlertTriangle, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Input } from "@/components/ui/input";
@@ -41,12 +58,8 @@ import {
 import { OpticalCableActionDialog } from "@/components/OpticalCableActionDialog";
 import * as XLSX from "xlsx";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+    MultiSelectFilter
+} from "@/components/ui/multi-select-filter";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -80,6 +93,11 @@ export default function OpticalCables() {
         categoryField: "category"
     });
 
+    // Extract unique divisions
+    const divisions = useMemo(() => {
+        return Array.from(new Set(cables.map(c => c.division).filter(Boolean))).sort();
+    }, [cables]);
+
     const {
         open: dialogOpen,
         editingItem,
@@ -92,6 +110,15 @@ export default function OpticalCables() {
     const [historyItem, setHistoryItem] = useState<OpticalCable | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+    // Delete & Confirmation Dialog States
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+    const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+
+    // Return Approval Dialog State
+    const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+    const [returnAction, setReturnAction] = useState<{ id: string, action: 'approve' | 'reject' } | null>(null);
 
     // Reservation Dialog State
     const [reserveDialogOpen, setReserveDialogOpen] = useState(false);
@@ -199,573 +226,428 @@ export default function OpticalCables() {
     };
 
     const handleBulkDelete = () => {
-        if (confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) {
-            bulkDeleteMutation.mutate(Array.from(selectedIds), {
-                onSuccess: () => {
-                    setSelectedIds(new Set());
-                }
-            });
-        }
+        setBulkDeleteDialogOpen(true);
     };
-
-    // openDialog function removed (handled by hook)
-
-    const calculateStatusColor = (status: string) => {
-        switch (status) {
-            case 'in_stock': return 'bg-green-100 text-green-800';
-            case 'assigned': return 'bg-blue-100 text-blue-800';
-            case 'used_up': return 'bg-gray-100 text-gray-800';
-            case 'returned': return 'bg-orange-100 text-orange-800'; // Usually transitions back to in_stock?
-            case 'waste': return 'bg-red-100 text-red-800';
-            default: return 'bg-slate-100 text-slate-800';
-        }
-    };
-
 
     const handleReturnApproval = (id: string, action: 'approve' | 'reject') => {
-        const actionText = action === 'approve' ? '승인' : '반려';
-        if (confirm(`반납을 ${actionText}하시겠습니까?`)) {
-            returnApprovalMutation.mutate({ id, action });
-        }
+        setReturnAction({ id, action });
+        setReturnDialogOpen(true);
     };
 
-    // Helper function for filter management (category filter only)
     const getAllActiveFilters = () => {
-        const filters = getActiveFilters();
-        if (selectedCategory !== '전체') {
-            filters.unshift({ key: 'category', label: selectedCategory });
-        }
-        return filters;
+        return getActiveFilters();
     };
 
     const handleRemoveFilter = (key: string) => {
-        if (key === 'category') {
-            setSelectedCategory('전체');
-        } else {
-            removeFilter(key);
-        }
+        removeFilter(key);
     };
 
     const handleResetFilters = () => {
-        setSelectedCategory('전체');
         resetFilters();
-    };
-
-    const calculateStatusLabel = (status: string) => {
-        switch (status) {
-            case 'in_stock': return '자재창고 보관';
-            case 'assigned': return '현장 불출됨';
-            case 'used_up': return '사용 완료';
-            case 'returned': return '반납됨';
-            case 'waste': return '폐기';
-            default: return status;
-        }
     };
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+                <Loader2 className="h-10 w-10 animate-spin text-primary/80" />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full" >
-            <div className="flex-shrink-0 space-y-4 pb-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-2">
-                            광케이블 관리
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
+            {/* Ultra Compact Header Section */}
+            <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 px-1">
+                        <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            자재현황
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50 animate-pulse"></span>
                         </h1>
-                        <p className="text-muted-foreground">광케이블 케이블 재고, 불출, 사용 이력을 관리합니다.</p>
+                        <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
+                        <span className="text-xs font-medium text-slate-500">{rangeFilteredCables.length} items</span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 border-green-600 text-green-600 hover:bg-green-50"
-                            onClick={handleExcelDownload}
-                        >
-                            <Download className="h-3 w-3 mr-1" />
-                            Excel
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button disabled={!canWrite}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    케이블 등록
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => canWrite && openDialog()}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    직접 등록
-                                </DropdownMenuItem>
-                                {isTenantOwner && (
-                                    <DropdownMenuItem onClick={() => setBulkUploadOpen(true)}>
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        일괄 등록
-                                    </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
 
-                {/* Search and Filter Section */}
-                {/* Search and Filter Section */}
-                <div className="space-y-2">
-                    {/* Search Bar and Filter Button */}
-                    {/* Search Bar and Filter Button */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                        {cables.filter(c => c.returnRequestStatus === 'pending').length > 0 && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center justify-center h-7 w-7 rounded-md bg-amber-50 text-amber-600 animate-pulse cursor-pointer">
+                                            <AlertTriangle className="h-3.5 w-3.5" />
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">반납 대기 {cables.filter(c => c.returnRequestStatus === 'pending').length}건</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
                         <SearchInput
                             value={searchQuery}
                             onChange={setSearchQuery}
-                            placeholder="드럼번호, 품명, 규격, 제조사 검색..."
-                            size="sm"
-                            className="w-64 md:w-72 lg:w-80 shrink-0"
+                            placeholder="검색..."
+                            className="w-32 focus:w-48 h-7 text-xs rounded-md bg-white border-slate-200 focus:ring-1 focus:ring-primary/20 transition-all font-normal"
                         />
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setFilterOpen(!filterOpen)}
-                            className="gap-2 h-8 shrink-0"
-                        >
-                            <Filter className="h-3.5 w-3.5" />
-                            필터
-                            {filterOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        </Button>
-
-                        {/* Active Filter Chips - Moved Here Inline */}
-                        {getAllActiveFilters().length > 0 && (
-                            <div className="flex-1 flex flex-wrap items-center gap-1.5 overflow-hidden h-8">
-                                <div className="h-4 w-[1px] bg-border mx-1 shrink-0" />
-                                {getAllActiveFilters().map(filter => (
-                                    <Badge
-                                        key={filter.key}
-                                        variant="secondary"
-                                        className="gap-1 pr-1 py-0 h-6 text-xs font-normal shrink-0"
-                                    >
-                                        {filter.label}
-                                        <button
-                                            onClick={() => handleRemoveFilter(filter.key)}
-                                            className="ml-0.5 hover:bg-muted-foreground/20 rounded-full p-0.5"
+                        <div className="flex items-center gap-1">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant={filterOpen ? "secondary" : "ghost"}
+                                            size="icon"
+                                            onClick={() => setFilterOpen(!filterOpen)}
+                                            className={cn("h-7 w-7 rounded-md", filterOpen && "bg-slate-200 text-slate-900")}
                                         >
-                                            <X className="h-2.5 w-2.5" />
-                                        </button>
-                                    </Badge>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Spacer to push button to right if no chips or few chips */}
+                                            <Filter className="h-3.5 w-3.5 text-slate-500" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">필터</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
 
 
 
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 rounded-md text-emerald-600 hover:bg-emerald-50"
+                                            onClick={handleExcelDownload}
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">Excel 다운로드</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
 
-                        <div className="text-sm text-muted-foreground ml-auto whitespace-nowrap pl-2 flex items-center gap-2">
-                            {/* 반납 요청 대기 건수 표시 - 작게 */}
-                            {cables.filter(c => c.returnRequestStatus === 'pending').length > 0 && (
-                                <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                                    <span className="text-yellow-700">반납 대기</span>
-                                    <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 bg-yellow-400 text-white text-[10px] font-bold rounded-full">
-                                        {cables.filter(c => c.returnRequestStatus === 'pending').length}
-                                    </span>
-                                </div>
-                            )}
-                            <span>표시 <span className="font-semibold text-foreground">{displayCables.length}</span> / 전체 <span className="font-semibold text-foreground">{rangeFilteredCables.length}</span>개 품목</span>
+                            <DropdownMenu>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button disabled={!canWrite} size="icon" className="h-7 w-7 rounded-md bg-primary hover:bg-primary/90 shadow-sm">
+                                                    <Plus className="h-3.5 w-3.5 text-white" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="text-xs">신규 등록</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <DropdownMenuContent align="end" className="w-32 p-1">
+                                    <DropdownMenuItem onClick={() => canWrite && openDialog()} className="text-xs py-1.5 cursor-pointer rounded-md">
+                                        <Plus className="h-3 w-3 mr-2 text-primary" /> 직접 등록
+                                    </DropdownMenuItem>
+                                    {isTenantOwner && (
+                                        <DropdownMenuItem onClick={() => setBulkUploadOpen(true)} className="text-xs py-1.5 cursor-pointer rounded-md">
+                                            <Upload className="h-3 w-3 mr-2 text-blue-600" /> 일괄 등록
+                                        </DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
-
-                    {/* Collapsible Filter Panel */}
-                    {filterOpen && (
-                        <div className="p-3 border rounded-lg bg-muted/30">
-                            <div className="flex flex-wrap items-end gap-2">
-                                {/* Division Filter */}
-                                <div className="w-[110px]">
-                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">사업</label>
-                                    <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-                                        <SelectTrigger className="h-8 text-xs">
-                                            <SelectValue placeholder="사업" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="전체">전체</SelectItem>
-                                            <SelectItem value="SKT">SKT</SelectItem>
-                                            <SelectItem value="SKB">SKB</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                {/* Category Filter */}
-                                <div className="w-[110px]">
-                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">구분</label>
-                                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                                        <SelectTrigger className="h-8 text-xs">
-                                            <SelectValue placeholder="구분" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="전체">전체</SelectItem>
-                                            {categories.filter(c => c !== "전체").map(category => (
-                                                <SelectItem key={String(category)} value={String(category)}>
-                                                    {String(category)}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Core Count Filter */}
-                                <div className="w-[100px]">
-                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">코어</label>
-                                    <Select value={selectedCoreCount} onValueChange={setSelectedCoreCount}>
-                                        <SelectTrigger className="h-8 text-xs">
-                                            <SelectValue placeholder="코어" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="전체">전체</SelectItem>
-                                            <SelectItem value="24">24c</SelectItem>
-                                            <SelectItem value="48">48c</SelectItem>
-                                            <SelectItem value="72">72c</SelectItem>
-                                            <SelectItem value="96">96c</SelectItem>
-                                            <SelectItem value="144">144c</SelectItem>
-                                            <SelectItem value="288">288c</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Status Filter */}
-                                <div className="w-[110px]">
-                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">상태</label>
-                                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                                        <SelectTrigger className="h-8 text-xs">
-                                            <SelectValue placeholder="상태" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="전체">전체</SelectItem>
-                                            <SelectItem value="창고">창고 보관</SelectItem>
-                                            <SelectItem value="예약">예약 중</SelectItem>
-                                            <SelectItem value="불출">현장 불출</SelectItem>
-                                            <SelectItem value="반납">반납신청</SelectItem>
-                                            <SelectItem value="폐기">폐기</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Remaining Length Range */}
-                                <div className="w-[180px]">
-                                    <label className="text-xs font-medium mb-1 block text-muted-foreground">잔량 (m)</label>
-                                    <div className="flex items-center gap-1.5">
-                                        <Input
-                                            type="number"
-                                            placeholder="최소"
-                                            value={minRemaining}
-                                            onChange={(e) => setMinRemaining(e.target.value)}
-                                            className="h-8 text-xs px-2"
-                                        />
-                                        <span className="text-muted-foreground font-light text-xs">~</span>
-                                        <Input
-                                            type="number"
-                                            placeholder="최대"
-                                            value={maxRemaining}
-                                            onChange={(e) => setMaxRemaining(e.target.value)}
-                                            className="h-8 text-xs px-2"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Divider for mobile / Spacer */}
-                                <div className="flex-1 min-w-[10px]" />
-
-                                {/* Waste Checkbox and Action Buttons */}
-                                <div className="flex items-center gap-4 mt-2 sm:mt-0">
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id="show-waste"
-                                            checked={showWaste}
-                                            onCheckedChange={(checked) => setShowWaste(checked as boolean)}
-                                            className="h-3.5 w-3.5"
-                                        />
-                                        <label
-                                            htmlFor="show-waste"
-                                            className="text-xs font-medium leading-none cursor-pointer"
-                                        >
-                                            폐기 포함
-                                        </label>
-                                    </div>
-                                    <div className="flex gap-1.5">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleResetFilters}
-                                            className="h-8 text-xs px-3"
-                                        >
-                                            초기화
-                                        </Button>
-
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-
                 </div>
 
-                {selectedIds.size > 0 && isTenantOwner && (
-                    <Button
-                        variant="destructive"
-                        size="sm"
+                {/* Compact Expandable Filter Panel */}
+                {filterOpen && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-top-1 duration-200 mt-1">
+                        <div className="flex flex-wrap items-end gap-2">
+
+                            <div className="space-y-0.5 min-w-[120px]">
+                                <MultiSelectFilter
+                                    title="사업 (전체)"
+                                    options={divisions.map(d => ({ label: String(d), value: String(d) }))}
+                                    selectedValues={selectedDivision}
+                                    onChange={setSelectedDivision}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-0.5 min-w-[120px]">
+                                <MultiSelectFilter
+                                    title="구분 (전체)"
+                                    options={categories.filter(c => c !== "전체").map(c => ({ label: String(c), value: String(c) }))}
+                                    selectedValues={selectedCategory}
+                                    onChange={setSelectedCategory}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-0.5 min-w-[120px]">
+                                <MultiSelectFilter
+                                    title="상태 (전체)"
+                                    options={[
+                                        { label: "창고 보관", value: "창고" },
+                                        { label: "예약 중", value: "예약" },
+                                        { label: "현장 불출", value: "불출" },
+                                        { label: "반납신청", value: "반납" },
+                                        { label: "폐기", value: "폐기" },
+                                    ]}
+                                    selectedValues={selectedStatus}
+                                    onChange={setSelectedStatus}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-0.5 min-w-[120px]">
+                                <MultiSelectFilter
+                                    title="코어 (전체)"
+                                    options={[
+                                        { label: "24c", value: "24" },
+                                        { label: "48c", value: "48" },
+                                        { label: "72c", value: "72" },
+                                        { label: "96c", value: "96" },
+                                        { label: "144c", value: "144" },
+                                        { label: "288c", value: "288" },
+                                    ]}
+                                    selectedValues={selectedCoreCount}
+                                    onChange={setSelectedCoreCount}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 h-7">
+                                    <Input type="number" value={minRemaining} onChange={e => setMinRemaining(e.target.value)} placeholder="Min (m)" className="h-full text-xs rounded-md bg-slate-50/50 w-[70px]" />
+                                    <span className="text-slate-300 text-[10px]">-</span>
+                                    <Input type="number" value={maxRemaining} onChange={e => setMaxRemaining(e.target.value)} placeholder="Max (m)" className="h-full text-xs rounded-md bg-slate-50/50 w-[70px]" />
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2 h-7 ml-auto">
+                                <Checkbox id="show-waste" checked={showWaste} onCheckedChange={(checked) => setShowWaste(checked as boolean)} className="h-3.5 w-3.5" />
+                                <label htmlFor="show-waste" className="text-xs font-medium leading-none text-slate-600 cursor-pointer">
+                                    폐기 포함
+                                </label>
+                            </div>
+
+                            {getAllActiveFilters().length > 0 && (
+                                <div className="flex items-center gap-1 flex-wrap justify-end mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                                    {getAllActiveFilters().map(filter => (
+                                        <Badge
+                                            key={filter.key}
+                                            variant="secondary"
+                                            className="h-5 px-1.5 rounded-md bg-slate-100 text-slate-700 border-0 text-[10px]"
+                                        >
+                                            {filter.label}
+                                            <button
+                                                onClick={() => handleRemoveFilter(filter.key)}
+                                                className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
+                                            >
+                                                <X className="h-2 w-2" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleResetFilters}
+                                        className="h-5 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
+                                    >
+                                        초기화
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>  {/* Bulk Action Bar */}
+            {selectedIds.size > 0 && isTenantOwner && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center gap-4">
+                    <span className="font-semibold text-sm">{selectedIds.size}개 항목 선택됨</span>
+                    <div className="h-4 w-px bg-white/20" />
+                    <button
                         onClick={handleBulkDelete}
                         disabled={bulkDeleteMutation.isPending || !canWrite}
+                        className="text-red-400 hover:text-red-300 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                     >
-                        {bulkDeleteMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                            <Trash2 className="h-4 w-4 mr-2" />
-                        )}
-                        선택 삭제 ({selectedIds.size})
-                    </Button>
-                )}
-            </div>
+                        {bulkDeleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        선택 삭제
+                    </button>
+                </div>
+            )}
 
 
-            <div className="flex-1 rounded-md border overflow-hidden">
-                <div className="h-full overflow-auto relative pb-20">
-                    <table className="w-full caption-bottom text-sm table-fixed">
-                        <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow className="h-8">
-                                <TableHead className="text-center align-middle bg-background" style={{ width: widths.checkbox }}>
-                                    {isTenantOwner ? (
-                                        <Checkbox
-                                            checked={allSelected}
-                                            onCheckedChange={toggleSelectAll}
-                                        />
-                                    ) : null}
+            {/* Main Table Area */}
+            <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
+                <div className="flex-1 overflow-auto custom-scrollbar relative">
+                    <table className="w-full text-sm border-collapse table-fixed">
+                        <TableHeader className="sticky top-0 bg-slate-50/95 backdrop-blur z-20 shadow-sm">
+                            <TableRow className="h-10 border-b border-slate-200">
+                                <TableHead className="w-[40px] text-center p-0">
+                                    {isTenantOwner && <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} className="translate-y-[2px]" />}
                                 </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.division }}>
-                                    사업
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("division", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.category }}>
-                                    구분
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("category", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.receivedDate }}>
-                                    입고일
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("receivedDate", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.manufacturer }}>
-                                    제조사
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufacturer", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.manufactureYear }}>
-                                    제조연도
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufactureYear", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.spec }}>
-                                    규격
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("spec", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.coreCount }}>
-                                    코어
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("coreCount", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.drumNo }}>
-                                    제조번호
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("drumNo", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.location }}>
-                                    위치
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("location", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.productName }}>
-                                    품명
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("productName", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.incomingLength }}>
-                                    입고량
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("incomingLength", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.usedLength }}>
-                                    사용량
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("usedLength", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.wasteLength }}>
-                                    폐기
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("wasteLength", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remainingLength }}>
-                                    잔량
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remainingLength", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.unitPrice }}>
-                                    단가
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("unitPrice", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.totalAmount }}>
-                                    금액
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("totalAmount", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background relative group" style={{ width: widths.remark }}>
-                                    비고
-                                    <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remark", e)} />
-                                </TableHead>
-                                <TableHead className="font-semibold text-center align-middle bg-background" style={{ width: widths.actions }}></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.division }}>사업<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("division", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.category }}>구분<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("category", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.receivedDate }}>입고일<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("receivedDate", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.manufacturer }}>제조사<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufacturer", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.manufactureYear }}>연도<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("manufactureYear", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.spec }}>규격<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("spec", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.coreCount }}>코어<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("coreCount", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.drumNo }}>제조번호<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("drumNo", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.location }}>위치<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("location", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.productName }}>품명<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("productName", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.incomingLength }}>입고량<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("incomingLength", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.usedLength }}>사용량<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("usedLength", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.wasteLength }}>폐기<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("wasteLength", e)} /></TableHead>
+                                <TableHead className="font-semibold text-primary text-center" style={{ width: widths.remainingLength }}>잔량<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remainingLength", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.remark }}>비고<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("remark", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.unitPrice }}>단가<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("unitPrice", e)} /></TableHead>
+                                <TableHead className="font-semibold text-slate-600 text-center" style={{ width: widths.totalAmount }}>금액<div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50" onMouseDown={(e) => startResizing("totalAmount", e)} /></TableHead>
+                                <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {displayCables.length === 0 && rangeFilteredCables.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
-                                        등록된 광케이블 드럼이 없습니다.
+                                    <TableCell colSpan={19} className="h-64 text-center text-muted-foreground flex flex-col items-center justify-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <Search className="h-6 w-6 text-slate-400 opacity-50" />
+                                            </div>
+                                            <p className="font-medium">검색 결과가 없습니다.</p>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                displayCables.map((cable) => (
+                                displayCables.map((cable, index) => (
                                     <TableRow
                                         key={cable.id}
-                                        className={`h-6 [&_td]:py-0 cursor-pointer hover:bg-muted/50 ${cable.returnRequestStatus === 'pending'
-                                            ? 'bg-yellow-100/50 hover:bg-yellow-100/70'
-                                            : cable.reservationStatus === 'reserved'
-                                                ? 'bg-orange-100/40 hover:bg-orange-100/60'
-                                                : cable.status === 'assigned'
-                                                    ? 'bg-blue-100/30'
-                                                    : cable.status === 'waste'
-                                                        ? 'bg-red-100 hover:bg-red-200 text-red-900'
-                                                        : ''
-                                            }`}
+                                        className={`group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors cursor-pointer text-xs
+                                            ${!cable.tangoRegistered ? 'bg-red-100/80 hover:bg-red-200/80 border-l-[6px] border-l-red-600'
+                                                : cable.returnRequestStatus === 'pending' ? 'bg-amber-50/50 hover:bg-amber-100/50'
+                                                    : cable.reservationStatus === 'reserved' ? 'bg-orange-50/50 hover:bg-orange-100/50'
+                                                        : cable.status === 'assigned' ? 'bg-blue-50/30 hover:bg-blue-50/60'
+                                                            : cable.status === 'waste' ? 'bg-red-50/30 text-red-900 opacity-70 hover:opacity-100'
+                                                                : 'hover:bg-slate-50/80'
+                                            }
+                                        `}
                                         onDoubleClick={() => {
                                             setHistoryItem(cable);
                                             setHistoryOpen(true);
                                         }}
                                     >
-                                        <TableCell className="text-center align-middle">
-                                            {isTenantOwner ? (
+                                        <TableCell className="text-center p-0">
+                                            {isTenantOwner && (
                                                 <Checkbox
                                                     checked={selectedIds.has(cable.id)}
                                                     onCheckedChange={() => toggleSelect(cable.id)}
+                                                    className="translate-y-[2px] opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity"
                                                 />
-                                            ) : null}
+                                            )}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.division || "SKT"}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.category}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.receivedDate}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.manufacturer}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.manufactureYear}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.spec}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.coreCount}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{cable.drumNo}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{cable.location}</TableCell>
-                                        <TableCell className="align-middle p-0">
-                                            <div className="w-full truncate text-center font-medium px-2" title={cable.productName}>
+                                        <TableCell className="text-center px-1 font-medium text-slate-700">{cable.division || "SKT"}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{cable.category}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{cable.receivedDate}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500 truncate" title={cable.manufacturer || ''}>{cable.manufacturer}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{cable.manufactureYear}</TableCell>
+                                        <TableCell className="text-center px-1 font-medium">{cable.spec}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500">{cable.coreCount}C</TableCell>
+                                        <TableCell className="text-center px-1 font-mono text-slate-700">{cable.drumNo}</TableCell>
+                                        <TableCell className="text-center px-1 text-slate-500 truncate">{cable.location}</TableCell>
+                                        <TableCell className="text-center px-2">
+                                            <div className="w-full truncate font-medium text-slate-700 text-center" title={cable.productName || ''}>
                                                 {cable.productName}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{((cable.remainingLength || 0) + (cable.usedLength || 0) + (cable.wasteLength || 0)).toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{(cable.usedLength || 0).toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{(cable.wasteLength || 0).toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap font-medium">{(cable.remainingLength || 0).toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{(cable.unitPrice || 0).toLocaleString()}</TableCell>
-                                        <TableCell className="text-center align-middle whitespace-nowrap">{(cable.totalAmount || 0).toLocaleString()}</TableCell>
-                                        <TableCell className="align-middle p-0">
-                                            <div className="w-full truncate text-center px-2" title={cable.remark || ""}>
-                                                {cable.remark}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="text-center px-2 text-slate-500 font-mono">{((cable.remainingLength || 0) + (cable.usedLength || 0) + (cable.wasteLength || 0)).toLocaleString()}</TableCell>
+                                        <TableCell className="text-center px-2 text-slate-500 font-mono">{(cable.usedLength || 0).toLocaleString()}</TableCell>
+                                        <TableCell className="text-center px-2 text-slate-400 font-mono">{(cable.wasteLength || 0).toLocaleString()}</TableCell>
+                                        <TableCell className="text-center px-2 font-bold font-mono text-primary">{(cable.remainingLength || 0).toLocaleString()}</TableCell>
+                                        <TableCell className="text-center px-2 text-slate-400 truncate max-w-[100px]" title={cable.remark || ""}>{cable.remark}</TableCell>
+                                        <TableCell className="text-right px-2 text-slate-400 font-mono">{(cable.unitPrice || 0).toLocaleString()}</TableCell>
+                                        <TableCell className="text-right px-2 text-slate-500 font-mono">{(cable.totalAmount || 0).toLocaleString()}</TableCell>
+
+                                        <TableCell className="text-center p-0">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-6 w-6 p-0">
-                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <MoreHorizontal className="h-4 w-4 text-slate-400" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => {
-                                                        setHistoryItem(cable);
-                                                        setHistoryOpen(true);
-                                                    }}>
-                                                        <History className="mr-2 h-4 w-4" />
-                                                        이력 보기
+                                                <DropdownMenuContent align="end" className="w-48 shadow-xl rounded-xl">
+                                                    <DropdownMenuItem onClick={() => { setHistoryItem(cable); setHistoryOpen(true); }} className="gap-2">
+                                                        <History className="h-4 w-4" /> 이력 보기
                                                     </DropdownMenuItem>
-
-                                                    {/* 예약 기능 - canWrite */}
-                                                    {canWrite && cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
-                                                        <DropdownMenuItem onClick={() => {
-                                                            setSelectedReserveCable(cable);
-                                                            setReserveDialogOpen(true);
-                                                        }}>
-                                                            <Calendar className="mr-2 h-4 w-4" />
-                                                            자재 예약
-                                                        </DropdownMenuItem>
-                                                    )}
-
-                                                    {canWrite && cable.reservationStatus === 'reserved' && (
-                                                        <DropdownMenuItem
-                                                            onClick={() => {
-                                                                setSelectedReserveCable(cable);
-                                                                setReserveDialogOpen(true);
-                                                            }}
-                                                            className="text-orange-600 focus:text-orange-600"
-                                                        >
-                                                            <CalendarX className="mr-2 h-4 w-4" />
-                                                            예약 해제
-                                                        </DropdownMenuItem>
-                                                    )}
-
-                                                    {canWrite && cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
-                                                        <DropdownMenuItem onClick={() => handleAction(cable, 'assign')}>
-                                                            <Send className="mr-2 h-4 w-4" />
-                                                            불출 (Assign)
-                                                        </DropdownMenuItem>
-                                                    )}
-
-                                                    {/* 반납 대기 중인 경우 승인/반려 버튼 표시 - canWrite */}
-                                                    {canWrite && cable.returnRequestStatus === 'pending' && (
+                                                    {canWrite && (
                                                         <>
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleReturnApproval(cable.id, 'approve')}
-                                                                className="text-green-600 focus:text-green-600"
-                                                            >
-                                                                <CheckCircle className="mr-2 h-4 w-4" />
-                                                                반납 승인
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleReturnApproval(cable.id, 'reject')}
-                                                                className="text-orange-600 focus:text-orange-600"
-                                                            >
-                                                                <XCircle className="mr-2 h-4 w-4" />
-                                                                반납 반려
+                                                            {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div>
+                                                                                <DropdownMenuItem
+                                                                                    onClick={() => {
+                                                                                        if (!cable.tangoRegistered) {
+                                                                                            toast({ title: "출고 불가", description: "Tango 미등록 케이블은 출고할 수 없습니다. 먼저 등록 상태를 변경해주세요.", variant: "destructive" });
+                                                                                            return;
+                                                                                        }
+                                                                                        setSelectedReserveCable(cable);
+                                                                                        setReserveDialogOpen(true);
+                                                                                    }}
+                                                                                    className="gap-2"
+                                                                                    disabled={!cable.tangoRegistered}
+                                                                                >
+                                                                                    <Calendar className="h-4 w-4" /> 자재 예약
+                                                                                </DropdownMenuItem>
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        {!cable.tangoRegistered && (
+                                                                            <TooltipContent side="left" className="text-xs bg-amber-600">
+                                                                                Tango 미등록 케이블은 예약할 수 없습니다
+                                                                            </TooltipContent>
+                                                                        )}
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
+                                                            {cable.reservationStatus === 'reserved' && (
+                                                                <DropdownMenuItem onClick={() => { setSelectedReserveCable(cable); setReserveDialogOpen(true); }} className="gap-2 text-orange-600">
+                                                                    <CalendarX className="h-4 w-4" /> 예약 해제
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            {cable.status === 'in_stock' && cable.reservationStatus !== 'reserved' && (
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div>
+                                                                                <DropdownMenuItem
+                                                                                    onClick={() => {
+                                                                                        if (!cable.tangoRegistered) {
+                                                                                            toast({ title: "출고 불가", description: "Tango 미등록 케이블은 출고할 수 없습니다. 먼저 등록 상태를 변경해주세요.", variant: "destructive" });
+                                                                                            return;
+                                                                                        }
+                                                                                        handleAction(cable, 'assign');
+                                                                                    }}
+                                                                                    className="gap-2 text-blue-600"
+                                                                                    disabled={!cable.tangoRegistered}
+                                                                                >
+                                                                                    <Send className="h-4 w-4" /> 불출 (Assign)
+                                                                                </DropdownMenuItem>
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        {!cable.tangoRegistered && (
+                                                                            <TooltipContent side="left" className="text-xs bg-amber-600">
+                                                                                Tango 미등록 케이블은 출고할 수 없습니다
+                                                                            </TooltipContent>
+                                                                        )}
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
+                                                            <DropdownMenuItem onClick={() => openDialog(cable)} className="gap-2">
+                                                                <Pencil className="h-4 w-4" /> 정보 수정
                                                             </DropdownMenuItem>
                                                         </>
                                                     )}
-
-                                                    {/* Waste is available only when in stock or returned (not assigned to field) - canWrite */}
-                                                    {canWrite && ['in_stock', 'returned'].includes(cable.status) && cable.reservationStatus !== 'reserved' && (
-                                                        <DropdownMenuItem onClick={() => handleAction(cable, 'waste')} className="text-yellow-600 focus:text-yellow-600">
-                                                            <AlertTriangle className="mr-2 h-4 w-4" />
-                                                            폐기 (Waste)
-                                                        </DropdownMenuItem>
-                                                    )}
-
-                                                    {canWrite && (
-                                                        <DropdownMenuItem onClick={() => openDialog(cable)}>
-                                                            <Pencil className="mr-2 h-4 w-4" />
-                                                            수정
-                                                        </DropdownMenuItem>
-                                                    )}
                                                     {isTenantOwner && (
-                                                        <DropdownMenuItem
-                                                            className="text-red-600 focus:text-red-600"
-                                                            onClick={() => {
-                                                                if (confirm("정말 삭제하시겠습니까? (복구 불가)")) {
-                                                                    deleteMutation.mutate(cable.id);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                            완전 삭제
-                                                        </DropdownMenuItem>
+                                                        <>
+                                                            <div className="h-px bg-slate-100 my-1" />
+                                                            <DropdownMenuItem className="text-red-600 gap-2 focus:text-red-700 focus:bg-red-50"
+                                                                onClick={() => {
+                                                                    setItemToDelete(cable.id);
+                                                                    setDeleteDialogOpen(true);
+                                                                }}>
+                                                                <Trash2 className="h-4 w-4" /> 완전 삭제
+                                                            </DropdownMenuItem>
+                                                        </>
                                                     )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -775,7 +657,6 @@ export default function OpticalCables() {
                             )}
                         </TableBody>
                     </table>
-
                     <InfiniteScrollLoader
                         hasMore={hasMore}
                         isLoading={scrollLoading}
@@ -842,6 +723,98 @@ export default function OpticalCables() {
                 onOpenChange={setReserveDialogOpen}
                 cable={selectedReserveCable}
             />
+
+            {/* Delete Confirmation */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>자재 영구 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            이 자재를 시스템에서 영구적으로 삭제하시겠습니까?
+                            <br />
+                            관련된 모든 입출고 내역도 함께 삭제될 수 있으며, 이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (itemToDelete) {
+                                    deleteMutation.mutate(itemToDelete);
+                                    setDeleteDialogOpen(false);
+                                    setItemToDelete(null);
+                                }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Bulk Delete Confirmation */}
+            <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>자재 일괄 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            선택한 {selectedIds.size}개의 자재를 영구적으로 삭제하시겠습니까?
+                            <br />
+                            이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                                    onSuccess: () => {
+                                        setSelectedIds(new Set());
+                                        setBulkDeleteDialogOpen(false);
+                                    }
+                                });
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {bulkDeleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            일괄 삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Return Approval/Rejection Confirmation */}
+            <AlertDialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>반납 {returnAction?.action === 'approve' ? '승인' : '반려'}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {returnAction?.action === 'approve'
+                                ? '이 반납 요청을 승인하여 자재를 "창고(보관)" 상태로 변경하시겠습니까?'
+                                : '이 반납 요청을 반려하시겠습니까?'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (returnAction) {
+                                    returnApprovalMutation.mutate({ id: returnAction.id, action: returnAction.action });
+                                    setReturnDialogOpen(false);
+                                    setReturnAction(null);
+                                }
+                            }}
+                            className={returnAction?.action === 'approve' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}
+                        >
+                            {returnApprovalMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {returnAction?.action === 'approve' ? '승인' : '반려'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </div >
     );
 };

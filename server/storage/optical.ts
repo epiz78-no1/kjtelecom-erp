@@ -588,28 +588,53 @@ export class OpticalStorage {
 
             if (!cable) throw new Error("Cable not found");
 
+            // Get user name for auto-fill
+            const { users } = await import('../../shared/schema.js');
+            const [user] = await tx.select({ name: users.name }).from(users).where(eq(users.id, userId));
+            const userName = user?.name || '알 수 없음';
+
             // 상태 업데이트 객체
-            // Using 'any' to avoid strict type checking on nullable fields during update if needed, 
-            // but Partial<InsertOpticalCable> is safer if types align perfectly with nulls
             const updates: any = { updatedAt: new Date() };
 
             if (action === 'reserve') {
                 // 이미 예약되었거나, 불출된 자재는 예약 불가
-                // 단, 예약 해제는 가능해야 함
                 if (cable.status !== 'in_stock') throw new Error("Cannot reserve cable that is not in stock");
                 if (cable.reservationStatus === 'reserved') throw new Error("Cable is already reserved");
+
+                // Parse existing attributes to store original remark
+                let attributes: any = {};
+                try {
+                    attributes = cable.attributes ? JSON.parse(cable.attributes) : {};
+                } catch (e) {
+                    attributes = {};
+                }
+
+                // Save original remark before overwriting
+                attributes.originalRemark = cable.remark || '';
 
                 updates.reservationStatus = 'reserved';
                 updates.reservedForProject = projectName;
                 updates.reservedBy = userId;
                 updates.reservedAt = new Date();
+                updates.remark = `[예약] ${userName}`;
+                updates.attributes = JSON.stringify(attributes);
             } else {
                 if (cable.reservationStatus !== 'reserved') throw new Error("Cable is not reserved");
+
+                // Restore original remark from attributes
+                let originalRemark = '';
+                try {
+                    const attributes = cable.attributes ? JSON.parse(cable.attributes) : {};
+                    originalRemark = attributes.originalRemark || '';
+                } catch (e) {
+                    originalRemark = '';
+                }
 
                 updates.reservationStatus = 'none';
                 updates.reservedForProject = null;
                 updates.reservedBy = null;
                 updates.reservedAt = null;
+                updates.remark = originalRemark;
             }
 
             const [updatedCable] = await tx.update(opticalCables)
