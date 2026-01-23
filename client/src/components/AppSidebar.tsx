@@ -373,8 +373,8 @@ export function AppSidebar() {
             </SidebarGroup>
 
 
-            {/* Admin Menu - Only shown on admin pages */}
-            {isAdmin && location.startsWith('/admin') && (
+            {/* Admin Menu - Always shown for admin users */}
+            {isAdmin && (
               <SidebarGroup className="mt-4 border-t border-slate-100 pt-4">
                 <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1 mb-1">Administration</SidebarGroupLabel>
                 <SidebarGroupContent>

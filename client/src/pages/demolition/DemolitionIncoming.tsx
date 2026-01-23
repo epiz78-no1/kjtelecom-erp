@@ -437,12 +437,14 @@ export default function DemolitionIncoming() {
                         <TableBody>
                             {filteredMaterials.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={13} className="h-64 text-center text-muted-foreground flex flex-col items-center justify-center border-none">
-                                        <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                                            <Search className="h-6 w-6 text-slate-400" />
+                                    <TableCell colSpan={13} className="h-64 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center justify-center gap-3">
+                                            <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <Search className="h-6 w-6 text-slate-400" />
+                                            </div>
+                                            <p className="font-medium text-slate-900">검색 결과가 없습니다</p>
+                                            <p className="text-sm text-slate-500">새로운 철거 자재를 등록해보세요</p>
                                         </div>
-                                        <p className="font-medium text-slate-900">검색 결과가 없습니다</p>
-                                        <p className="text-sm text-slate-500 mt-1">새로운 철거 자재를 등록해보세요</p>
                                     </TableCell>
                                 </TableRow>
                             ) : (
