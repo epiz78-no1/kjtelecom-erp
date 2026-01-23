@@ -28,8 +28,11 @@ export function useOpticalFilters(cables: OpticalCable[]) {
             if (minRemaining && cable.remainingLength < Number(minRemaining)) return false;
             if (maxRemaining && cable.remainingLength > Number(maxRemaining)) return false;
 
-            // 사업 필터
-            if (selectedDivision.length > 0 && !selectedDivision.includes(cable.division ?? "SKT")) return false;
+            // 사업 필터 - 선택된 필터가 있을 때만 적용
+            if (selectedDivision.length > 0) {
+                const cableDivision = cable.division || "SKT"; // null, undefined, 빈 문자열 모두 SKT로 처리
+                if (!selectedDivision.includes(cableDivision)) return false;
+            }
 
             // 구분 필터
             if (selectedCategory.length > 0 && !selectedCategory.includes(cable.category)) return false;
