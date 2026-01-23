@@ -58,12 +58,8 @@ import {
 import { OpticalCableActionDialog } from "@/components/OpticalCableActionDialog";
 import * as XLSX from "xlsx";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+    MultiSelectFilter
+} from "@/components/ui/multi-select-filter";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -234,23 +230,14 @@ export default function OpticalCables() {
     };
 
     const getAllActiveFilters = () => {
-        const filters = getActiveFilters();
-        if (selectedCategory !== '전체') {
-            filters.unshift({ key: 'category', label: selectedCategory });
-        }
-        return filters;
+        return getActiveFilters();
     };
 
     const handleRemoveFilter = (key: string) => {
-        if (key === 'category') {
-            setSelectedCategory('전체');
-        } else {
-            removeFilter(key);
-        }
+        removeFilter(key);
     };
 
     const handleResetFilters = () => {
-        setSelectedCategory('전체');
         resetFilters();
     };
 
@@ -363,83 +350,90 @@ export default function OpticalCables() {
                 {/* Compact Expandable Filter Panel */}
                 {filterOpen && (
                     <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-top-1 duration-200 mt-1">
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-0">
 
                             <div className="space-y-0.5">
-                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                                    <SelectTrigger className="h-7 text-xs rounded-md border-slate-200 bg-slate-50/50"><SelectValue placeholder="자재승인" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="전체" className="text-xs">전체(승인)</SelectItem>
-                                        {categories.filter(c => c !== "전체").map(c => <SelectItem key={String(c)} value={String(c)} className="text-xs">{String(c)}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <MultiSelectFilter
+                                    title="자재승인 (전체)"
+                                    options={categories.filter(c => c !== "전체").map(c => ({ label: String(c), value: String(c) }))}
+                                    selectedValues={selectedCategory}
+                                    onChange={setSelectedCategory}
+                                    className="w-full"
+                                />
                             </div>
                             <div className="space-y-0.5">
-                                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                                    <SelectTrigger className="h-7 text-xs rounded-md border-slate-200 bg-slate-50/50"><SelectValue placeholder="상태" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="전체" className="text-xs">전체(상태)</SelectItem>
-                                        <SelectItem value="창고" className="text-xs">창고 보관</SelectItem>
-                                        <SelectItem value="예약" className="text-xs">예약 중</SelectItem>
-                                        <SelectItem value="불출" className="text-xs">현장 불출</SelectItem>
-                                        <SelectItem value="반납" className="text-xs">반납신청</SelectItem>
-                                        <SelectItem value="폐기" className="text-xs">폐기</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <MultiSelectFilter
+                                    title="상태 (전체)"
+                                    options={[
+                                        { label: "창고 보관", value: "창고" },
+                                        { label: "예약 중", value: "예약" },
+                                        { label: "현장 불출", value: "불출" },
+                                        { label: "반납신청", value: "반납" },
+                                        { label: "폐기", value: "폐기" },
+                                    ]}
+                                    selectedValues={selectedStatus}
+                                    onChange={setSelectedStatus}
+                                    className="w-full"
+                                />
                             </div>
                             <div className="space-y-0.5">
-                                <Select value={selectedCoreCount} onValueChange={setSelectedCoreCount}>
-                                    <SelectTrigger className="h-7 text-xs rounded-md border-slate-200 bg-slate-50/50"><SelectValue placeholder="코어" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="전체" className="text-xs">전체(코어)</SelectItem><SelectItem value="24" className="text-xs">24c</SelectItem><SelectItem value="48" className="text-xs">48c</SelectItem><SelectItem value="72" className="text-xs">72c</SelectItem><SelectItem value="96" className="text-xs">96c</SelectItem><SelectItem value="144" className="text-xs">144c</SelectItem><SelectItem value="288" className="text-xs">288c</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <MultiSelectFilter
+                                    title="코어 (전체)"
+                                    options={[
+                                        { label: "24c", value: "24" },
+                                        { label: "48c", value: "48" },
+                                        { label: "72c", value: "72" },
+                                        { label: "96c", value: "96" },
+                                        { label: "144c", value: "144" },
+                                        { label: "288c", value: "288" },
+                                    ]}
+                                    selectedValues={selectedCoreCount}
+                                    onChange={setSelectedCoreCount}
+                                    className="w-full"
+                                />
                             </div>
                             <div className="col-span-2 space-y-0.5 min-w-[180px]">
-                                <div className="flex items-center gap-1.5">
-                                    <Input type="number" value={minRemaining} onChange={e => setMinRemaining(e.target.value)} placeholder="Min (m)" className="h-7 text-xs rounded-md bg-slate-50/50" />
+                                <div className="flex items-center gap-1.5 h-7">
+                                    <Input type="number" value={minRemaining} onChange={e => setMinRemaining(e.target.value)} placeholder="Min (m)" className="h-full text-xs rounded-md bg-slate-50/50" />
                                     <span className="text-slate-300 text-[10px]">-</span>
-                                    <Input type="number" value={maxRemaining} onChange={e => setMaxRemaining(e.target.value)} placeholder="Max (m)" className="h-7 text-xs rounded-md bg-slate-50/50" />
+                                    <Input type="number" value={maxRemaining} onChange={e => setMaxRemaining(e.target.value)} placeholder="Max (m)" className="h-full text-xs rounded-md bg-slate-50/50" />
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-end space-x-2 h-7 w-full">
                                 <Checkbox id="show-waste" checked={showWaste} onCheckedChange={(checked) => setShowWaste(checked as boolean)} className="h-3.5 w-3.5" />
-                                <label htmlFor="show-waste" className="text-xs font-medium leading-none text-slate-600">
+                                <label htmlFor="show-waste" className="text-xs font-medium leading-none text-slate-600 cursor-pointer">
                                     폐기 포함
                                 </label>
                             </div>
-
-                            {getAllActiveFilters().length > 0 && (
-                                <div className="flex items-center gap-1 flex-wrap justify-end">
-                                    {getAllActiveFilters().map(filter => (
-                                        <Badge
-                                            key={filter.key}
-                                            variant="secondary"
-                                            className="h-5 px-1.5 rounded-md bg-slate-100 text-slate-700 border-0 text-[10px]"
-                                        >
-                                            {filter.label}
-                                            <button
-                                                onClick={() => handleRemoveFilter(filter.key)}
-                                                className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
-                                            >
-                                                <X className="h-2 w-2" />
-                                            </button>
-                                        </Badge>
-                                    ))}
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleResetFilters}
-                                        className="h-5 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
-                                    >
-                                        초기화
-                                    </Button>
-                                </div>
-                            )}
                         </div>
+
+                        {getAllActiveFilters().length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap justify-end mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                                {getAllActiveFilters().map(filter => (
+                                    <Badge
+                                        key={filter.key}
+                                        variant="secondary"
+                                        className="h-5 px-1.5 rounded-md bg-slate-100 text-slate-700 border-0 text-[10px]"
+                                    >
+                                        {filter.label}
+                                        <button
+                                            onClick={() => handleRemoveFilter(filter.key)}
+                                            className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
+                                        >
+                                            <X className="h-2 w-2" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleResetFilters}
+                                    className="h-5 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
+                                >
+                                    초기화
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>  {/* Bulk Action Bar */}
