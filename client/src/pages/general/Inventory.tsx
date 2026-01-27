@@ -3,9 +3,9 @@ import { MoreHorizontal, Pencil, Loader2, Trash2, Plus, Upload, Download, Filter
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Checkbox } from "@/components/ui/checkbox";
-import { InventoryTable } from "@/components/InventoryTable";
-import { MaterialFormDialog, type MaterialSubmitData } from "@/components/MaterialFormDialog";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { InventoryTable } from "@/components/inventory/InventoryTable";
+import { MaterialFormDialog, type MaterialSubmitData } from "@/components/dialogs/MaterialFormDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import { validateInventoryRow, transformInventoryRow, inventoryColumns } from "@/lib/bulk-configs/inventory";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -52,7 +52,7 @@ import { useColumnResize } from "@/hooks/useColumnResize";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { InfiniteScrollLoader } from "@/components/layout/InfiniteScrollLoader";
 import { INVENTORY_COLUMNS } from "@/lib/material-table-columns";
 import {
   Tooltip,

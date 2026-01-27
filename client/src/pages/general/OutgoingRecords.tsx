@@ -42,9 +42,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import { validateOutgoingRow, transformOutgoingRow, outgoingColumns, type ParsedOutgoingRow } from "@/lib/bulk-configs/outgoing";
-import { OutgoingDialog } from "@/components/OutgoingDialog";
+import { OutgoingDialog } from "@/components/dialogs/OutgoingDialog";
 import { useAppContext } from "@/contexts/AppContext";
 import { useColumnResize } from "@/hooks/useColumnResize";
 
@@ -52,7 +52,7 @@ import { useColumnResize } from "@/hooks/useColumnResize";
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { InfiniteScrollLoader } from "@/components/layout/InfiniteScrollLoader";
 import { MATERIAL_OUTGOING_COLUMNS } from "@/lib/material-table-columns";
 import {
   Tooltip,
@@ -207,6 +207,7 @@ export default function OutgoingRecords() {
       inventoryItemId?: number;
       remark: string;
     }>;
+    teamCategory: string;
     teamId?: string;
     recipient: string;
     attachments: { name: string; storageUrl: string; storagePath: string }[];
@@ -241,6 +242,7 @@ export default function OutgoingRecords() {
         inventoryItemId: item.inventoryItemId,
         teamId: data.teamId,
         recipient: data.recipient,
+        teamCategory: data.teamCategory
       };
 
       closeDialog();
@@ -284,7 +286,8 @@ export default function OutgoingRecords() {
           remark: item.remark,
           inventoryItemId: item.inventoryItemId,
           teamId: data.teamId,
-          recipient: data.recipient
+          recipient: data.recipient,
+          teamCategory: data.teamCategory
         };
 
         await apiRequest("POST", "/api/outgoing", payload);

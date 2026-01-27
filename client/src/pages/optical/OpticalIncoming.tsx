@@ -46,7 +46,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { OpticalCableFormDialog } from "@/components/OpticalCableFormDialog";
+import { OpticalCableFormDialog } from "@/components/optical/OpticalCableFormDialog";
 import { useToast } from "@/hooks/use-toast";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { useOpticalLogs } from "@/hooks/useOpticalCables";
@@ -61,12 +61,12 @@ import {
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import { validateOpticalRow, transformOpticalRow, opticalColumns, downloadOpticalTemplate } from "@/lib/bulk-configs/optical";
 import { Upload } from "lucide-react";
 import { OPTICAL_LOG_COLUMNS } from "@/lib/optical-table-columns";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { InfiniteScrollLoader } from "@/components/layout/InfiniteScrollLoader";
 
 export default function OpticalIncoming() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

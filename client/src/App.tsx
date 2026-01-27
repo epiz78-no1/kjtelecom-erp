@@ -4,9 +4,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { AdminSidebar } from "@/components/AdminSidebar";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,7 @@ import Home from "@/pages/general/Home";
 const Archives = lazy(() => import("@/pages/general/Archives"));
 
 import { FEATURE_FLAGS } from "@/lib/constants";
-import { Header } from "@/components/Header";
+import { Header } from "@/components/common/Header";
 
 
 function AppContent() {

@@ -58,7 +58,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TeamInventorySelector } from "@/components/TeamInventorySelector";
+import { TeamInventorySelector } from "@/components/inventory/TeamInventorySelector";
 import { MATERIAL_LOG_COLUMNS } from "@/lib/material-table-columns";
 import {
   Tooltip,
@@ -1359,7 +1359,7 @@ export default function TeamMaterialUsage() {
                             (item.inventoryItemId && inv.inventoryItemId === item.inventoryItemId) ||
                             (!item.inventoryItemId && inv.productName === item.productName && inv.specification === item.specification)
                           )?.id || ""}
-                          onChange={(id, selectedInventory) => {
+                          onChange={(id: string, selectedInventory: any) => {
                             const newItems = [...formData.items];
                             newItems[index] = {
                               ...newItems[index],
@@ -1367,7 +1367,7 @@ export default function TeamMaterialUsage() {
                               category: selectedInventory.category,
                               productName: selectedInventory.productName,
                               specification: selectedInventory.specification,
-                              inventoryItemId: selectedInventory.inventoryItemId,
+                              inventoryItemId: selectedInventory.inventoryItemId || undefined,
                             };
 
                             if (index === formData.items.length - 1) {

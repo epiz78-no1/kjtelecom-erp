@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Loader2, Cable, Cuboid, ChevronDown, ChevronRight, ShoppingCart, Users, CornerDownRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
-import type { FieldTeam } from "@/components/FieldTeamCard";
+import type { FieldTeam } from "@/components/common/FieldTeamCard";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import {
     Table,

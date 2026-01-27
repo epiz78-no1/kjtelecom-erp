@@ -2,8 +2,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Package, ShoppingCart, Users, AlertTriangle, ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
-import { StatCard } from "@/components/StatCard";
-import { FieldTeamCard } from "@/components/FieldTeamCard";
+import { StatCard } from "@/components/common/StatCard";
+import { FieldTeamCard } from "@/components/common/FieldTeamCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";

@@ -46,8 +46,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { useAppContext } from "@/contexts/AppContext";
-import OpticalAssignmentDialog from "@/components/OpticalAssignmentDialog";
-import { OpticalLogEditDialog } from "@/components/OpticalLogEditDialog";
+import OpticalAssignmentDialog from "@/components/optical/OpticalAssignmentDialog";
+import { OpticalLogEditDialog } from "@/components/optical/OpticalLogEditDialog";
 import type { OpticalCable, OpticalCableLog } from "@shared/schema";
 import { useOpticalLogs, useOpticalCables } from "@/hooks/useOpticalCables";
 import {
@@ -60,11 +60,11 @@ import {
 import { useDownload } from "@/hooks/useDownload";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useTableFilters } from "@/hooks/useTableFilters";
-import { GenericBulkUploadDialog } from "@/components/GenericBulkUploadDialog";
+import { GenericBulkUploadDialog } from "@/components/dialogs/GenericBulkUploadDialog";
 import { validateOpticalOutgoingRow, transformOpticalOutgoingRow, opticalOutgoingColumns, downloadOpticalOutgoingTemplate } from "@/lib/bulk-configs/optical-outgoing";
 import { OPTICAL_OUTGOING_COLUMNS } from "@/lib/optical-table-columns";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
+import { InfiniteScrollLoader } from "@/components/layout/InfiniteScrollLoader";
 
 export default function OpticalOutgoing() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
