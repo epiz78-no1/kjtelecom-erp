@@ -38,7 +38,7 @@ import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { useToast } from "@/hooks/use-toast";
-import { InventoryItemSelector } from "@/components/InventoryItemSelector";
+import { InventoryItemSelector } from "@/components/inventory/InventoryItemSelector";
 import type { IncomingRecord, InventoryItem } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { useFileUpload } from "@/hooks/useFileUpload";
@@ -390,7 +390,7 @@ export function IncomingDialog({
                                                         .filter((_, i) => i !== index && !!formData.items[i].inventoryItemId)
                                                         .map(i => i.inventoryItemId as number)
                                                     }
-                                                    onChange={(id, selectedItem) => {
+                                                    onChange={(id: number, selectedItem: any) => {
                                                         const newItems = [...formData.items];
                                                         newItems[index] = {
                                                             ...newItems[index],
