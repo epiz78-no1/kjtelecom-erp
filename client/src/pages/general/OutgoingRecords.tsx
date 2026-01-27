@@ -207,6 +207,7 @@ export default function OutgoingRecords() {
       inventoryItemId?: number;
       remark: string;
     }>;
+    teamCategory: string;
     teamId?: string;
     recipient: string;
     attachments: { name: string; storageUrl: string; storagePath: string }[];
@@ -241,6 +242,7 @@ export default function OutgoingRecords() {
         inventoryItemId: item.inventoryItemId,
         teamId: data.teamId,
         recipient: data.recipient,
+        teamCategory: data.teamCategory
       };
 
       closeDialog();
@@ -284,7 +286,8 @@ export default function OutgoingRecords() {
           remark: item.remark,
           inventoryItemId: item.inventoryItemId,
           teamId: data.teamId,
-          recipient: data.recipient
+          recipient: data.recipient,
+          teamCategory: data.teamCategory
         };
 
         await apiRequest("POST", "/api/outgoing", payload);

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.44] - 2026-01-27
+
+### Fixed
+- **일반자재 출고:** 출고 등록 시 `teamCategory`가 누락되어 발생하는 유효성 검사 오류 수정
+
 ## [v1.2.43] - 2026-01-23
 
 ### Added

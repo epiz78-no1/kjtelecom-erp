@@ -37,7 +37,7 @@ import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { useToast } from "@/hooks/use-toast";
-import { InventoryItemSelector } from "@/components/InventoryItemSelector";
+import { InventoryItemSelector } from "@/components/inventory/InventoryItemSelector";
 import type { OutgoingRecord, InventoryItem } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { useFileUpload } from "@/hooks/useFileUpload";
