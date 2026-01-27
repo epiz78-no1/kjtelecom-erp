@@ -2,6 +2,9 @@
 import { Router } from "express";
 import { createSignedUploadUrl, createSignedDownloadUrl, downloadFileStream } from "../lib/storage.js";
 import contentDisposition from "content-disposition";
+import { db } from "../db.js";
+import { eq } from "drizzle-orm";
+import { tenants } from "../../shared/schema.js";
 
 export function registerStorageRoutes(app: any) {
     const router = Router();
@@ -14,16 +17,38 @@ export function registerStorageRoutes(app: any) {
         }
 
         try {
-            const { bucket, path } = req.body;
+            const { bucket, path, fileSize } = req.body;
 
             if (!bucket || !path) {
                 return res.status(400).json({ error: "Missing bucket or path" });
             }
 
-            // 2. Signed URL 생성
-            const data = await createSignedUploadUrl(bucket, path);
+            // 1.5 스토리지 용량 제한 확인
+            if (req.session.tenantId && fileSize) {
+                const tenantId = req.session.tenantId;
+                const tenant = await db.query.tenants.findFirst({
+                    where: eq(tenants.id, tenantId)
+                });
 
-            // 3. Client에 전달
+                if (tenant) {
+                    const limit = BigInt(tenant.storageLimit);
+                    const used = BigInt(tenant.usedStorage);
+                    const size = BigInt(fileSize);
+
+                    if (used + size > limit) {
+                        return res.status(403).json({ error: "저장 용량을 초과하여 업로드할 수 없습니다." });
+                    }
+                }
+            }
+
+            // 2. 테넌트별 폴더 구조로 경로 수정
+            const tenantId = req.session.tenantId;
+            const finalPath = tenantId ? `${tenantId}/${path}` : path;
+
+            // 3. Signed URL 생성
+            const data = await createSignedUploadUrl(bucket, finalPath);
+
+            // 4. Client에 전달
             res.json(data);
         } catch (error: any) {
             console.error("Signed URL error:", error);

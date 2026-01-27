@@ -174,3 +174,53 @@ export async function downloadFileStream(bucket: string, path: string): Promise<
 
     return data;
 }
+
+/**
+ * 테넌트의 실제 스토리지 사용량을 Supabase Storage에서 계산
+ * @param tenantId 테넌트 ID
+ * @param bucket 버킷 이름 (기본값: 'attachments')
+ * @returns 총 사용량(bytes)과 파일 개수
+ */
+export async function calculateTenantStorageUsage(
+    tenantId: string,
+    bucket: string = 'attachments'
+): Promise<{ totalBytes: number; fileCount: number }> {
+    if (!supabase) {
+        throw new Error("Supabase client not configured");
+    }
+
+    try {
+        // 테넌트별 폴더에서 파일 조회
+        const { data: files, error } = await supabase.storage
+            .from(bucket)
+            .list(tenantId, {
+                limit: 10000,
+                sortBy: { column: 'name', order: 'asc' }
+            });
+
+        if (error) {
+            console.error('Storage list error:', error);
+            // If listing fails, return 0 instead of throwing
+            console.warn(`Failed to list files for tenant ${tenantId}, returning 0 usage`);
+            return { totalBytes: 0, fileCount: 0 };
+        }
+
+        if (!files || files.length === 0) {
+            return { totalBytes: 0, fileCount: 0 };
+        }
+
+        // Sum up all file sizes in tenant folder
+        const totalBytes = files.reduce((sum, file) => {
+            return sum + (file.metadata?.size || 0);
+        }, 0);
+
+        return {
+            totalBytes,
+            fileCount: files.length
+        };
+    } catch (error: any) {
+        console.error('Error calculating storage usage:', error);
+        // Return 0 instead of throwing to prevent breaking the tenant list endpoint
+        return { totalBytes: 0, fileCount: 0 };
+    }
+}

@@ -76,6 +76,98 @@ export default function AdminOrg() {
         divisionsLoading,
         teams,
         teamsLoading,
+        currentTenant,
+        tenants
+    } = useAppContext();
+
+    // Find current tenant info
+    const activeTenant = tenants.find(t => t.id === currentTenant);
+    const memberCount = teams.reduce((acc, team) => acc + (team.memberCount || 0), 0);
+    const adminCount = 1; // 추후 API에서 가져오도록 수정
+
+    return (
+        <div className="container mx-auto py-8 space-y-8 animate-in fade-in duration-500">
+            <div className="flex flex-col gap-1">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">kjtelecom 조직 구성</h1>
+                <p className="text-sm text-muted-foreground"></p>
+            </div>
+
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <span className="font-bold text-slate-700">총 1개 조직</span> (전체 {memberCount}명) 조직을 나누어 관리할 수 있습니다.
+                </div>
+
+                <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500 font-semibold">
+                            <tr>
+                                <th className="px-6 py-4 w-[250px]">조직</th>
+                                <th className="px-6 py-4 w-[200px]">IDP</th>
+                                <th className="px-6 py-4">구성원 (멤버/업무 계정)</th>
+                                <th className="px-6 py-4">관리자</th>
+                                <th className="px-6 py-4 text-right">설정</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            <tr className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-slate-800 text-base">(주)광주텔레콤</span>
+                                        <span className="text-xs text-slate-400">kjtelecom</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-slate-600">
+                                    Local 로그인
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-1 text-blue-600 font-medium">
+                                        <span>{memberCount}</span>
+                                        <span className="text-slate-400 font-normal">({memberCount}/0)</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2 text-slate-600">
+                                        <Users className="h-4 w-4 text-slate-400" />
+                                        <span>{adminCount}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <Button variant="outline" size="sm" className="h-8 text-xs bg-white hover:bg-slate-50">관리자 설정</Button>
+                                        <Button variant="outline" size="sm" className="h-8 text-xs bg-white hover:bg-slate-50">조직 정보 설정</Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* Existing Division/Team Management Section */}
+            <div className="pt-8 border-t">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 className="text-lg font-bold tracking-tight">부서 및 팀 관리</h2>
+                        <p className="text-sm text-muted-foreground">하위 조직(부서/팀)을 구성하고 관리합니다.</p>
+                    </div>
+                </div>
+
+                {/* Reusing existing Division/Team logic here, but simplifying for brevity in this specific requested view. 
+                    I'll keep the original logic below if the user wants detailed management, but the prompt focused on the 'image like' view.
+                    For now, I'll render the original components below so functionality isn't lost.
+                */}
+                <OriginalAdminOrgContent />
+            </div>
+        </div>
+    );
+}
+
+function OriginalAdminOrgContent() {
+    const {
+        divisions,
+        divisionsLoading,
+        teams,
+        teamsLoading,
         addDivision,
         updateDivision,
         deleteDivision,
@@ -85,7 +177,7 @@ export default function AdminOrg() {
     } = useAppContext();
     const { toast } = useToast();
 
-    // Dialog states
+    // ... (State declarations from original file)
     const [isDivDialogOpen, setIsDivDialogOpen] = useState(false);
     const [divDialogMode, setDivDialogMode] = useState<"add" | "edit">("add");
     const [editingDivision, setEditingDivision] = useState<{ id: string; name: string } | null>(null);
@@ -214,18 +306,11 @@ export default function AdminOrg() {
     };
 
     return (
-        <div className="container mx-auto py-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">조직 관리</h1>
-                    <p className="text-muted-foreground">부서와 현장팀의 구조를 관리하세요.</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleAddDivision}>부서 추가</Button>
-                    <Button onClick={() => handleAddTeam()}>팀 추가</Button>
-                </div>
+        <div className="space-y-6">
+            <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={handleAddDivision}>부서 추가</Button>
+                <Button onClick={() => handleAddTeam()}>팀 추가</Button>
             </div>
-
             <div className="grid gap-6">
                 {divisionsLoading || teamsLoading ? (
                     <div className="text-center py-12 text-muted-foreground">불러오는 중...</div>
@@ -323,7 +408,6 @@ export default function AdminOrg() {
                     ))
                 )}
             </div>
-
             {/* Division Add/Edit Dialog */}
             <Dialog open={isDivDialogOpen} onOpenChange={setIsDivDialogOpen}>
                 <DialogContent>
@@ -414,6 +498,6 @@ export default function AdminOrg() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div >
+        </div>
     );
 }

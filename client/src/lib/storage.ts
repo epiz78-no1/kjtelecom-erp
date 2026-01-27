@@ -43,15 +43,15 @@ export async function uploadFileToStorage(
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ bucket, path }),
+            body: JSON.stringify({ bucket, path, fileSize: fileToUpload.size }),
         });
     } catch (e: any) {
         throw new Error(`서버 연결 실패 (URL 발급): ${e.message}`);
     }
 
     if (!signResponse.ok) {
-        const errText = await signResponse.text();
-        throw new Error(`업로드 URL 발급 실패: ${signResponse.status} ${errText}`);
+        const errData = await signResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `업로드 URL 발급 실패: ${signResponse.status} ${signResponse.statusText}`);
     }
 
     const { signedUrl, token } = await signResponse.json();

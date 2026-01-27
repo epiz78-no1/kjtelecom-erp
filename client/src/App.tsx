@@ -59,6 +59,7 @@ const Settings = lazy(() => import("@/pages/common/Settings"));
 const AdminMembers = lazy(() => import("@/pages/admin/AdminMembers"));
 const AdminOrg = lazy(() => import("@/pages/admin/AdminOrg"));
 const AdminPositions = lazy(() => import("@/pages/admin/AdminPositions"));
+const AdminUsage = lazy(() => import("@/pages/admin/AdminUsage"));
 const SuperAdminDashboard = lazy(() => import("@/pages/admin/SuperAdminDashboard"));
 
 import Home from "@/pages/general/Home";
@@ -167,6 +168,7 @@ function AppContent() {
                         <Route path="/admin/members" component={AdminMembers} />
                         <Route path="/admin/org" component={AdminOrg} />
                         <Route path="/admin/positions" component={AdminPositions} />
+                        <Route path="/admin/usage" component={AdminUsage} />
                         <Route path="/settings" component={Settings} />
                         <Route component={NotFound} />
                       </Switch>

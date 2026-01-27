@@ -1,8 +1,9 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { UserPlus2 } from "lucide-react";
+import { UserPlus2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppContext } from "@/contexts/AppContext";
@@ -43,12 +44,27 @@ export default function AdminMembers() {
 
     // Selected Member & Edit State
     const [editingMember, setEditingMember] = useState<Member | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
 
     const { data: members, isLoading: membersLoading } = useQuery<Member[]>({
         queryKey: ["/api/admin/members?v=1"],
     });
 
-    const filteredMembers = members?.filter(member => member.username !== 'admin');
+    const filteredMembers = members?.filter(member => {
+        if (member.username === 'admin') return false;
+        if (!searchTerm) return true;
+
+        const searchLower = searchTerm.toLowerCase();
+        return (
+            member.name.toLowerCase().includes(searchLower) ||
+            member.username.toLowerCase().includes(searchLower) ||
+            (member.email && member.email.toLowerCase().includes(searchLower)) ||
+            (member.teamName && member.teamName.toLowerCase().includes(searchLower)) ||
+            (member.divisionName && member.divisionName.toLowerCase().includes(searchLower)) ||
+            (member.positionName && member.positionName.toLowerCase().includes(searchLower)) ||
+            (member.phoneNumber && member.phoneNumber.includes(searchLower))
+        );
+    });
 
     // Mutations
     const createMemberMutation = useMutation({
@@ -138,9 +154,28 @@ export default function AdminMembers() {
                     <p className="text-muted-foreground">회사를 함께 운영할 멤버들을 관리하고 초대하세요.</p>
                 </div>
 
-                <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-                    <UserPlus2 className="h-4 w-4" /> 멤버 생성하기
-                </Button>
+                <div className="flex items-center gap-2">
+                    <div className="relative w-full md:w-[300px]">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="이름, ID, 부서, 팀, 연락처 검색..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-8 pr-8"
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm("")}
+                                className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                    <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+                        <UserPlus2 className="h-4 w-4" /> 멤버 생성하기
+                    </Button>
+                </div>
             </div>
 
             <MemberTable

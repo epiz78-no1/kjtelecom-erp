@@ -373,26 +373,7 @@ export function AppSidebar() {
             </SidebarGroup>
 
 
-            {/* Admin Menu - Always shown for admin users */}
-            {isAdmin && (
-              <SidebarGroup className="mt-4 border-t border-slate-100 pt-4">
-                <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1 mb-1">Administration</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {adminItems.map((item) => (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton asChild isActive={location === item.url} className="h-9 text-xs">
-                          <Link href={item.url}>
-                            <item.icon className="h-4 w-4" />
-                            <span>{item.title}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
+
           </>
         )}
       </SidebarContent>

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.45] - 2026-01-27
+
+### Added
+- **테넌트별 스토리지 분리:** 파일을 테넌트별 폴더에 저장하여 정확한 용량 계산 및 격리 구현
+  - 파일 업로드 경로: `{tenantId}/{filename}` 구조로 변경
+  - Supabase Storage API를 통한 실시간 사용량 계산
+  - 슈퍼 관리자 대시보드에서 테넌트별 정확한 스토리지 사용량 표시
+- **스토리지 마이그레이션:** 기존 파일을 테넌트 폴더로 이동하는 스크립트 추가
+- **Supabase Storage 링크:** 스토리지 사용량 클릭 시 Supabase Storage 페이지로 이동
+- **환경 변수:** 클라이언트에서 Supabase URL 접근을 위한 `VITE_SUPABASE_URL` 추가
+
+### Changed
+- **스토리지 계산 로직:** 전체 파일 합산에서 테넌트별 폴더 조회로 변경
+- **용량 제한 검증:** 파일 업로드 전 테넌트별 스토리지 제한 확인 강화
+
 ## [v1.2.44] - 2026-01-27
 
 ### Fixed
