@@ -372,6 +372,64 @@ export function AppSidebar() {
               </SidebarMenu>
             </SidebarGroup>
 
+            {/* =========================================================================
+                SECTION: ADMIN (Only for Admin/Owner)
+               ========================================================================= */}
+            {isAdmin && location.startsWith('/admin') && (
+              <SidebarGroup>
+                <SidebarMenu>
+                  <Collapsible defaultOpen={true} className="group/collapsible">
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton tooltip="관리 권한" className="h-9 hover:bg-white hover:shadow-sm transition-all hover:text-primary active:bg-slate-50">
+                          <span className="font-medium text-sm">관리 권한</span>
+                          <ChevronRight className="ml-auto h-4 w-4 text-slate-400 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub className="mr-0 pr-0 border-l-slate-200 ml-3.5">
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === '/admin/members'} className="h-8 text-xs">
+                              <Link href="/admin/members">
+                                <span>멤버</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === '/admin/org'} className="h-8 text-xs">
+                              <Link href="/admin/org">
+                                <span>조직도</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === '/admin/positions'} className="h-8 text-xs">
+                              <Link href="/admin/positions">
+                                <span>직급/직책</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === '/admin/permissions'} className="h-8 text-xs">
+                              <Link href="/admin/permissions">
+                                <span>권한 관리</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={location === '/admin/usage'} className="h-8 text-xs">
+                              <Link href="/admin/usage">
+                                <span>서비스 관리</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                </SidebarMenu>
+              </SidebarGroup>
+            )}
 
 
           </>

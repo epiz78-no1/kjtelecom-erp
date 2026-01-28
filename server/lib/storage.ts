@@ -224,3 +224,91 @@ export async function calculateTenantStorageUsage(
         return { totalBytes: 0, fileCount: 0 };
     }
 }
+
+/**
+ * 테넌트의 스토리지 사용량을 카테고리별로 분류하여 계산
+ * @param tenantId 테넌트 ID
+ * @param bucket 버킷 이름 (기본값: 'attachments')
+ * @returns 카테고리별 사용량 정보
+ */
+export async function calculateTenantStorageBreakdown(
+    tenantId: string,
+    bucket: string = 'attachments'
+): Promise<{
+    totalBytes: number;
+    totalFiles: number;
+    breakdown: {
+        home: { bytes: number; fileCount: number };
+        materials: { bytes: number; fileCount: number };
+        archive: { bytes: number; fileCount: number };
+        other: { bytes: number; fileCount: number };
+    };
+}> {
+    if (!supabase) {
+        throw new Error("Supabase client not configured");
+    }
+
+    const breakdown = {
+        home: { bytes: 0, fileCount: 0 },
+        materials: { bytes: 0, fileCount: 0 },
+        archive: { bytes: 0, fileCount: 0 },
+        other: { bytes: 0, fileCount: 0 }
+    };
+
+    try {
+        // 테넌트별 폴더에서 파일 조회
+        const { data: files, error } = await supabase.storage
+            .from(bucket)
+            .list(tenantId, {
+                limit: 10000,
+                sortBy: { column: 'name', order: 'asc' }
+            });
+
+        if (error) {
+            console.error('Storage list error:', error);
+            return { totalBytes: 0, totalFiles: 0, breakdown };
+        }
+
+        if (!files || files.length === 0) {
+            return { totalBytes: 0, totalFiles: 0, breakdown };
+        }
+
+        let totalBytes = 0;
+        let totalFiles = 0;
+
+        // 모든 파일을 자재관리로 분류 (현재는 자재관리만 파일 업로드 기능 있음)
+        // 향후 홈, 자료실 기능 추가 시 파일명 패턴으로 분류 가능
+        files.forEach(file => {
+            // Supabase list() API는 metadata.size를 제공하지 않을 수 있음
+            // 대신 file 객체 자체에 size 속성이 있을 수 있음
+            const size = (file as any).size || file.metadata?.size || 0;
+            const fileName = file.name.toLowerCase();
+
+            if (size > 0) {
+                totalBytes += size;
+                totalFiles++;
+
+                // 향후 확장을 위한 분류 로직
+                // 현재는 모든 파일을 자재관리로 분류
+                if (fileName.includes('home') || fileName.includes('dashboard')) {
+                    breakdown.home.bytes += size;
+                    breakdown.home.fileCount++;
+                } else if (fileName.includes('archive') || fileName.includes('document')) {
+                    breakdown.archive.bytes += size;
+                    breakdown.archive.fileCount++;
+                } else {
+                    // 기본적으로 자재관리로 분류 (광케이블, 일반자재, 철거자재, 입고 등)
+                    breakdown.materials.bytes += size;
+                    breakdown.materials.fileCount++;
+                }
+            } else {
+                console.warn(`File ${fileName} has no size information`);
+            }
+        });
+
+        return { totalBytes, totalFiles, breakdown };
+    } catch (error: any) {
+        console.error('Error calculating storage breakdown:', error);
+        return { totalBytes: 0, totalFiles: 0, breakdown };
+    }
+}

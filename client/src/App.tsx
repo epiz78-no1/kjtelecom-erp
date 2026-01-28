@@ -60,6 +60,7 @@ const AdminMembers = lazy(() => import("@/pages/admin/AdminMembers"));
 const AdminOrg = lazy(() => import("@/pages/admin/AdminOrg"));
 const AdminPositions = lazy(() => import("@/pages/admin/AdminPositions"));
 const AdminUsage = lazy(() => import("@/pages/admin/AdminUsage"));
+const AdminPermissions = lazy(() => import("@/pages/admin/AdminPermissions"));
 const SuperAdminDashboard = lazy(() => import("@/pages/admin/SuperAdminDashboard"));
 
 import Home from "@/pages/general/Home";
@@ -68,12 +69,27 @@ const Archives = lazy(() => import("@/pages/general/Archives"));
 
 import { FEATURE_FLAGS } from "@/lib/constants";
 import { Header } from "@/components/common/Header";
+import { PAGE_TITLES } from "@/lib/pageTitles";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 
 function AppContent() {
   const { user, isLoading, logout, tenants, currentTenant } = useAppContext();
   const [location] = useLocation();
   const activeTenant = tenants.find(t => t.id === currentTenant);
+
+  // Set page title based on header tab structure
+  let pageTitle = '페이지';
+  if (location === '/') {
+    pageTitle = '홈';
+  } else if (location.startsWith('/archives')) {
+    pageTitle = '자료실';
+  } else if (location.startsWith('/admin')) {
+    pageTitle = '관리';
+  } else {
+    pageTitle = '자재관리';
+  }
+  useDocumentTitle(pageTitle);
 
   // Show loading state for initial auth check
   if (isLoading) {
@@ -168,6 +184,7 @@ function AppContent() {
                         <Route path="/admin/members" component={AdminMembers} />
                         <Route path="/admin/org" component={AdminOrg} />
                         <Route path="/admin/positions" component={AdminPositions} />
+                        <Route path="/admin/permissions" component={AdminPermissions} />
                         <Route path="/admin/usage" component={AdminUsage} />
                         <Route path="/settings" component={Settings} />
                         <Route component={NotFound} />

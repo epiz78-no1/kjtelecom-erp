@@ -4,7 +4,7 @@ import { storage } from "./storage.js";
 import { users, userTenants, tenants } from "../shared/schema.js";
 import { eq, and, or } from "drizzle-orm";
 import bcrypt from "bcryptjs"; // Use bcryptjs as installed
-import { calculateTenantStorageUsage } from "./lib/storage.js";
+import { calculateTenantStorageUsage, calculateTenantStorageBreakdown } from "./lib/storage.js";
 
 // ... (keep middleware matching lines 8-44 if needed, but here we just target the import and the specific endpoint lines)
 
@@ -270,16 +270,77 @@ export function registerAdminRoutes(app: any) {
 
                 return {
                     ...tenant,
-                    usedStorage: updatedUsedStorage,
+                    usedStorage: updatedUsedStorage, // Use potentially updated value
                     admins: realAdmins // Return array of admins
                 };
             }));
 
-            console.log(`[DEBUG] Sending ${tenantsWithAdmin.length} tenants. First one admins:`, tenantsWithAdmin[0]?.admins);
             res.json(tenantsWithAdmin);
         } catch (error) {
             console.error("Fetch all tenants error:", error);
             res.status(500).json({ error: "회사 목록을 불러오는 중 오류가 발생했습니다" });
+        }
+    });
+
+    // Get tenant storage usage breakdown (for tenant admin)
+    app.get(`${adminRouter}/tenant-storage-usage`, requireAuth, requireTenant, async (req: Request, res: Response) => {
+        try {
+            const tenantId = req.session!.tenantId;
+
+            // Check if user is admin or owner
+            const currentUser = await db.query.userTenants.findFirst({
+                where: (ut, { and, eq }) => and(eq(ut.userId, req.session!.userId!), eq(ut.tenantId, tenantId!))
+            });
+
+            if (currentUser?.role !== 'owner' && currentUser?.role !== 'admin') {
+                return res.status(403).json({ error: "관리자 권한이 필요합니다" });
+            }
+
+            // Get tenant info
+            const tenant = await db.query.tenants.findFirst({
+                where: eq(tenants.id, tenantId!)
+            });
+
+            if (!tenant) {
+                return res.status(404).json({ error: "회사를 찾을 수 없습니다" });
+            }
+
+            // Calculate storage breakdown
+            const { totalBytes, totalFiles, breakdown } = await calculateTenantStorageBreakdown(tenantId!);
+
+            res.json({
+                tenantId: tenant.id,
+                tenantName: tenant.name,
+                totalBytes,
+                limitBytes: Number(tenant.storageLimit),
+                fileCount: totalFiles,
+                lastUpdated: new Date().toISOString(),
+                breakdown: {
+                    home: {
+                        bytes: breakdown.home.bytes,
+                        fileCount: breakdown.home.fileCount,
+                        percentage: totalBytes > 0 ? (breakdown.home.bytes / totalBytes) * 100 : 0
+                    },
+                    materials: {
+                        bytes: breakdown.materials.bytes,
+                        fileCount: breakdown.materials.fileCount,
+                        percentage: totalBytes > 0 ? (breakdown.materials.bytes / totalBytes) * 100 : 0
+                    },
+                    archive: {
+                        bytes: breakdown.archive.bytes,
+                        fileCount: breakdown.archive.fileCount,
+                        percentage: totalBytes > 0 ? (breakdown.archive.bytes / totalBytes) * 100 : 0
+                    },
+                    other: {
+                        bytes: breakdown.other.bytes,
+                        fileCount: breakdown.other.fileCount,
+                        percentage: totalBytes > 0 ? (breakdown.other.bytes / totalBytes) * 100 : 0
+                    }
+                }
+            });
+        } catch (error) {
+            console.error("Fetch storage usage error:", error);
+            res.status(500).json({ error: "스토리지 사용량을 불러오는 중 오류가 발생했습니다" });
         }
     });
 

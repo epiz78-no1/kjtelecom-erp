@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
     Network,
     Plus,
@@ -133,7 +134,9 @@ export default function AdminOrg() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                        <Button variant="outline" size="sm" className="h-8 text-xs bg-white hover:bg-slate-50">관리자 설정</Button>
+                                        <Link href="/admin/permissions">
+                                            <Button variant="outline" size="sm" className="h-8 text-xs bg-white hover:bg-slate-50">관리자 설정</Button>
+                                        </Link>
                                         <Button variant="outline" size="sm" className="h-8 text-xs bg-white hover:bg-slate-50">조직 정보 설정</Button>
                                     </div>
                                 </td>

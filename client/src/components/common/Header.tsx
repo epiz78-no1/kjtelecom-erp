@@ -116,9 +116,9 @@ export function Header() {
                             {(activeTenant?.role === 'owner' || activeTenant?.role === 'admin') && (
                                 <>
                                     <DropdownMenuItem asChild>
-                                        <Link href="/admin/org" className="cursor-pointer">
+                                        <Link href="/admin/permissions" className="cursor-pointer">
                                             <Users className="mr-2 h-4 w-4" />
-                                            <span>Admin</span>
+                                            <span>권한설정</span>
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />

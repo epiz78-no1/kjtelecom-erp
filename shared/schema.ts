@@ -30,6 +30,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
   phoneNumber: text("phone_number"),
+  activeSessionId: text("active_session_id"), // Current active session ID for duplicate login prevention
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({

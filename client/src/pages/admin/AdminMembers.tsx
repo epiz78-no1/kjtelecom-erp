@@ -11,7 +11,7 @@ import { MemberTable } from "./components/MemberTable";
 import { CreateMemberDialog } from "./components/CreateMemberDialog";
 import { EditMemberDialog } from "./components/EditMemberDialog";
 import { RoleChangeDialog } from "./components/RoleChangeDialog";
-import { PermissionSettingsDialog } from "./components/PermissionSettingsDialog";
+
 
 // Types
 export interface Member {
@@ -40,7 +40,6 @@ export default function AdminMembers() {
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
-    const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
 
     // Selected Member & Edit State
     const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -97,19 +96,6 @@ export default function AdminMembers() {
         }
     });
 
-    const updatePermissionMutation = useMutation({
-        mutationFn: async ({ userId, permissions }: { userId: string; permissions: any }) => {
-            await apiRequest("PATCH", `/api/admin/members/${userId}/permissions`, { permissions });
-        },
-        onSuccess: () => {
-            toast({ title: "권한이 업데이트되었습니다" });
-            setIsPermissionDialogOpen(false);
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/members?v=1"] });
-        },
-        onError: (error: any) => {
-            toast({ title: "권한 업데이트 실패", description: error.message, variant: "destructive" });
-        }
-    });
 
     const deleteMemberMutation = useMutation({
         mutationFn: async (userId: string) => {
@@ -135,10 +121,7 @@ export default function AdminMembers() {
         setIsRoleDialogOpen(true);
     };
 
-    const handlePermissionEdit = (member: Member) => {
-        setEditingMember(member);
-        setIsPermissionDialogOpen(true);
-    };
+
 
     const handleDeleteMember = (member: Member) => {
         if (confirm(`"${member.name}" 멤버를 삭제하시겠습니까?`)) {
@@ -183,7 +166,6 @@ export default function AdminMembers() {
                 isLoading={membersLoading}
                 onEdit={handleEditMember}
                 onRoleChange={handleRoleChange}
-                onPermissionEdit={handlePermissionEdit}
                 onDelete={handleDeleteMember}
             />
 
@@ -213,12 +195,7 @@ export default function AdminMembers() {
                 onSubmit={(newRole) => editingMember && updateMemberMutation.mutate({ userId: editingMember.id, data: { role: newRole } })}
             />
 
-            <PermissionSettingsDialog
-                open={isPermissionDialogOpen}
-                onOpenChange={setIsPermissionDialogOpen}
-                member={editingMember}
-                onSubmit={(permissions) => editingMember && updatePermissionMutation.mutate({ userId: editingMember.id, permissions })}
-            />
+
         </div>
     );
 }

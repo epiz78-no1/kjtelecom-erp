@@ -247,10 +247,8 @@ export default function Dashboard() {
         <Card className="lg:col-span-2 border-slate-200 shadow-sm rounded-3xl overflow-hidden bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 border-b border-slate-100 dark:border-zinc-800">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-blue-200">공정별 자원 분포</p>
-              <h3 className="text-2xl font-bold mt-2 text-slate-900 dark:text-white">
-                공정 및 사업 구분별 자원 현황
-              </h3>
+              <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">항목별 재고 현황</CardTitle>
+              <CardDescription>사업 구분별 상세 재고 내역입니다</CardDescription>
             </div>
 
           </CardHeader>
@@ -324,12 +322,7 @@ export default function Dashboard() {
                       </>
                     );
                   })}
-                  <TableRow className="bg-slate-50/80 font-bold border-t-2 border-slate-100">
-                    <TableCell className="pl-6 py-4 text-indigo-600">전체 합계</TableCell>
-                    <TableCell className="text-center py-4 text-indigo-600">{divisionList.reduce((acc, cur) => acc + Object.keys(cur.products).length, 0)} 품목</TableCell>
-                    <TableCell className="text-right py-4 text-indigo-600">{totalRemaining.toLocaleString()}</TableCell>
-                    <TableCell className="text-right py-4 pr-6 text-indigo-600">₩{totalAmount.toLocaleString()}</TableCell>
-                  </TableRow>
+
                 </TableBody>
               </Table>
             </div>
@@ -367,6 +360,11 @@ export default function Dashboard() {
                           <span className={`h-1.5 w-1.5 rounded-full ${team.isActive ? "bg-emerald-300" : "bg-slate-400"}`}></span>
                           {divisions?.find(d => d.id === team.divisionId)?.name || "-"}
                         </p>
+                        {team.lastActivity && (
+                          <p className="text-[10px] text-indigo-200/70 mt-1">
+                            최근활동: {new Date(team.lastActivity).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '')}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
