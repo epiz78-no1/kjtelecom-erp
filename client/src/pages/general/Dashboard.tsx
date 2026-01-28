@@ -81,11 +81,8 @@ export default function Dashboard() {
   // Default to showing all data since division selector is removed
   const filteredInventory = inventory;
 
-  // Show all teams by default
-  const filteredTeams = teams;
-
-  // Sort by lastActivity desc
-  filteredTeams.sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
+  // Show all teams by default, sorted by lastActivity desc
+  const filteredTeams = [...teams].sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
 
   const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
 
