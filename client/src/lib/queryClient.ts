@@ -11,14 +11,8 @@ async function throwIfResNotOk(res: Response) {
         throw new Error('인증이 필요합니다.');
       }
 
-      // On other pages, show toast and redirect
-      window.dispatchEvent(new CustomEvent('session-expired'));
-
-      // Redirect after a short delay to allow toast to show
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 2000);
-
+      // On other pages, silently redirect to login
+      window.location.href = '/login';
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
     }
 

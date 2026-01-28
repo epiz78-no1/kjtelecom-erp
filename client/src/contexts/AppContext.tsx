@@ -81,11 +81,16 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  // Don't fetch auth on login/register pages to prevent 401 toast
+  const isAuthPage = window.location.pathname.startsWith('/login') ||
+    window.location.pathname.startsWith('/register');
+
   // Fetch current user from /api/auth/me
   const authQuery = useQuery<{ user: User; tenants: Tenant[]; currentTenant: string }>({
     queryKey: ["/api/auth/me"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !isAuthPage, // Don't run on auth pages
   });
 
   const logoutMutation = useMutation({
