@@ -82,7 +82,7 @@ export default function Dashboard() {
   const filteredInventory = inventory;
 
   // Show all teams by default, sorted by lastActivity desc
-  const filteredTeams = [...teams].sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
+  const filteredTeams = teams ? [...teams].sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || "")) : [];
 
   const activeTeamCount = filteredTeams.filter((t) => t.isActive).length;
 
