@@ -231,6 +231,34 @@ const stock = await db.select()
     ```
   - 자세한 내용은 `DESIGN_GUIDE.md` 참조.
 
+- **페이지 타이틀 관리 (Page Title Management)**:
+  - **원칙**: 브라우저 탭 타이틀은 헤더(`Header.tsx`)의 탭 구조를 기준으로 설정합니다.
+  - **구현 위치**: `App.tsx`의 `AppContent` 컴포넌트에서 `useLocation`을 사용하여 현재 경로를 감지하고 타이틀을 설정합니다.
+  - **타이틀 규칙**:
+    - 홈 (`/`): "홈"
+    - 자료실 (`/archives`로 시작): "자료실"
+    - 관리 (`/admin`으로 시작): "관리"
+    - 그 외 모든 페이지: "자재관리"
+  - **형식**: `{카테고리명} | (주)광주텔레콤`
+  - **예시**:
+    ```typescript
+    // App.tsx
+    let pageTitle = '페이지';
+    if (location === '/') {
+      pageTitle = '홈';
+    } else if (location.startsWith('/archives')) {
+      pageTitle = '자료실';
+    } else if (location.startsWith('/admin')) {
+      pageTitle = '관리';
+    } else {
+      pageTitle = '자재관리';
+    }
+    useDocumentTitle(pageTitle);
+    ```
+  - **주의사항**: 
+    - 헤더의 탭 구조가 변경되면 타이틀 로직도 함께 업데이트해야 합니다.
+    - 세부 페이지별로 다른 타이틀을 사용하지 않고, 대분류 카테고리만 표시합니다.
+
 ---
 
 

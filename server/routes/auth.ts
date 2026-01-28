@@ -158,9 +158,12 @@ export function registerAuthRoutes(app: Express) {
             req.session.userId = user.id;
             req.session.tenantId = activeTenants.length > 0 ? activeTenants[0].tenantId : undefined;
 
-            // Update last login
+            // Update last login and active session ID (for duplicate login prevention)
             await db.update(users)
-                .set({ lastLoginAt: new Date() })
+                .set({
+                    lastLoginAt: new Date(),
+                    activeSessionId: req.sessionID // Store current session ID
+                })
                 .where(eq(users.id, user.id));
 
             res.json({
@@ -188,7 +191,20 @@ export function registerAuthRoutes(app: Express) {
      * POST /api/auth/logout
      * Logout current user
      */
-    app.post("/api/auth/logout", (req: Request, res: Response) => {
+    app.post("/api/auth/logout", async (req: Request, res: Response) => {
+        const userId = req.session?.userId;
+
+        // Clear active session ID in database
+        if (userId) {
+            try {
+                await db.update(users)
+                    .set({ activeSessionId: null })
+                    .where(eq(users.id, userId));
+            } catch (error) {
+                console.error("Error clearing session ID:", error);
+            }
+        }
+
         req.session.destroy((err) => {
             if (err) {
                 return res.status(500).json({ error: "로그아웃 중 오류가 발생했습니다" });

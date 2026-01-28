@@ -4,6 +4,8 @@ import {
     Network,
     Award,
     Cable,
+    ShieldCheck,
+    PieChart,
 } from "lucide-react";
 import {
     Sidebar,
@@ -28,35 +30,79 @@ export function AdminSidebar() {
     const [location] = useLocation();
 
     return (
-        <Sidebar>
-            <SidebarHeader className="border-b border-sidebar-border h-14 justify-center">
-                <div className="flex items-center justify-center w-full px-2">
-                    {/* 관리자 페이지용 로고 - 필요시 변경 가능, 현재는 동일하게 유지 */}
-                    <img src="/logo.png" alt="(주)광주텔레콤" className="h-8 object-contain" />
+        <Sidebar className="border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/50 backdrop-blur-xl" collapsible="none">
+            <SidebarHeader className="h-14 flex items-center px-4 border-b border-slate-100 dark:border-zinc-800">
+                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                    <img src="/logo_wide.png" alt="Logo" className="h-6 object-contain" />
+                    <span>Admin</span>
                 </div>
             </SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>
-                    <SidebarGroupLabel>시스템 관리</SidebarGroupLabel>
+                    <SidebarGroupLabel className="text-slate-500 font-medium">구성원 / 조직도</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
-                            {adminItems.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild isActive={location === item.url}>
-                                        <Link href={item.url}>
-                                            <item.icon className="h-4 w-4" />
-                                            <span>{item.title}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild isActive={location.startsWith("/admin/members")}>
+                                    <Link href="/admin/members">
+                                        <Users className="h-4 w-4" />
+                                        <span>멤버</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild isActive={location.startsWith("/admin/org")}>
+                                    <Link href="/admin/org">
+                                        <Network className="h-4 w-4" />
+                                        <span>조직도</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild isActive={location.startsWith("/admin/positions")}>
+                                    <Link href="/admin/positions">
+                                        <Award className="h-4 w-4" />
+                                        <span>직급/직책</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup className="mt-4">
+                    <SidebarGroupLabel className="text-slate-500 font-medium">권한 관리</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton className="text-muted-foreground">
+                                    <ShieldCheck className="h-4 w-4" />
+                                    <span>어드민</span>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup className="mt-4">
+                    <SidebarGroupLabel className="text-slate-500 font-medium">사용량</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild isActive={location.startsWith("/admin/usage")}>
+                                    <Link href="/admin/usage">
+                                        <PieChart className="h-4 w-4" />
+                                        <span>공용 용량</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>
-            <SidebarFooter className="border-t border-sidebar-border">
-                <div className="px-4 py-2 text-xs text-muted-foreground text-center">
-                    SCM Admin v{import.meta.env.APP_VERSION}
+            <SidebarFooter className="border-t border-slate-100 dark:border-zinc-800 p-4">
+                <div className="text-xs text-muted-foreground text-center">
+                    KJ Erp Admin v{import.meta.env.APP_VERSION}
                 </div>
             </SidebarFooter>
         </Sidebar>

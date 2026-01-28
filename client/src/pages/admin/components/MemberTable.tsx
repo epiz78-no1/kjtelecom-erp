@@ -75,7 +75,6 @@ interface MemberTableProps {
     isLoading: boolean;
     onEdit: (member: any) => void;
     onRoleChange: (member: any) => void;
-    onPermissionEdit: (member: any) => void;
     onDelete: (member: any) => void;
 }
 
@@ -84,7 +83,6 @@ export function MemberTable({
     isLoading,
     onEdit,
     onRoleChange,
-    onPermissionEdit,
     onDelete
 }: MemberTableProps) {
     return (
@@ -97,22 +95,20 @@ export function MemberTable({
                         <TableHead>직급/부서</TableHead>
                         <TableHead>연락처</TableHead>
                         <TableHead>권한</TableHead>
-                        <TableHead>세부 권한</TableHead>
                         <TableHead>상태</TableHead>
-                        <TableHead>가입일</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoading ? (
                         <TableRow>
-                            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                 불러오는 중...
                             </TableCell>
                         </TableRow>
                     ) : members?.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                 등록된 멤버가 없습니다.
                             </TableCell>
                         </TableRow>
@@ -145,11 +141,8 @@ export function MemberTable({
                                     <span className="text-sm">{member.phoneNumber || "-"}</span>
                                 </TableCell>
                                 <TableCell>{getRoleBadge(member.role)}</TableCell>
-                                <TableCell>{getPermissionLabel(member.permissions)}</TableCell>
                                 <TableCell>{getStatusBadge(member.status)}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                    {member.joinDate ? format(new Date(member.joinDate), "yyyy-MM-dd", { locale: ko }) : "-"}
-                                </TableCell>
+
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
@@ -161,7 +154,6 @@ export function MemberTable({
                                             <DropdownMenuLabel>멤버 관리</DropdownMenuLabel>
                                             <DropdownMenuItem onClick={() => onEdit(member)}>정보 수정</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => onRoleChange(member)}>역할 변경</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => onPermissionEdit(member)}>상세 권한 설정</DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 className="text-destructive"

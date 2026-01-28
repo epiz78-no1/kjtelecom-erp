@@ -12,6 +12,8 @@ export const tenants = pgTable("tenants", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   isActive: boolean("is_active").notNull().default(true),
   settings: text("settings"), // JSON string for tenant-specific settings
+  storageLimit: varchar("storage_limit").notNull().default("10737418240"), // BigInt storage as string, default 10GB
+  usedStorage: varchar("used_storage").notNull().default("0"), // BigInt current usage as string
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
@@ -28,6 +30,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
   phoneNumber: text("phone_number"),
+  activeSessionId: text("active_session_id"), // Current active session ID for duplicate login prevention
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({

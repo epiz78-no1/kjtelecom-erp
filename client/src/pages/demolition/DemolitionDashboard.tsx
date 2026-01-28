@@ -348,6 +348,11 @@ export default function DemolitionDashboard() {
                                                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
                                                     {divisions?.find(d => d.id === team.divisionId)?.name || "-"}
                                                 </p>
+                                                {team.lastActivity && (
+                                                    <p className="text-[10px] text-indigo-200/70 mt-1">
+                                                        최근활동: {new Date(team.lastActivity).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '')}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="text-right">

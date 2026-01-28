@@ -42,32 +42,56 @@ export function Header() {
                 </div>
 
                 {/* Center: Navigation (Desktop) */}
+                {/* Center: Navigation (Desktop) */}
                 <nav className="hidden md:flex items-center gap-1">
                     <SidebarTrigger className="mr-2" />
-                    <Link href="/">
-                        <a className={cn(
-                            "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
-                            location === "/" ? "text-slate-900 font-semibold" : "text-slate-500"
-                        )}>
-                            홈
-                        </a>
-                    </Link>
-                    <Link href="/optical-dashboard">
-                        <a className={cn(
-                            "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
-                            location !== "/" && !location.startsWith("/archives") ? "text-slate-900 font-semibold" : "text-slate-500"
-                        )}>
-                            자재관리
-                        </a>
-                    </Link>
-                    <Link href="/archives">
-                        <a className={cn(
-                            "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
-                            location.startsWith("/archives") ? "text-slate-900 font-semibold" : "text-slate-500"
-                        )}>
-                            자료실
-                        </a>
-                    </Link>
+                    {location.startsWith("/admin") ? (
+                        <>
+                            <Link href="/admin/org">
+                                <a className={cn(
+                                    "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
+                                    location.startsWith("/admin/org") ? "text-slate-900 font-semibold" : "text-slate-500"
+                                )}>
+                                    테넌트 관리
+                                </a>
+                            </Link>
+                            <Link href="/">
+                                <a className={cn(
+                                    "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
+                                    "text-slate-500"
+                                )}>
+                                    서비스 관리
+                                </a>
+                            </Link>
+                        </>
+                    ) : (
+                        <>
+                            <Link href="/">
+                                <a className={cn(
+                                    "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
+                                    location === "/" ? "text-slate-900 font-semibold" : "text-slate-500"
+                                )}>
+                                    홈
+                                </a>
+                            </Link>
+                            <Link href="/optical-dashboard">
+                                <a className={cn(
+                                    "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
+                                    location !== "/" && !location.startsWith("/archives") ? "text-slate-900 font-semibold" : "text-slate-500"
+                                )}>
+                                    자재관리
+                                </a>
+                            </Link>
+                            <Link href="/archives">
+                                <a className={cn(
+                                    "px-4 py-2 text-sm font-medium transition-colors rounded-full hover:bg-slate-100",
+                                    location.startsWith("/archives") ? "text-slate-900 font-semibold" : "text-slate-500"
+                                )}>
+                                    자료실
+                                </a>
+                            </Link>
+                        </>
+                    )}
                 </nav>
 
                 {/* Right: Actions */}
@@ -88,6 +112,18 @@ export function Header() {
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>내 계정</DropdownMenuLabel>
                             <DropdownMenuSeparator />
+                            {/* Admin Link */}
+                            {(activeTenant?.role === 'owner' || activeTenant?.role === 'admin') && (
+                                <>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/permissions" className="cursor-pointer">
+                                            <Users className="mr-2 h-4 w-4" />
+                                            <span>권한설정</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
                             <DropdownMenuItem asChild>
                                 <Link href="/settings" className="cursor-pointer">
                                     <SettingsIcon className="mr-2 h-4 w-4" />
