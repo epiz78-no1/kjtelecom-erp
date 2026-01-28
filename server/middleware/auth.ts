@@ -97,3 +97,82 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     res.status(500).json({ error: "권한 확인 중 오류가 발생했습니다" });
   }
 }
+
+/**
+ * Middleware factory to require specific permission level for a menu
+ * @param menu - Menu name (incoming, outgoing, usage, inventory)
+ * @param level - Required permission level (read, write, own_only)
+ */
+export function requirePermission(menu: 'incoming' | 'outgoing' | 'usage' | 'inventory', level: 'read' | 'write' | 'own_only' = 'write') {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session?.userId || !req.session?.tenantId) {
+      return res.status(401).json({ error: "인증이 필요합니다" });
+    }
+
+    try {
+      const { db } = await import("../db.js");
+      const { userTenants } = await import("../../shared/schema.js");
+      const { and, eq } = await import("drizzle-orm");
+
+      const [userTenant] = await db
+        .select()
+        .from(userTenants)
+        .where(and(
+          eq(userTenants.userId, req.session.userId),
+          eq(userTenants.tenantId, req.session.tenantId)
+        ))
+        .limit(1);
+
+      if (!userTenant) {
+        return res.status(403).json({ error: "권한이 없습니다" });
+      }
+
+      // Owners and Admins always have full access
+      if (userTenant.role === 'owner' || userTenant.role === 'admin') {
+        return next();
+      }
+
+      // Check permissions
+      const permissions = userTenant.permissions as any;
+      if (!permissions || !permissions[menu]) {
+        return res.status(403).json({ error: "권한이 없습니다" });
+      }
+
+      const userPerm = permissions[menu];
+
+      // Check permission level
+      if (userPerm === 'none') {
+        return res.status(403).json({ error: "권한이 없습니다" });
+      }
+
+      if (level === 'write' && userPerm !== 'write') {
+        return res.status(403).json({ error: "쓰기 권한이 필요합니다" });
+      }
+
+      if (level === 'own_only' && userPerm !== 'own_only' && userPerm !== 'write') {
+        return res.status(403).json({ error: "권한이 없습니다" });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Permission check error:", error);
+      res.status(500).json({ error: "권한 확인 중 오류가 발생했습니다" });
+    }
+  };
+}
+
+/**
+ * Auto permission check based on HTTP method
+ * GET = read permission, POST/PATCH/PUT/DELETE = write permission
+ * @param menu - Menu name (incoming, outgoing, usage, inventory)
+ */
+export function autoCheckPermission(menu: 'incoming' | 'outgoing' | 'usage' | 'inventory') {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    // Determine required permission level based on HTTP method
+    const isReadOnly = req.method === 'GET' || req.method === 'HEAD';
+    const level = isReadOnly ? 'read' : 'write';
+
+    // Use the existing requirePermission logic
+    return requirePermission(menu, level)(req, res, next);
+  };
+}
