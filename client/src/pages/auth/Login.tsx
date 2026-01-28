@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Package, ArrowRight, Sparkles } from "lucide-react";
-import packageJson from "../../../package.json";
 import {
     Card,
     CardContent,
@@ -105,7 +104,7 @@ export default function Login() {
                 <div className="relative z-10 max-w-lg space-y-8">
                     <div className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 backdrop-blur-md shadow-sm">
                         <span className="flex h-2 w-2 rounded-full bg-emerald-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                        <span className="text-xs font-semibold text-emerald-300 tracking-wide">Smart ERP System v{packageJson.version}</span>
+                        <span className="text-xs font-semibold text-emerald-300 tracking-wide">Smart ERP System v{import.meta.env.APP_VERSION}</span>
                     </div>
                 </div>
 
