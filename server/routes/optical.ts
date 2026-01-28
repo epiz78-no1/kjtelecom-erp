@@ -1,14 +1,18 @@
 import type { Express } from "express";
 import { storage } from "../storage.js";
 import { apiInsertOpticalCableSchema, apiInsertOpticalCableLogSchema, opticalCables } from "../../shared/schema.js";
-import { requireAuth, requireTenant, requireAdmin } from "../middleware/auth.js";
+import { requireAuth, requireTenant, requireAdmin, requirePermission, autoCheckPermission } from "../middleware/auth.js";
 import { processAttachments } from "./inventory-helpers.js";
 import { db } from "../db.js";
 import { eq, and } from "drizzle-orm";
 
 export function registerOpticalRoutes(app: Express) {
+    // Apply auto permission check to all optical cable routes
+    // GET = read permission, POST/PATCH/DELETE = write permission
+    app.use('/api/optical-cables*', requireAuth, requireTenant, autoCheckPermission('inventory'));
+
     // Optical Cable Management API
-    app.get("/api/optical-cables", requireAuth, requireTenant, async (req, res) => {
+    app.get("/api/optical-cables", async (req, res) => {
         const tenantId = req.session!.tenantId!;
         const cables = await storage.getOpticalCables(tenantId);
         res.json(cables);
@@ -52,7 +56,7 @@ export function registerOpticalRoutes(app: Express) {
         res.json(cable);
     });
 
-    app.post("/api/optical-cables", requireAuth, requireTenant, async (req, res) => {
+    app.post("/api/optical-cables", requireAuth, requireTenant, requirePermission('inventory', 'write'), async (req, res) => {
         const parseResult = apiInsertOpticalCableSchema.safeParse(req.body);
         if (!parseResult.success) {
             return res.status(400).json({ error: parseResult.error.message });
@@ -100,7 +104,7 @@ export function registerOpticalRoutes(app: Express) {
         }
     });
 
-    app.patch("/api/optical-cables/:id", requireAuth, requireTenant, async (req, res) => {
+    app.patch("/api/optical-cables/:id", requireAuth, requireTenant, requirePermission('inventory', 'write'), async (req, res) => {
         const { id } = req.params;
 
 
@@ -148,7 +152,7 @@ export function registerOpticalRoutes(app: Express) {
         }
     });
 
-    app.post("/api/optical-cables/bulk", requireAuth, requireTenant, async (req, res) => {
+    app.post("/api/optical-cables/bulk", requireAuth, requireTenant, requirePermission('inventory', 'write'), async (req, res) => {
         const { items } = req.body;
         if (!Array.isArray(items)) {
             return res.status(400).json({ error: "Items must be an array" });
@@ -413,7 +417,7 @@ export function registerOpticalRoutes(app: Express) {
             res.status(500).json({ error: error.message });
         }
     });
-    app.post("/api/optical-cables/:id/reserve", requireAuth, requireTenant, async (req, res) => {
+    app.post("/api/optical-cables/:id/reserve", requireAuth, requireTenant, requirePermission('inventory', 'write'), async (req, res) => {
         const { id } = req.params;
         const { action, project } = req.body; // action: 'reserve' | 'release'
         const tenantId = req.session!.tenantId!;
