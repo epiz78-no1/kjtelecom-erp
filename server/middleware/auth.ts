@@ -19,6 +19,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       where: eq(users.id, req.session.userId),
       columns: {
         id: true,
+        username: true,
         activeSessionId: true
       }
     });
@@ -27,8 +28,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ error: "사용자를 찾을 수 없습니다" });
     }
 
+    // Allow multiple sessions for readonly01 account
+    const allowMultipleSessions = user.username === 'readonly01';
+
     // Check if this session is still valid (matches the active session)
-    if (user.activeSessionId && user.activeSessionId !== req.sessionID) {
+    if (!allowMultipleSessions && user.activeSessionId && user.activeSessionId !== req.sessionID) {
       // Another session has logged in, invalidate this session
       req.session.destroy(() => { });
       return res.status(401).json({ error: "다른 곳에서 로그인되어 현재 세션이 종료되었습니다" });

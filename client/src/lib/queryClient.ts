@@ -7,7 +7,14 @@ async function throwIfResNotOk(res: Response) {
       // Only redirect if not already on login page to prevent infinite loop
       const currentPath = window.location.pathname;
       if (!currentPath.startsWith('/login') && !currentPath.startsWith('/register')) {
-        window.location.href = '/login?session=expired';
+        // Show confirmation dialog before redirecting
+        const message = '세션이 만료되었습니다.\n다시 로그인해주세요.';
+
+        // Use setTimeout to ensure the dialog appears after any pending UI updates
+        setTimeout(() => {
+          alert(message);
+          window.location.href = '/login?session=expired';
+        }, 100);
       }
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
     }
