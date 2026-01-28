@@ -7,8 +7,13 @@ async function throwIfResNotOk(res: Response) {
       // Only redirect if not already on login page to prevent infinite loop
       const currentPath = window.location.pathname;
       if (!currentPath.startsWith('/login') && !currentPath.startsWith('/register')) {
-        // Silently redirect to login page without alert
-        window.location.href = '/login';
+        // Dispatch custom event for session expiry (App will show toast)
+        window.dispatchEvent(new CustomEvent('session-expired'));
+
+        // Redirect after a short delay to allow toast to show
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
       }
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
     }

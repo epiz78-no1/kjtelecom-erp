@@ -20,7 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Link } from "wouter";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 // Synchronous imports for critical paths (Auth)
 import Login from "@/pages/auth/Login";
@@ -202,6 +203,23 @@ function AppContent() {
 }
 
 function App() {
+  const { toast } = useToast();
+
+  // Listen for session expiry events
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      toast({
+        variant: "destructive",
+        title: "세션 만료",
+        description: "세션이 만료되었습니다. 로그인 페이지로 이동합니다.",
+        duration: 2000,
+      });
+    };
+
+    window.addEventListener('session-expired', handleSessionExpired);
+    return () => window.removeEventListener('session-expired', handleSessionExpired);
+  }, [toast]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
