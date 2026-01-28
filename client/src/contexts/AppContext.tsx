@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 interface Division {
   id: string;
@@ -81,9 +82,10 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [location] = useLocation();
+
   // Don't fetch auth on login/register pages to prevent 401 toast
-  const isAuthPage = window.location.pathname.startsWith('/login') ||
-    window.location.pathname.startsWith('/register');
+  const isAuthPage = location.startsWith('/login') || location.startsWith('/register');
 
   // Fetch current user from /api/auth/me
   const authQuery = useQuery<{ user: User; tenants: Tenant[]; currentTenant: string }>({
