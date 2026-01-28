@@ -116,19 +116,19 @@ export function Header() {
                             {(activeTenant?.role === 'owner' || activeTenant?.role === 'admin') && (
                                 <>
                                     <DropdownMenuItem asChild>
-                                        <Link href="/admin/permissions" className="cursor-pointer">
+                                        <a href="/admin/permissions" target="_blank" rel="noopener noreferrer" className="cursor-pointer flex items-center">
                                             <Users className="mr-2 h-4 w-4" />
                                             <span>권한설정</span>
-                                        </Link>
+                                        </a>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                 </>
                             )}
                             <DropdownMenuItem asChild>
-                                <Link href="/settings" className="cursor-pointer">
+                                <a href="/settings" target="_blank" rel="noopener noreferrer" className="cursor-pointer flex items-center">
                                     <SettingsIcon className="mr-2 h-4 w-4" />
                                     <span>내 정보 수정</span>
-                                </Link>
+                                </a>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => logout()} className="text-red-600 cursor-pointer">

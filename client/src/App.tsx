@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { SettingsSidebar } from "@/components/layout/SettingsSidebar";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAppContext } from "@/contexts/AppContext";
@@ -151,7 +152,7 @@ function AppContent() {
           return (
             <SidebarProvider style={style as React.CSSProperties}>
               <div className="flex h-screen w-full">
-                {location.startsWith('/admin') ? <AdminSidebar /> : <AppSidebar />}
+                {location.startsWith('/settings') ? <SettingsSidebar /> : location.startsWith('/admin') ? <AdminSidebar /> : <AppSidebar />}
                 <div className="flex flex-col flex-1 overflow-hidden">
                   <Header />
                   <main className="flex-1 overflow-auto p-6">
