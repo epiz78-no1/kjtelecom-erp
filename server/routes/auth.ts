@@ -159,11 +159,17 @@ export function registerAuthRoutes(app: Express) {
             req.session.tenantId = activeTenants.length > 0 ? activeTenants[0].tenantId : undefined;
 
             // Update last login and active session ID (for duplicate login prevention)
+            // readonly01 account allows multiple sessions, so don't update activeSessionId
+            const updateData: any = {
+                lastLoginAt: new Date()
+            };
+
+            if (user.username !== 'readonly01') {
+                updateData.activeSessionId = req.sessionID;
+            }
+
             await db.update(users)
-                .set({
-                    lastLoginAt: new Date(),
-                    activeSessionId: req.sessionID // Store current session ID
-                })
+                .set(updateData)
                 .where(eq(users.id, user.id));
 
             res.json({
