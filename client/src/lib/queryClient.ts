@@ -4,17 +4,21 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     // Handle 401 Unauthorized - Session Expired
     if (res.status === 401) {
-      // Only redirect if not already on login page to prevent infinite loop
       const currentPath = window.location.pathname;
-      if (!currentPath.startsWith('/login') && !currentPath.startsWith('/register')) {
-        // Dispatch custom event for session expiry (App will show toast)
-        window.dispatchEvent(new CustomEvent('session-expired'));
 
-        // Redirect after a short delay to allow toast to show
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
+      // On login/register pages, just throw error without any UI feedback
+      if (currentPath.startsWith('/login') || currentPath.startsWith('/register')) {
+        throw new Error('인증이 필요합니다.');
       }
+
+      // On other pages, show toast and redirect
+      window.dispatchEvent(new CustomEvent('session-expired'));
+
+      // Redirect after a short delay to allow toast to show
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
+
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
     }
 
