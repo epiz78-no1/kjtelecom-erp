@@ -174,7 +174,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">가용 자원 총량</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">보유 자재</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
                 {totalRemaining.toLocaleString()}
               </h3>
@@ -191,7 +191,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">공정 자산 규모</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">총 재고 금액</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-violet-600 transition-colors">
                 {(totalAmount / 1000000).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                 <span className="text-lg text-slate-400 font-normal ml-1">백만원</span>
@@ -209,7 +209,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">가동 중인 시공팀</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">활성 현장팀</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors">
                 {activeTeamCount}
                 <span className="text-lg text-slate-400 font-normal ml-1">Teams</span>
@@ -227,7 +227,7 @@ export default function Dashboard() {
           </div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">수급 경보 항목</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">재고 부족 항목</p>
               <h3 className="text-3xl font-bold mt-2 text-slate-900 dark:text-white group-hover:text-red-500 transition-colors">
                 {lowStockCount}
                 <span className="text-lg text-slate-400 font-normal ml-1">Items</span>
