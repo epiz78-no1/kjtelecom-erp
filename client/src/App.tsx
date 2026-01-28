@@ -204,10 +204,17 @@ function AppContent() {
 
 function App() {
   const { toast } = useToast();
+  const [location] = useLocation();
 
-  // Listen for session expiry events
+  // Listen for session expiry events (but not on login/register pages)
   useEffect(() => {
     const handleSessionExpired = () => {
+      // Don't show toast on login/register pages
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/login') || currentPath.startsWith('/register')) {
+        return;
+      }
+
       toast({
         variant: "destructive",
         title: "세션 만료",
