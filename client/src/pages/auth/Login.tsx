@@ -81,19 +81,7 @@ export default function Login() {
 
     useEffect(() => {
         document.title = "로그인 | (주)광주텔레콤 ERP";
-
-        // Check if redirected due to session expiry
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('session') === 'expired') {
-            toast({
-                variant: "destructive",
-                title: "세션 만료",
-                description: "세션이 만료되었습니다. 다시 로그인해주세요.",
-            });
-            // Clean up URL
-            window.history.replaceState({}, '', '/login');
-        }
-    }, [toast]);
+    }, []);
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-background font-sans selection:bg-indigo-500/20">
