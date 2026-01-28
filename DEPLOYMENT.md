@@ -51,24 +51,34 @@ Vercel이 자동으로 개발 환경에 배포합니다.
 
 ### 운영 서버 배포 (main 브랜치)
 
-> ⚠️ **주의**: 운영 배포 전 반드시 DB 스키마 검증을 실행하세요!
+> ⚠️ **주의**: 운영 배포 전 반드시 DB 스키마를 운영 데이터베이스에 푸시하세요!
 
 ```bash
-# 1. DB 스키마 검증
-./scripts/pre-deploy-check.sh
+# 1. 운영 DB에 스키마 푸시 (PowerShell)
+$env:DATABASE_URL="postgresql://postgres.ggyibpyypykpcqxmgbgt:chldhrwn7908%3F@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"; npm run db:push
 
-# 2. 검증 통과 시 main 브랜치로 전환
+# 또는 Bash
+DATABASE_URL="postgresql://postgres.ggyibpyypykpcqxmgbgt:chldhrwn7908%3F@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres" npm run db:push
+
+# 2. "Changes applied" 또는 "No changes detected" 확인
+
+# 3. main 브랜치로 전환
 git checkout main
 
-# 3. dev 브랜치 병합
+# 4. dev 브랜치 병합
 git merge dev
 
-# 4. 운영 서버로 푸시
+# 5. 운영 서버로 푸시
 git push origin main
 
-# 5. dev 브랜치로 복귀
+# 6. dev 브랜치로 복귀
 git checkout dev
 ```
+
+**중요**: 
+- 스키마 변경이 있는 경우 반드시 1번 단계를 먼저 실행
+- "Changes applied" 메시지 확인 후 배포 진행
+- 스키마 푸시 없이 배포하면 운영 서버 오류 발생 가능
 
 ## 환경변수 설정
 

@@ -58,7 +58,7 @@ export function registerDemolitionRoutes(app: Express) {
                 ...parseResult.data,
                 managementNo,
                 attributes: Object.keys(attributesObj).length > 0 ? JSON.stringify(attributesObj) : parseResult.data.attributes,
-                remainingQuantity: parseResult.data.remainingQuantity ?? parseResult.data.originalQuantity,
+                remainingQuantity: parseResult.data.remainingQuantity || parseResult.data.originalQuantity,
                 tenantId,
                 createdBy: req.session!.userId!
             }, tenantId);

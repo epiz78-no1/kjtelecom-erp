@@ -141,10 +141,7 @@ export default function OpticalDashboard() {
             divisionName,
             materialCount,
         } as FieldTeam;
-    }).sort((a, b) => {
-        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-        return a.name.localeCompare(b.name);
-    });
+    }).sort((a, b) => (b.lastActivity || "").localeCompare(a.lastActivity || ""));
 
     return (
         <div className="flex flex-col gap-4 h-full overflow-y-auto p-2 bg-slate-50/50 dark:bg-zinc-950/50 custom-scrollbar">

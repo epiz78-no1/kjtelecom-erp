@@ -2,6 +2,13 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    // Handle 401 Unauthorized - Session Expired
+    if (res.status === 401) {
+      // Redirect to login page
+      window.location.href = '/login?session=expired';
+      throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+    }
+
     const text = await res.text();
     let message = text;
     try {
