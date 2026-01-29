@@ -45,18 +45,15 @@ export default function FieldOpticalStatus() {
     const canWrite = checkPermission("usage", "write");
 
     const currentTenantData = tenants.find(t => t.id === currentTenant);
-    const isFieldTeam = currentTenantData?.permissions &&
-        currentTenantData.permissions.usage === 'write' &&
-        currentTenantData.permissions.incoming === 'none' &&
-        currentTenantData.permissions.outgoing === 'none' &&
-        currentTenantData.permissions.inventory === 'none';
+    const myTeamId = currentTenantData?.teamId;
+    const myTeam = allTeams.find(t => t.id === myTeamId);
+
+    // 현장팀 판별: teamId가 있으면 현장팀
+    const isFieldTeam = !!myTeamId;
 
     const canManage = canWrite && !isFieldTeam;
     // 현장팀이거나 관리자면 반납/폐기 가능
     const canAction = canManage || isFieldTeam;
-
-    const myTeamId = currentTenantData?.teamId;
-    const myTeam = allTeams.find(t => t.id === myTeamId);
 
     const { widths, startResizing } = useColumnResize({
         division: 80,
@@ -95,7 +92,12 @@ export default function FieldOpticalStatus() {
             status: cable.status, // 상태 추가
             returnRequestStatus: cable.returnRequestStatus // 반납 요청 상태 추가
         };
-    }).filter(item => !isFieldTeam || (myTeam && item.teamCategory === myTeam.name)); // 현장팀 필터링
+    }).filter(item => {
+        // 현장팀이 아니면 모든 항목 표시
+        if (!isFieldTeam) return true;
+        // 현장팀이면 본인 팀 ID와 일치하는 항목만 표시
+        return myTeamId && item.currentTeamId === myTeamId;
+    }); // 현장팀 필터링
 
     const {
         searchQuery,

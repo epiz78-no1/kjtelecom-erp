@@ -30,30 +30,30 @@ import TenantSelect from "@/pages/auth/TenantSelect";
 import NotFound from "@/pages/common/NotFound";
 
 // Lazy imports for other pages to improve initial load time
-const Dashboard = lazy(() => import("@/pages/general/Dashboard"));
-const Inventory = lazy(() => import("@/pages/general/Inventory"));
-const IncomingRecords = lazy(() => import("@/pages/general/IncomingRecords"));
-const OutgoingRecords = lazy(() => import("@/pages/general/OutgoingRecords"));
+const Dashboard = lazy(() => import("@/pages/home/Dashboard"));
+const Inventory = lazy(() => import("@/pages/materials/general/Inventory"));
+const IncomingRecords = lazy(() => import("@/pages/materials/general/IncomingRecords"));
+const OutgoingRecords = lazy(() => import("@/pages/materials/general/OutgoingRecords"));
 
 
 
 // Optical Pages
-const OpticalDashboard = lazy(() => import("@/pages/optical/OpticalDashboard"));
-const OpticalCables = lazy(() => import("@/pages/optical/OpticalCables"));
-const OpticalIncoming = lazy(() => import("@/pages/optical/OpticalIncoming"));
-const OpticalOutgoing = lazy(() => import("@/pages/optical/OpticalOutgoing"));
-const TeamOutgoing = lazy(() => import("@/pages/field/TeamOutgoing"));
-const TeamMaterialUsage = lazy(() => import("@/pages/field/TeamMaterialUsage"));
-const FieldOpticalStatus = lazy(() => import("@/pages/field/FieldOpticalStatus"));
-const FieldOpticalUsage = lazy(() => import("@/pages/field/FieldOpticalUsage"));
+const OpticalDashboard = lazy(() => import("@/pages/materials/optical/OpticalDashboard"));
+const OpticalCables = lazy(() => import("@/pages/materials/optical/OpticalCables"));
+const OpticalIncoming = lazy(() => import("@/pages/materials/optical/OpticalIncoming"));
+const OpticalOutgoing = lazy(() => import("@/pages/materials/optical/OpticalOutgoing"));
+const TeamOutgoing = lazy(() => import("@/pages/materials/field/TeamOutgoing"));
+const TeamMaterialUsage = lazy(() => import("@/pages/materials/field/TeamMaterialUsage"));
+const FieldOpticalStatus = lazy(() => import("@/pages/materials/field/FieldOpticalStatus"));
+const FieldOpticalUsage = lazy(() => import("@/pages/materials/field/FieldOpticalUsage"));
 
 // Demolition Pages
-const DemolitionDashboard = lazy(() => import("@/pages/demolition/DemolitionDashboard"));
-const DemolitionMaterials = lazy(() => import("@/pages/demolition/DemolitionMaterials"));
-const DemolitionIncoming = lazy(() => import("@/pages/demolition/DemolitionIncoming"));
-const DemolitionOutgoing = lazy(() => import("@/pages/demolition/DemolitionOutgoing"));
-const TeamMaterialUsageDemolition = lazy(() => import("@/pages/field/TeamMaterialUsageDemolition"));
-const TeamOutgoingDemolition = lazy(() => import("@/pages/field/TeamOutgoingDemolition"));
+const DemolitionDashboard = lazy(() => import("@/pages/materials/demolition/DemolitionDashboard"));
+const DemolitionMaterials = lazy(() => import("@/pages/materials/demolition/DemolitionMaterials"));
+const DemolitionIncoming = lazy(() => import("@/pages/materials/demolition/DemolitionIncoming"));
+const DemolitionOutgoing = lazy(() => import("@/pages/materials/demolition/DemolitionOutgoing"));
+const TeamMaterialUsageDemolition = lazy(() => import("@/pages/materials/field/TeamMaterialUsageDemolition"));
+const TeamOutgoingDemolition = lazy(() => import("@/pages/materials/field/TeamOutgoingDemolition"));
 
 // Admin & Settings
 const Settings = lazy(() => import("@/pages/common/Settings"));
@@ -64,9 +64,9 @@ const AdminUsage = lazy(() => import("@/pages/admin/AdminUsage"));
 const AdminPermissions = lazy(() => import("@/pages/admin/AdminPermissions"));
 const SuperAdminDashboard = lazy(() => import("@/pages/admin/SuperAdminDashboard"));
 
-import Home from "@/pages/general/Home";
+import Home from "@/pages/home/Home";
 
-const Archives = lazy(() => import("@/pages/general/Archives"));
+const Archives = lazy(() => import("@/pages/archives/Archives"));
 
 import { FEATURE_FLAGS } from "@/lib/constants";
 import { Header } from "@/components/common/Header";
