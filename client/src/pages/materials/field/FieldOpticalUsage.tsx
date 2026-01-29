@@ -73,9 +73,10 @@ export default function FieldOpticalUsage() {
 
     const canWrite = checkPermission("usage", "write");
     const currentTenantData = tenants.find(t => t.id === currentTenant);
-    const teamCategories = ["접속팀", "외선팀", "유지보수팀", "설치팀"];
-    const team = teams.find(t => t.id === currentTenantData?.teamId);
-    const isFieldTeam = team ? teamCategories.includes(team.teamCategory) : false;
+
+    // 현장팀 판별: teamId가 있으면 현장팀
+    const isFieldTeam = !!currentTenantData?.teamId;
+
     const { downloadFile, downloadAttachment } = useDownload();
 
     const canManage = canWrite && !isFieldTeam;
@@ -101,7 +102,8 @@ export default function FieldOpticalUsage() {
 
 
     const teamId = currentTenantData?.teamId;
-    const isTeamResolved = !teamId || !!(teamId && team);
+    const team = teams.find(t => t.id === teamId);
+    const isTeamResolved = !teamId || !!team;
 
     // 광케이블 데이터 조회 (검증용)
     const { data: cables = [] } = useQuery<(OpticalCable & { logs: OpticalCableLog[] })[]>({
