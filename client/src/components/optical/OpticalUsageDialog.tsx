@@ -63,7 +63,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
         wasteLength: 0,
         projectCode: "",
         projectNameUsage: "",
-        workerName: user?.username || "",
+        workerName: user?.name || "",
     });
 
     // 수정 모드에서 사용할 케이블 정보 (전체 목록에 없을 수 있음)
@@ -200,7 +200,7 @@ export function OpticalUsageDialog({ open, onOpenChange, editingLog }: OpticalUs
                 wasteLength: 0,
                 projectCode: "",
                 projectNameUsage: "",
-                workerName: user?.username || "",
+                workerName: user?.name || "",
             });
             clearAttachments();
             setEditingCable(null);

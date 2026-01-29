@@ -100,13 +100,9 @@ export default function TeamMaterialUsage() {
   // Permissions
   const canWrite = checkPermission("usage", "write");
 
-  // 현장팀 권한 체크: usage만 write이고 나머지가 모두 none인 경우
+  // 현장팀 판별: teamId가 있으면 현장팀
   const currentTenantData = tenants.find(t => t.id === currentTenant);
-  const isFieldTeam = currentTenantData?.permissions &&
-    currentTenantData.permissions.usage === 'write' &&
-    currentTenantData.permissions.incoming === 'none' &&
-    currentTenantData.permissions.outgoing === 'none' &&
-    currentTenantData.permissions.inventory === 'none';
+  const isFieldTeam = !!currentTenantData?.teamId;
 
   // 엑셀 다운로드 및 전체 관리 권한 (현장팀 제외)
   const canManage = canWrite && !isFieldTeam;
