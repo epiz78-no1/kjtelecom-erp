@@ -74,8 +74,12 @@ export default function FieldOpticalUsage() {
     const canWrite = checkPermission("usage", "write");
     const currentTenantData = tenants.find(t => t.id === currentTenant);
 
-    // 현장팀 판별: teamId가 있고 owner가 아니면 현장팀
-    const isFieldTeam = !!currentTenantData?.teamId && currentTenantData?.role !== 'owner';
+    // 현장팀 판별: usage만 write이고 나머지가 모두 none인 경우
+    const isFieldTeam = currentTenantData?.permissions &&
+        currentTenantData.permissions.usage === 'write' &&
+        currentTenantData.permissions.incoming === 'none' &&
+        currentTenantData.permissions.outgoing === 'none' &&
+        currentTenantData.permissions.inventory === 'none';
 
     const { downloadFile, downloadAttachment } = useDownload();
 
