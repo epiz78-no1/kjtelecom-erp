@@ -305,7 +305,7 @@ export default function FieldOpticalUsage() {
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950/50 p-2 overflow-hidden">
-            <div className="hidden md:flex flex-col gap-2 flex-shrink-0 mb-2 pt-1 px-2">
+            <div className="hidden md:flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 px-1">
                         <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -406,7 +406,7 @@ export default function FieldOpticalUsage() {
 
             </div>
 
-            <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0 mx-2">
+            <div className="flex-1 rounded-3xl border border-slate-200 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden flex flex-col relative z-0">
                 {/* PC View: Table */}
                 <div className="hidden md:block h-full overflow-auto">
                     <table className="w-full caption-bottom text-sm table-fixed">
@@ -498,32 +498,32 @@ export default function FieldOpticalUsage() {
                                                     />
                                                 ) : null}
                                             </TableCell>
-                                            <TableCell className="text-center px-1">
+                                            <TableCell className="text-center p-0 px-1">
                                                 {log.usageDate || new Date(log.createdAt).toISOString().split('T')[0]}
                                             </TableCell>
-                                            <TableCell className="text-center px-1">{log.cable.division}</TableCell>
-                                            <TableCell className="text-center px-1 truncate" title={teamName}>{teamName}</TableCell>
-                                            <TableCell className="text-center px-1 font-mono text-slate-500">
+                                            <TableCell className="text-center p-0 px-1">{log.cable.division}</TableCell>
+                                            <TableCell className="text-center p-0 px-1 truncate" title={teamName}>{teamName}</TableCell>
+                                            <TableCell className="text-center p-0 px-1 font-mono text-slate-500">
                                                 <div className="w-full truncate text-center mx-auto" title={(log as any).projectCode || ""}>
                                                     {(log as any).projectCode || ""}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="px-2 text-slate-700">
+                                            <TableCell className="p-0 px-2 text-slate-700">
                                                 <div className="w-full truncate text-left" title={(log as any).projectNameUsage || log.cable.projectName || ''}>
                                                     {(log as any).projectNameUsage || log.cable.projectName || ''}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-center px-1 font-mono text-slate-700 font-medium">
+                                            <TableCell className="text-center p-0 px-1 font-mono text-slate-700 font-medium">
                                                 {log.cable.drumNo}
                                             </TableCell>
-                                            <TableCell className="text-center px-1 text-slate-500">{log.cable.spec}</TableCell>
-                                            <TableCell className="text-right px-2 font-mono">
+                                            <TableCell className="text-center p-0 px-1 text-slate-500">{log.cable.spec}</TableCell>
+                                            <TableCell className="text-right p-0 px-2 font-mono">
                                                 {(log.installLength || 0).toLocaleString()}
                                             </TableCell>
-                                            <TableCell className="text-right px-2 font-mono text-slate-400">
+                                            <TableCell className="text-right p-0 px-2 font-mono text-slate-400">
                                                 {(log.wasteLength || 0).toLocaleString()}
                                             </TableCell>
-                                            <TableCell className="text-right px-2 font-mono font-bold text-emerald-600">
+                                            <TableCell className="text-right p-0 px-2 font-mono font-bold text-emerald-600">
                                                 {((log as any).afterRemaining || 0).toLocaleString()}
                                             </TableCell>
                                             <TableCell className="text-center px-1">

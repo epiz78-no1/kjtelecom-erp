@@ -181,7 +181,7 @@ export default function DemolitionIncoming() {
     const updateMutation = useMutation({
         mutationFn: async (data: any) => {
             const res = await fetch(`/api/demolition-materials/${editId}`, {
-                method: "PUT",
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...data,
@@ -292,6 +292,17 @@ export default function DemolitionIncoming() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // 입고 수량 유효성 검사
+        if (formData.originalQuantity <= 0) {
+            toast({
+                title: "입고 수량 오류",
+                description: "입고 수량은 0보다 커야 합니다.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         if (isEditing) {
             updateMutation.mutate(formData);
         } else {

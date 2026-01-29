@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.49] - 2026-01-29
+
+### Changed
+- **UI 표준화:** 자재 사용등록 페이지 헤더 간격 표준화 (OpticalCables 페이지 기준)
+  - FieldOpticalUsage: 테이블 컨테이너 mx-2 제거, 헤더 패딩 조정
+  - TeamMaterialUsage: 헤더 패딩 조정
+  - TeamMaterialUsageDemolition: 헤더 패딩 조정
+- **테이블:** TableCell 기본 패딩 조정 (py-0.5 px-2)로 더 컴팩트한 행 높이 구현
+
+### Fixed
+- **철거자재:** 입고 수정 API 메서드 오류 수정 (PUT → PATCH)
+- **철거자재:** 입고 수량 유효성 검사 추가 (최소값 1, 0 입력 방지)
+
 ## [v1.2.46] - 2026-01-28
 
 ### Added

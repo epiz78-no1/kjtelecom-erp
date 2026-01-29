@@ -1,12 +1,13 @@
 {
   "name": "kjtelecom-erp",
-  "version": "1.2.48",
+  "version": "1.2.49",
   "private": true,
   "type": "module",
   "license": "MIT",
   "main": "dist-server/index.cjs",
   "scripts": {
     "dev": "tsx watch server/index.ts",
+    "dev:clean": "rimraf node_modules/.vite client/dist && npm run dev",
     "build": "tsx script/build.ts",
     "start": "cross-env NODE_ENV=production node dist-server/index.cjs",
     "check": "tsc",

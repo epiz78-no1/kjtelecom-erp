@@ -651,7 +651,7 @@ export const apiInsertDemolitionMaterialSchema = z.object({
   workerName: z.string().optional(),
   productName: z.string(),
   specification: z.string(),
-  originalQuantity: z.number().min(0),
+  originalQuantity: z.number().min(1, "입고 수량은 1 이상이어야 합니다"),
   remainingQuantity: z.number().min(0).optional(),
   estimatedValue: z.number().min(0).optional(),
   currentTeamId: z.string().optional(),

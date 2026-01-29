@@ -411,8 +411,8 @@ export default function TeamMaterialUsageDemolition() {
             <div className="hidden md:flex flex-col h-full">
                 {/* Ultra Compact Header Section */}
                 <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
-                    <div className="flex items-center justify-between gap-2 px-1">
-                        <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 px-1">
                             <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                 철거자재 사용 목록
                                 <span className="flex h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm shadow-red-500/50 animate-pulse"></span>
@@ -580,24 +580,24 @@ export default function TeamMaterialUsageDemolition() {
 
                                         return (
                                             <TableRow key={log.id} className={`group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors ${rowColor} text-xs`}>
-                                                <TableCell className="text-center px-1">
+                                                <TableCell className="text-center p-0 px-1">
                                                     <Checkbox
                                                         checked={selectedIds.has(log.id)}
                                                         onCheckedChange={() => toggleSelect(log.id)}
-                                                        className="translate-y-[2px]"
+                                                        className="translate-y-[2px] opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity"
                                                     />
                                                 </TableCell>
-                                                <TableCell className="text-center px-1 text-[11px] text-slate-500 font-mono">{log.logDate || ''}</TableCell>
-                                                <TableCell className="text-center px-1 text-slate-600">{log.division || ''}</TableCell>
-                                                <TableCell className="text-center px-1 font-medium text-slate-700">{log.teamName || ''}</TableCell>
-                                                <TableCell className="text-center px-1 text-slate-600 truncate" title={log.projectCode}>{log.projectCode || ''}</TableCell>
-                                                <TableCell className="text-left px-2 text-slate-800 font-medium truncate" title={log.projectName}>{log.projectName || ''}</TableCell>
-                                                <TableCell className="text-center px-2 text-slate-700 font-medium truncate" title={log.productName}>{log.productName || ''}</TableCell>
-                                                <TableCell className="text-center px-1 text-slate-500 truncate" title={log.spec}>{log.spec || ''}</TableCell>
-                                                <TableCell className="text-center px-2 font-bold font-mono text-primary">{log.usedQuantity?.toLocaleString() || '0'}</TableCell>
-                                                <TableCell className="text-center px-1 text-slate-600">{log.workerName || ''}</TableCell>
-                                                <TableCell className="text-left px-2 text-slate-400 italic truncate" title={log.remark || ''}>{log.remark || ''}</TableCell>
-                                                <TableCell className="text-center px-1 text-slate-400">{(log as any).createdByName || (log as any).creatorName || "-"}</TableCell>
+                                                <TableCell className="text-center p-0 px-1 text-[11px] text-slate-500 font-mono">{log.logDate || ''}</TableCell>
+                                                <TableCell className="text-center p-0 px-1 text-slate-600">{log.division || ''}</TableCell>
+                                                <TableCell className="text-center p-0 px-1 font-medium text-slate-700">{log.teamName || ''}</TableCell>
+                                                <TableCell className="text-center p-0 px-1 text-slate-600 truncate" title={log.projectCode}>{log.projectCode || ''}</TableCell>
+                                                <TableCell className="text-left p-0 px-2 text-slate-800 font-medium truncate" title={log.projectName}>{log.projectName || ''}</TableCell>
+                                                <TableCell className="text-center p-0 px-2 text-slate-700 font-medium truncate" title={log.productName}>{log.productName || ''}</TableCell>
+                                                <TableCell className="text-center p-0 px-1 text-slate-500 truncate" title={log.spec}>{log.spec || ''}</TableCell>
+                                                <TableCell className="text-center p-0 px-2 font-bold font-mono text-primary">{log.usedQuantity?.toLocaleString() || '0'}</TableCell>
+                                                <TableCell className="text-center p-0 px-1 text-slate-600">{log.workerName || ''}</TableCell>
+                                                <TableCell className="text-left p-0 px-2 text-slate-400 italic truncate" title={log.remark || ''}>{log.remark || ''}</TableCell>
+                                                <TableCell className="text-center p-0 px-1 text-slate-400">{(log as any).createdByName || (log as any).creatorName || "-"}</TableCell>
                                                 <TableCell className="text-center px-1">
                                                     {(() => {
                                                         let hasAttachments = false;
