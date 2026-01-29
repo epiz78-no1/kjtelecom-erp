@@ -699,9 +699,9 @@ export default function TeamMaterialUsage() {
       {/* (PC) Ultra Compact Header Section */}
       <div className="hidden md:flex flex-col h-full">
         <div className="flex flex-col gap-2 flex-shrink-0 mb-2 pt-1">
-          <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center justify-between gap-2">
             {/* Left: Title + Count */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-1">
               <h1 className="text-base font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 팀 자재 사용 내역
                 <span className="flex h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50 animate-pulse"></span>
@@ -859,27 +859,28 @@ export default function TeamMaterialUsage() {
               <TableBody>
                 {filteredRecords.map((record) => (
                   <TableRow key={record.id} data-testid={`row-usage-${record.id}`} className="group h-10 border-b border-slate-100 dark:border-zinc-800 transition-colors hover:bg-slate-50/80 text-xs">
-                    <TableCell className="text-center px-1">
+                    <TableCell className="text-center p-0 px-1">
                       {isTenantOwner ? (
                         <Checkbox
                           checked={selectedIds.has(record.id)}
                           onCheckedChange={() => toggleSelect(record.id)}
                           data-testid={`checkbox-${record.id}`}
+                          className="translate-y-[2px] opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100 transition-opacity"
                         />
                       ) : null}
                     </TableCell>
-                    <TableCell className="text-center px-1 text-[11px] text-slate-500 font-mono">{record.date}</TableCell>
-                    <TableCell className="text-center px-1 text-slate-600">{record.division}</TableCell>
-                    <TableCell className="text-center px-1 font-medium text-slate-700">
+                    <TableCell className="text-center p-0 px-1 text-[11px] text-slate-500 font-mono">{record.date}</TableCell>
+                    <TableCell className="text-center p-0 px-1 text-slate-600">{record.division}</TableCell>
+                    <TableCell className="text-center p-0 px-1 font-medium text-slate-700">
                       {record.teamCategory || teams.find(t => t.id === record.teamId)?.name || ''}
                     </TableCell>
-                    <TableCell className="text-left px-2 text-slate-800 font-medium truncate" title={record.projectName || ""}>{record.projectName}</TableCell>
-                    <TableCell className="text-center px-2 font-medium text-slate-800 truncate" title={record.productName}>{record.productName}</TableCell>
-                    <TableCell className="text-center px-1 text-slate-500 truncate" title={record.specification}>{record.specification}</TableCell>
-                    <TableCell className="text-center px-2 font-bold font-mono text-primary">{record.quantity.toLocaleString()}</TableCell>
-                    <TableCell className="text-center px-1 text-slate-600">{record.recipient || ''}</TableCell>
-                    <TableCell className="text-left px-2 text-slate-400 italic truncate" title={record.remark || ""}>{record.remark || ""}</TableCell>
-                    <TableCell className="text-center px-1 text-slate-400">{(record as any).createdByName || "-"}</TableCell>
+                    <TableCell className="text-left p-0 px-2 text-slate-800 font-medium truncate" title={record.projectName || ""}>{record.projectName}</TableCell>
+                    <TableCell className="text-center p-0 px-2 font-medium text-slate-800 truncate" title={record.productName}>{record.productName}</TableCell>
+                    <TableCell className="text-center p-0 px-1 text-slate-500 truncate" title={record.specification}>{record.specification}</TableCell>
+                    <TableCell className="text-center p-0 px-2 font-bold font-mono text-primary">{record.quantity.toLocaleString()}</TableCell>
+                    <TableCell className="text-center p-0 px-1 text-slate-600">{record.recipient || ''}</TableCell>
+                    <TableCell className="text-left p-0 px-2 text-slate-400 italic truncate" title={record.remark || ""}>{record.remark || ""}</TableCell>
+                    <TableCell className="text-center p-0 px-1 text-slate-400">{(record as any).createdByName || "-"}</TableCell>
                     <TableCell className="text-center px-1">
                       {(() => {
                         let hasAttachments = false;
