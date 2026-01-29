@@ -74,8 +74,8 @@ export default function FieldOpticalUsage() {
     const canWrite = checkPermission("usage", "write");
     const currentTenantData = tenants.find(t => t.id === currentTenant);
 
-    // 현장팀 판별: teamId가 있으면 현장팀
-    const isFieldTeam = !!currentTenantData?.teamId;
+    // 현장팀 판별: teamId가 있고 owner가 아니면 현장팀
+    const isFieldTeam = !!currentTenantData?.teamId && currentTenantData.role !== 'owner';
 
     const { downloadFile, downloadAttachment } = useDownload();
 
