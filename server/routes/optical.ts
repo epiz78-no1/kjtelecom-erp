@@ -9,7 +9,8 @@ import { eq, and } from "drizzle-orm";
 export function registerOpticalRoutes(app: Express) {
     // Apply auto permission check to all optical cable routes
     // GET = read permission, POST/PATCH/DELETE = write permission
-    app.use('/api/optical-cables*', requireAuth, requireTenant, autoCheckPermission('inventory'));
+    // Changed from 'inventory' to 'usage' to allow field teams to access their cables
+    app.use('/api/optical-cables*', requireAuth, requireTenant, autoCheckPermission('usage'));
 
     // Optical Cable Management API
     app.get("/api/optical-cables", async (req, res) => {
