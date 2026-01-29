@@ -48,8 +48,12 @@ export default function FieldOpticalStatus() {
     const myTeamId = currentTenantData?.teamId;
     const myTeam = allTeams.find(t => t.id === myTeamId);
 
-    // 현장팀 판별: teamId가 있고 owner가 아니면 현장팀
-    const isFieldTeam = !!myTeamId && currentTenantData.role !== 'owner';
+    // 현장팀 판별: usage만 write이고 나머지가 모두 none인 경우
+    const isFieldTeam = currentTenantData?.permissions &&
+        currentTenantData.permissions.usage === 'write' &&
+        currentTenantData.permissions.incoming === 'none' &&
+        currentTenantData.permissions.outgoing === 'none' &&
+        currentTenantData.permissions.inventory === 'none';
 
     const canManage = canWrite && !isFieldTeam;
     // 현장팀이거나 관리자면 반납/폐기 가능
