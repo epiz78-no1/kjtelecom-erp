@@ -117,6 +117,22 @@ export function registerDemolitionRoutes(app: Express) {
         }
     });
 
+    // 철거자재 삭제
+    app.delete("/api/demolition-materials/:id", requireAuth, requireTenant, async (req, res) => {
+        const { id } = req.params;
+        const tenantId = req.session!.tenantId!;
+
+        try {
+            const success = await storage.deleteDemolitionMaterial(id, tenantId);
+            if (!success) {
+                return res.status(404).json({ error: "Material not found" });
+            }
+            res.status(204).send();
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // 검토 처리 (관리자 전용)
     app.post("/api/demolition-materials/:id/review", requireAuth, requireTenant, requireAdmin, async (req, res) => {
         const { id } = req.params;

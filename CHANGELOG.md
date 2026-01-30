@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.50] - 2026-01-30
+
+### Added
+- **세션 관리:** 자동 로그아웃 기능 고도화
+  - 5분마다 서버 세션 유효성 체크
+  - 1시간 비활동 시 자동 로그아웃
+  - 마우스, 키보드, 클릭 활동 추적
+  - 로그인 페이지에서 세션 체크 비활성화
+- **페이지 타이틀:** 동적 페이지 타이틀 시스템 구현
+  - 브라우저 탭에 대분류 기반 타이틀 표시 (홈, 자재관리, 자료실, 관리, 로그인 등)
+  - `getPageTitle` 유틸리티 함수로 확장 가능한 구조
+  - 새로운 대분류 추가 시 자동 적용
+
+### Changed
+- **일반자재 대시보드:** "잔여길이" 컬럼 제거로 테이블 간소화
+
+### Fixed
+- **철거자재:** 입고 내역 삭제 기능 수정
+  - DELETE API 엔드포인트 추가 (`/api/demolition-materials/:id`)
+  - Storage 레이어에 `deleteDemolitionMaterial` 함수 구현
+  - 관련 로그도 함께 삭제하도록 개선
+
 ## [v1.2.49] - 2026-01-29
 
 ### Changed

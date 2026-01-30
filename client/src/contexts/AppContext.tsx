@@ -100,6 +100,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
+      // 세션 관련 데이터 정리
+      localStorage.removeItem('lastActivity');
       queryClient.clear();
       window.location.href = "/login";
     },
@@ -140,6 +142,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refetchAuth = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
   };
+
+  // 주기적 세션 체크 (20초마다 - 테스트용)
+  useEffect(() => {
+    if (!authQuery.data?.user || isAuthPage) return;
+
+    const checkSession = async () => {
+      try {
+        await fetch('/api/auth/session', { credentials: 'include' });
+      } catch (error) {
+        // 401 에러는 queryClient에서 자동으로 로그인 페이지로 리다이렉트
+        console.error('Session check failed:', error);
+      }
+    };
+
+    // 5분마다 세션 체크
+    const interval = setInterval(checkSession, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [authQuery.data?.user, isAuthPage]);
+
+  // 활동 추적 및 타이머 (1분 비활동 시 로그아웃 - 테스트용)
+  useEffect(() => {
+    // 로그인되지 않았거나 로그인/회원가입 페이지에서는 활동 추적 비활성화
+    if (!authQuery.data?.user || isAuthPage) return;
+
+    console.log('[Activity Tracker] 활동 추적 활성화');
+
+    const updateLastActivity = () => {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    };
+
+    // 사용자 활동 감지
+    window.addEventListener('mousemove', updateLastActivity);
+    window.addEventListener('keydown', updateLastActivity);
+    window.addEventListener('click', updateLastActivity);
+
+    // 초기 활동 시간 설정
+    updateLastActivity();
+
+    // 1분마다 비활동 체크
+    const checkInactivity = () => {
+      const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0');
+      const elapsed = Date.now() - lastActivity;
+      const SESSION_TIMEOUT = 60 * 60 * 1000; // 1시간
+
+      if (elapsed >= SESSION_TIMEOUT) {
+        console.log('세션 만료: 비활동 시간 초과');
+        localStorage.removeItem('lastActivity');
+        window.location.href = '/login';
+      }
+    };
+
+    const timer = setInterval(checkInactivity, 60 * 1000);
+
+    return () => {
+      console.log('[Activity Tracker] 활동 추적 비활성화');
+      window.removeEventListener('mousemove', updateLastActivity);
+      window.removeEventListener('keydown', updateLastActivity);
+      window.removeEventListener('click', updateLastActivity);
+      clearInterval(timer);
+    };
+  }, [authQuery.data?.user, isAuthPage]);
 
   const divisionsQuery = useQuery<Division[]>({
     queryKey: ["/api/divisions"],

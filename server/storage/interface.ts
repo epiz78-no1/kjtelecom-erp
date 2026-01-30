@@ -24,6 +24,7 @@ export interface IStorage {
     getDemolitionMaterial(id: string, tenantId: string): Promise<DemolitionMaterial | undefined>;
     createDemolitionMaterial(material: InsertDemolitionMaterial, tenantId: string): Promise<DemolitionMaterial>;
     updateDemolitionMaterial(id: string, updates: Partial<InsertDemolitionMaterial>, tenantId: string): Promise<DemolitionMaterial | undefined>;
+    deleteDemolitionMaterial(id: string, tenantId: string): Promise<boolean>;
 
     // Demolition Logs
     createDemolitionMaterialLog(log: InsertDemolitionMaterialLog, tenantId: string): Promise<DemolitionMaterialLog>;

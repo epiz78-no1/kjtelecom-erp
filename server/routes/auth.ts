@@ -388,4 +388,21 @@ export function registerAuthRoutes(app: Express) {
             res.status(500).json({ error: "비밀번호 변경 중 오류가 발생했습니다" });
         }
     });
+
+    /**
+     * GET /api/auth/session
+     * Check session validity
+     */
+    app.get("/api/auth/session", async (req: Request, res: Response) => {
+        // requireAuth 미들웨어를 수동으로 호출하여 세션 검증
+        const { requireAuth } = await import("../middleware/auth.js");
+
+        requireAuth(req, res, () => {
+            res.json({
+                valid: true,
+                userId: req.session?.userId,
+                tenantId: req.session?.tenantId
+            });
+        });
+    });
 }

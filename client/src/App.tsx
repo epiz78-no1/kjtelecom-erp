@@ -72,6 +72,7 @@ import { FEATURE_FLAGS } from "@/lib/constants";
 import { Header } from "@/components/common/Header";
 import { PAGE_TITLES } from "@/lib/pageTitles";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { getPageTitle } from "@/lib/pageTitle";
 
 
 function AppContent() {
@@ -79,17 +80,8 @@ function AppContent() {
   const [location] = useLocation();
   const activeTenant = tenants.find(t => t.id === currentTenant);
 
-  // Set page title based on header tab structure
-  let pageTitle = '페이지';
-  if (location === '/') {
-    pageTitle = '홈';
-  } else if (location.startsWith('/archives')) {
-    pageTitle = '자료실';
-  } else if (location.startsWith('/admin')) {
-    pageTitle = '관리';
-  } else {
-    pageTitle = '자재관리';
-  }
+  // 페이지 타이틀 설정 (대분류만)
+  const pageTitle = getPageTitle(location);
   useDocumentTitle(pageTitle);
 
   // Show loading state for initial auth check

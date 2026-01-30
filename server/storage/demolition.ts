@@ -97,6 +97,27 @@ export class DemolitionStorage {
         return updated || null;
     }
 
+    // 철거자재 삭제
+    async deleteDemolitionMaterial(id: string, tenantId: string) {
+        // 1. 관련 로그 먼저 삭제
+        await db
+            .delete(demolitionMaterialLogs)
+            .where(and(
+                eq(demolitionMaterialLogs.materialId, id),
+                eq(demolitionMaterialLogs.tenantId, tenantId)
+            ));
+
+        // 2. 자재 삭제
+        const result = await db
+            .delete(demolitionMaterials)
+            .where(and(
+                eq(demolitionMaterials.id, id),
+                eq(demolitionMaterials.tenantId, tenantId)
+            ));
+
+        return result.rowCount ? result.rowCount > 0 : false;
+    }
+
     // 철거자재 이력 생성
     async createDemolitionMaterialLog(data: InsertDemolitionMaterialLog, tenantId: string) {
         const [log] = await db

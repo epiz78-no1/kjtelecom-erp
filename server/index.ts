@@ -62,7 +62,7 @@ app.use(session({
     pool, // Uses existing db pool from ./db
     tableName: 'session',
     createTableIfMissing: true, // Although we ran SQL, this is safe
-    ttl: 3600 // 1 hour session duration (server-side)
+    ttl: 3600 // 1시간 세션 지속 시간
   }),
   secret: process.env.SESSION_SECRET || 'pro-tracker-secret-key-change-in-production',
   resave: false,
