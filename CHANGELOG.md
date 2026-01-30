@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.52] - 2026-01-30
+
+### Fixed
+- **일반자재 대시보드:** 항목별 재고 현황의 보유량 표시 수정
+  - 아이템 개수 대신 실제 재고 수량 합계를 표시하도록 개선
+  - 파일: `Dashboard.tsx` (288번 라인)
+
 ## [v1.2.51] - 2026-01-30
 
 ### Fixed
