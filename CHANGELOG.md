@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.51] - 2026-01-30
+
+### Fixed
+- **광케이블 사용등록:** 사용자 필드에 아이디 대신 실명 표시
+  - 운영 서버 데이터베이스에서 `workerName` 필드를 아이디에서 실명으로 변경 (5건)
+  - 스크립트: `update_optical_worker_names.ts`
+- **출고 내역:** 현장팀 컬럼이 비어있는 문제 수정
+  - `teamId`가 없을 때 `teamCategory`를 fallback으로 표시하도록 개선
+  - 파일: `OutgoingRecords.tsx`
+
+### Added
+- **데이터 유지보수 스크립트:** 운영 서버 데이터 검증 및 수정 스크립트 추가
+  - `scripts/find_optical_username_workers.ts`: 광케이블 로그에서 아이디 형식 workerName 검색
+  - `scripts/update_optical_worker_names.ts`: workerName을 아이디에서 실명으로 변경
+  - `scripts/find_username_recipients.ts`: 일반 자재 사용등록에서 아이디 형식 recipient 검색
+  - `scripts/check_recipient_values.ts`: recipient 값 분포 확인
+  - `scripts/README_PRODUCTION.md`: 운영 서버 스크립트 실행 가이드
+
 ## [v1.2.50] - 2026-01-30
 
 ### Added
