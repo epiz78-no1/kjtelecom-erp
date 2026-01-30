@@ -458,7 +458,7 @@ export default function OutgoingRecords() {
                         <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50 truncate max-w-[100px]" title={record.specification || ""}>{record.specification}</TableCell>
                         <TableCell className="text-center px-2 text-xs font-bold text-orange-600 p-0 border-r border-slate-100/50 bg-orange-50/30">{record.quantity.toLocaleString()}</TableCell>
                         <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50">
-                          {teams.find(t => t.id === record.teamId)?.name || "-"}
+                          {teams.find(t => t.id === record.teamId)?.name || record.teamCategory || "-"}
                         </TableCell>
                         <TableCell className="text-center text-xs text-slate-600 p-0 border-r border-slate-100/50 truncate max-w-[100px]" title={record.recipient || ""}>{record.recipient}</TableCell>
                         <TableCell className="text-left px-2 text-xs text-slate-500 p-0 border-r border-slate-100/50 truncate max-w-[150px]" title={record.remark || ""}>{record.remark}</TableCell>
