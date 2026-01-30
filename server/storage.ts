@@ -115,6 +115,7 @@ class DatabaseStorage implements IStorage {
     declare updateDemolitionMaterialLog: DemolitionStorage['updateDemolitionMaterialLog'];
     declare deleteDemolitionMaterialLog: DemolitionStorage['deleteDemolitionMaterialLog'];
     declare bulkDeleteDemolitionMaterialLogs: DemolitionStorage['bulkDeleteDemolitionMaterialLogs'];
+    declare deleteDemolitionMaterial: DemolitionStorage['deleteDemolitionMaterial'];
 }
 
 applyMixins(DatabaseStorage, [UserStorage, InventoryStorage, OpticalStorage, TeamStorage, DemolitionStorage]);
