@@ -108,6 +108,7 @@ class DatabaseStorage implements IStorage {
     getDemolitionMaterial!: DemolitionStorage['getDemolitionMaterial'];
     createDemolitionMaterial!: DemolitionStorage['createDemolitionMaterial'];
     updateDemolitionMaterial!: DemolitionStorage['updateDemolitionMaterial'];
+    deleteDemolitionMaterial!: DemolitionStorage['deleteDemolitionMaterial'];
     createDemolitionMaterialLog!: DemolitionStorage['createDemolitionMaterialLog'];
     getDemolitionMaterialLogs!: DemolitionStorage['getDemolitionMaterialLogs'];
     getAllDemolitionMaterialLogs!: DemolitionStorage['getAllDemolitionMaterialLogs'];

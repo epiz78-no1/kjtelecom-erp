@@ -257,7 +257,6 @@ export default function Dashboard() {
                     <TableHead className="w-[180px] pl-6 py-4 text-xs font-semibold uppercase text-slate-500">사업</TableHead>
                     <TableHead className="py-4 text-center text-xs font-semibold uppercase text-slate-500">품명</TableHead>
                     <TableHead className="py-4 text-center text-xs font-semibold uppercase text-slate-500">보유량</TableHead>
-                    <TableHead className="py-4 text-center text-xs font-semibold uppercase text-slate-500">잔여길이</TableHead>
                     <TableHead className="py-4 pr-6 text-right text-xs font-semibold uppercase text-slate-500">총 금액</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -287,9 +286,6 @@ export default function Dashboard() {
                           </TableCell>
                           <TableCell className="text-center py-4 font-medium text-slate-700">
                             {div.count}
-                          </TableCell>
-                          <TableCell className="text-center py-4 font-medium text-slate-700">
-                            {div.remaining.toLocaleString()}m
                           </TableCell>
                           <TableCell className="text-right py-4 pr-6 font-medium text-slate-900">
                             ₩{div.amount.toLocaleString()}
