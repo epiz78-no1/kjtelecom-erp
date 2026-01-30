@@ -285,7 +285,7 @@ export default function Dashboard() {
                             </span>
                           </TableCell>
                           <TableCell className="text-center py-4 font-medium text-slate-700">
-                            {div.count}
+                            {div.remaining.toLocaleString()}
                           </TableCell>
                           <TableCell className="text-right py-4 pr-6 font-medium text-slate-900">
                             ₩{div.amount.toLocaleString()}
