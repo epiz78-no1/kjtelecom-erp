@@ -195,6 +195,21 @@ function AppContent() {
 }
 
 function App() {
+  // 🚨 임시 메인터넌스 모드 - 모든 접속 차단
+  const MAINTENANCE_MODE = true;
+
+  if (MAINTENANCE_MODE) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="text-center space-y-6 p-8">
+          <div className="text-9xl font-bold text-slate-300">404</div>
+          <h1 className="text-3xl font-bold text-slate-800">페이지를 찾을 수 없습니다</h1>
+          <p className="text-slate-600">요청하신 페이지가 존재하지 않습니다.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
